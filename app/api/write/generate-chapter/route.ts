@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest } from "next/server";
 import {
   DocumentType,
   ResearchSource,
@@ -8,10 +8,10 @@ import {
   DOCUMENT_TYPE_CONFIGS,
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
-} from '@/lib/types/document';
-import { formatSourcesForPrompt } from '@/lib/utils/documentStructure';
-import { aiService } from '@/lib/services/aiService';
-import { AIProvider, DEFAULT_AI_PROVIDER } from '@/lib/config/aiModels';
+} from "@/lib/types/document";
+import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
+import { aiService } from "@/lib/services/aiService";
+import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 
 interface GenerateChapterRequest {
   documentType: DocumentType;
@@ -51,7 +51,7 @@ function generateChapterPrompt(
 
   const chapterNumber = chapterIndex + 1;
   const targetWordCount = chapter.estimatedWordCount || 5000;
-  const isAbstract = chapter.heading.toLowerCase().includes('abstract');
+  const isAbstract = chapter.heading.toLowerCase().includes("abstract");
 
   let prompt = isAbstract
     ? `You are writing the Abstract for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
@@ -60,11 +60,17 @@ DOCUMENT CONTEXT:
 Title: "${documentTitle}"
 Topic: "${topic}"
 Overall Approach: ${documentApproach}
-${instructions ? `Additional Instructions: ${instructions}` : ''}
+${instructions ? `Additional Instructions: ${instructions}` : ""}
 
 ABSTRACT REQUIREMENTS:
 - Write a single, well-structured paragraph (NO subsections)
-- Target word count: ${targetWordCount} words (${levelConfig.level === AcademicLevel.UNDERGRADUATE ? '250-300' : levelConfig.level === AcademicLevel.GRADUATE ? '300-350' : '350-400'} words)
+- Target word count: ${targetWordCount} words (${
+        levelConfig.level === AcademicLevel.UNDERGRADUATE
+          ? "250-300"
+          : levelConfig.level === AcademicLevel.GRADUATE
+          ? "300-350"
+          : "350-400"
+      } words)
 - Must include: Background/context, research objectives/questions, methodology, key findings/results, conclusions/implications
 - Use clear, concise academic language
 - NO citations needed in the abstract
@@ -85,7 +91,7 @@ Title: "${documentTitle}"
 Topic: "${topic}"
 Overall Approach: ${documentApproach}
 Writing Tone: ${documentTone}
-${instructions ? `Additional Instructions: ${instructions}` : ''}
+${instructions ? `Additional Instructions: ${instructions}` : ""}
 
 ACADEMIC LEVEL: ${levelConfig.label}
 - Citations per subsection: ${levelConfig.citationsPerSection}
@@ -102,7 +108,9 @@ ${chapter.heading}
 Chapter Description: ${chapter.description}
 
 SUBSECTIONS TO COVER:
-${chapter.keyPoints.map((point, idx) => `${chapterNumber}.${idx + 1}. ${point}`).join('\n')}
+${(chapter.keyPoints ?? [])
+  .map((point, idx) => `${chapterNumber}.${idx + 1}. ${point}`)
+  .join("\n")}
 
 TARGET WORD COUNT: ${targetWordCount} words
 
@@ -123,8 +131,18 @@ WRITING REQUIREMENTS:
 
 1. STRUCTURE:
    - Start with the chapter heading: "${chapter.heading}"
-   - Include ALL ${chapter.keyPoints.length} subsections as ${chapterNumber}.1, ${chapterNumber}.2, etc.
-   - Each subsection should be substantial (${Math.floor(targetWordCount / chapter.keyPoints.length)}-${Math.ceil(targetWordCount / chapter.keyPoints.length * 1.3)} words)
+   - Include ALL ${
+     (chapter.keyPoints ?? []).length
+   } subsections as ${chapterNumber}.1, ${chapterNumber}.2, etc.
+   - Each subsection should be substantial (${
+     (chapter.keyPoints ?? []).length > 0
+       ? Math.floor(targetWordCount / (chapter.keyPoints ?? []).length)
+       : targetWordCount
+   }-${
+    (chapter.keyPoints ?? []).length > 0
+      ? Math.ceil((targetWordCount / (chapter.keyPoints ?? []).length) * 1.3)
+      : targetWordCount
+  } words)
 
 2. ACADEMIC RIGOR:
    - Cite ${levelConfig.citationsPerSection} sources per major point
@@ -133,8 +151,16 @@ WRITING REQUIREMENTS:
    - ${levelConfig.analysisStyle}
 
 3. CONTINUITY:
-   ${chapterNumber > 1 ? '- Reference concepts from previous chapters where relevant' : '- Set the foundation for subsequent chapters'}
-   ${chapterNumber < totalChapters ? '- Foreshadow topics that will be explored in later chapters' : '- Synthesize and conclude the entire document'}
+   ${
+     chapterNumber > 1
+       ? "- Reference concepts from previous chapters where relevant"
+       : "- Set the foundation for subsequent chapters"
+   }
+   ${
+     chapterNumber < totalChapters
+       ? "- Foreshadow topics that will be explored in later chapters"
+       : "- Synthesize and conclude the entire document"
+   }
 
 4. CONTENT DEPTH:
    - Write approximately ${targetWordCount} words total for this chapter
@@ -167,7 +193,9 @@ WRITING REQUIREMENTS:
    - Maintain consistent voice and tense throughout
    - Avoid overly complex sentences - aim for clarity
 
-CRITICAL: Write ONLY this chapter (${chapter.heading}). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing for THIS chapter only.
+CRITICAL: Write ONLY this chapter (${
+    chapter.heading
+  }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing for THIS chapter only.
 
 Begin writing now:`;
 
@@ -209,17 +237,26 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validation
-    if (!documentType || !topic || !sources || sources.length === 0 || !chapter) {
+    if (
+      !documentType ||
+      !topic ||
+      !sources ||
+      sources.length === 0 ||
+      !chapter
+    ) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
     if (!academicLevel || !writingStyle) {
       return new Response(
-        JSON.stringify({ error: 'Academic level and writing style are required for chapter generation' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error:
+            "Academic level and writing style are required for chapter generation",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -236,11 +273,13 @@ export async function POST(request: NextRequest) {
     );
 
     // Smart context truncation: Keep only last 2000 words of previous chapters
-    let truncatedContext = previousChaptersText || '';
+    let truncatedContext = previousChaptersText || "";
     if (truncatedContext) {
       const words = truncatedContext.split(/\s+/);
       if (words.length > 2000) {
-        truncatedContext = '...(earlier content omitted for brevity)...\n\n' + words.slice(-2000).join(' ');
+        truncatedContext =
+          "...(earlier content omitted for brevity)...\n\n" +
+          words.slice(-2000).join(" ");
       }
     }
 
@@ -248,7 +287,7 @@ export async function POST(request: NextRequest) {
     const userPrompt = generateChapterPrompt(
       documentType,
       topic,
-      instructions || '',
+      instructions || "",
       chapter,
       chapterIndex,
       totalChapters,
@@ -272,8 +311,8 @@ export async function POST(request: NextRequest) {
           for await (const chunk of aiService.streamChatCompletion(
             provider,
             [
-              { role: 'system', content: systemMessage },
-              { role: 'user', content: userPrompt },
+              { role: "system", content: systemMessage },
+              { role: "user", content: userPrompt },
             ],
             0.7,
             8000
@@ -282,15 +321,19 @@ export async function POST(request: NextRequest) {
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;
               controller.enqueue(encoder.encode(doneMessage));
             } else if (chunk.content) {
-              const sseData = `data: ${JSON.stringify({ content: chunk.content })}\n\n`;
+              const sseData = `data: ${JSON.stringify({
+                content: chunk.content,
+              })}\n\n`;
               controller.enqueue(encoder.encode(sseData));
             }
           }
 
           controller.close();
         } catch (error: any) {
-          console.error('Chapter generation error:', error);
-          const errorMessage = `data: ${JSON.stringify({ error: error.message || 'Generation failed' })}\n\n`;
+          console.error("Chapter generation error:", error);
+          const errorMessage = `data: ${JSON.stringify({
+            error: error.message || "Generation failed",
+          })}\n\n`;
           controller.enqueue(encoder.encode(errorMessage));
           controller.close();
         }
@@ -299,17 +342,16 @@ export async function POST(request: NextRequest) {
 
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
       },
     });
-
   } catch (error: any) {
-    console.error('Chapter generation API error:', error);
+    console.error("Chapter generation API error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: error.message || "An error occurred" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }

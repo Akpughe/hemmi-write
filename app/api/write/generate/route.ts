@@ -1,18 +1,40 @@
-import { NextRequest } from 'next/server';
-import { GenerateRequest, ResearchSource } from '@/lib/types/document';
-import { generateDocumentPrompt, formatSourcesForPrompt, getSystemMessage } from '@/lib/utils/documentStructure';
-import { aiService } from '@/lib/services/aiService';
-import { AIProvider, DEFAULT_AI_PROVIDER } from '@/lib/config/aiModels';
+import { NextRequest } from "next/server";
+import { GenerateRequest, ResearchSource } from "@/lib/types/document";
+import {
+  generateDocumentPrompt,
+  formatSourcesForPrompt,
+  getSystemMessage,
+} from "@/lib/utils/documentStructure";
+import { aiService } from "@/lib/services/aiService";
+import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 
 export async function POST(request: NextRequest) {
   try {
     const body: GenerateRequest = await request.json();
-    const { documentType, topic, instructions, sources, wordCount, structure, academicLevel, writingStyle, aiProvider } = body;
+    const {
+      documentType,
+      topic,
+      instructions,
+      sources,
+      wordCount,
+      structure,
+      academicLevel,
+      writingStyle,
+      aiProvider,
+    } = body;
 
-    if (!documentType || !topic || !sources || sources.length === 0 || !structure) {
+    if (
+      !documentType ||
+      !topic ||
+      !sources ||
+      sources.length === 0 ||
+      !structure
+    ) {
       return new Response(
-        JSON.stringify({ error: 'Document type, topic, sources, and structure are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          error: "Document type, topic, sources, and structure are required",
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
@@ -36,24 +58,32 @@ Approach: ${structure.approach}
 Tone: ${structure.tone}
 
 SECTIONS TO WRITE:
-${structure.sections.map((section, index) => `
+${structure.sections
+  .map(
+    (section, index) => `
 ${index + 1}. ${section.heading}
    Description: ${section.description}
    Key Points to Cover:
-${section.keyPoints.map(point => `   - ${point}`).join('\n')}
-`).join('\n')}`;
+${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
+`
+  )
+  .join("\n")}`;
 
     // Generate the system message and user prompt
     const systemMessage = getSystemMessage(documentType, academicLevel);
-    const userPrompt = generateDocumentPrompt(
-      documentType,
-      topic,
-      instructions || '',
-      wordCount || 3000,
-      sourcesText,
-      academicLevel,
-      writingStyle
-    ) + '\n\n' + structureText + '\n\nIMPORTANT: Follow the approved structure above exactly. Write each section with the specified key points. Maintain the approved tone and approach throughout.';
+    const userPrompt =
+      generateDocumentPrompt(
+        documentType,
+        topic,
+        instructions || "",
+        wordCount || 3000,
+        sourcesText,
+        academicLevel,
+        writingStyle
+      ) +
+      "\n\n" +
+      structureText +
+      "\n\nIMPORTANT: Follow the approved structure above exactly. Write each section with the specified key points. Maintain the approved tone and approach throughout.";
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
@@ -64,8 +94,8 @@ ${section.keyPoints.map(point => `   - ${point}`).join('\n')}
           for await (const chunk of aiService.streamChatCompletion(
             provider,
             [
-              { role: 'system', content: systemMessage },
-              { role: 'user', content: userPrompt },
+              { role: "system", content: systemMessage },
+              { role: "user", content: userPrompt },
             ],
             0.7,
             8000
@@ -74,15 +104,19 @@ ${section.keyPoints.map(point => `   - ${point}`).join('\n')}
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;
               controller.enqueue(encoder.encode(doneMessage));
             } else if (chunk.content) {
-              const sseData = `data: ${JSON.stringify({ content: chunk.content })}\n\n`;
+              const sseData = `data: ${JSON.stringify({
+                content: chunk.content,
+              })}\n\n`;
               controller.enqueue(encoder.encode(sseData));
             }
           }
 
           controller.close();
         } catch (error: any) {
-          console.error('Streaming error:', error);
-          const errorMessage = `data: ${JSON.stringify({ error: error.message || 'Generation failed' })}\n\n`;
+          console.error("Streaming error:", error);
+          const errorMessage = `data: ${JSON.stringify({
+            error: error.message || "Generation failed",
+          })}\n\n`;
           controller.enqueue(encoder.encode(errorMessage));
           controller.close();
         }
@@ -92,17 +126,18 @@ ${section.keyPoints.map(point => `   - ${point}`).join('\n')}
     // Return the stream with appropriate headers for SSE
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
       },
     });
-
   } catch (error: any) {
-    console.error('Generation API error:', error);
+    console.error("Generation API error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || 'An error occurred during generation' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        error: error.message || "An error occurred during generation",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
