@@ -1,6 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Exa from 'exa-js';
-import { ResearchRequest, ResearchResponse, ResearchSource, DocumentType } from '@/lib/types/document';
+import { NextRequest, NextResponse } from "next/server";
+import Exa from "exa-js";
+import {
+  ResearchRequest,
+  ResearchResponse,
+  ResearchSource,
+  DocumentType,
+} from "@/lib/types/document";
 
 const exa = new Exa(process.env.EXA_API_KEY);
 
@@ -11,7 +16,7 @@ export async function POST(request: NextRequest) {
 
     if (!topic || !documentType) {
       return NextResponse.json(
-        { error: 'Topic and document type are required' },
+        { error: "Topic and document type are required" },
         { status: 400 }
       );
     }
@@ -19,11 +24,11 @@ export async function POST(request: NextRequest) {
     // Enhance the search query based on document type
     const enhancedQuery = enhanceQueryForDocumentType(topic, documentType);
 
-    console.log('Searching with Exa for:', enhancedQuery);
+    console.log("Searching with Exa for:", enhancedQuery);
 
     // Use Exa search with enhanced parameters
     const searchResults = await exa.searchAndContents(enhancedQuery, {
-      type: 'neural', // Use neural search for better semantic matching
+      type: "neural", // Use neural search for better semantic matching
       useAutoprompt: true, // Let Exa optimize the search query
       numResults: numSources,
       text: {
@@ -35,24 +40,29 @@ export async function POST(request: NextRequest) {
     });
 
     // Transform Exa results into our ResearchSource format
-    const sources: ResearchSource[] = searchResults.results.map((result: any, index: number) => {
-      // Extract author from the result if available
-      const author = extractAuthor(result);
+    const sources: ResearchSource[] = searchResults.results.map(
+      (result: any, index: number) => {
+        // Extract author from the result if available
+        const author = extractAuthor(result);
 
-      // Get the best excerpt (highlights or text)
-      const excerpt = result.highlights?.[0] || result.text?.substring(0, 500) || result.title;
+        // Get the best excerpt (highlights or text)
+        const excerpt =
+          result.highlights?.[0] ||
+          result.text?.substring(0, 500) ||
+          result.title;
 
-      return {
-        id: result.id || `source-${index}`,
-        title: result.title || 'Untitled',
-        url: result.url,
-        author,
-        publishedDate: result.publishedDate,
-        excerpt,
-        score: result.score,
-        selected: true, // All sources selected by default
-      };
-    });
+        return {
+          id: result.id || `source-${index}`,
+          title: result.title || "Untitled",
+          url: result.url,
+          author,
+          publishedDate: result.publishedDate,
+          excerpt,
+          score: result.score,
+          selected: true, // All sources selected by default
+        };
+      }
+    );
 
     // Sort by relevance score (highest first)
     sources.sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -63,14 +73,13 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-
   } catch (error: any) {
-    console.error('Research API error:', error);
+    console.error("Research API error:", error);
     return NextResponse.json(
       {
-        error: error.message || 'An error occurred while researching sources',
+        error: error.message || "An error occurred while researching sources",
         sources: [],
-        query: '',
+        query: "",
       },
       { status: 500 }
     );
@@ -78,21 +87,21 @@ export async function POST(request: NextRequest) {
 }
 
 // Enhance the search query based on document type to get better results
-function enhanceQueryForDocumentType(topic: string, documentType: DocumentType): string {
-  let prefix = '';
+function enhanceQueryForDocumentType(
+  topic: string,
+  documentType: DocumentType
+): string {
+  let prefix = "";
 
   switch (documentType) {
     case DocumentType.RESEARCH_PAPER:
-      prefix = 'academic research';
+      prefix = "academic research";
       break;
     case DocumentType.ESSAY:
-      prefix = 'analysis and discussion';
+      prefix = "analysis and discussion";
       break;
     case DocumentType.REPORT:
-      prefix = 'comprehensive report';
-      break;
-    case DocumentType.ASSIGNMENT:
-      prefix = 'educational information';
+      prefix = "comprehensive report";
       break;
   }
 
@@ -112,7 +121,7 @@ function extractAuthor(result: any): string | undefined {
     const hostname = url.hostname;
 
     // Check for known patterns
-    if (hostname.includes('medium.com') && url.pathname.includes('@')) {
+    if (hostname.includes("medium.com") && url.pathname.includes("@")) {
       const authorMatch = url.pathname.match(/@([^/]+)/);
       if (authorMatch) {
         return authorMatch[1];
@@ -120,7 +129,7 @@ function extractAuthor(result: any): string | undefined {
     }
 
     // For other sites, use the domain name as a fallback
-    return hostname.replace('www.', '');
+    return hostname.replace("www.", "");
   } catch {
     return undefined;
   }
