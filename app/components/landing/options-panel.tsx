@@ -37,32 +37,55 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
   );
   const selectedStyle = writingStyles.find((s) => s.id === brief.writingStyle);
 
+  // Dynamic options based on document type
+  const isResearchPaper = brief.documentType === "research-paper";
+  const isEssay = brief.documentType === "essay";
+
+  // Filter styles based on document type
+  const availableStyles = isEssay
+    ? writingStyles.filter((s) =>
+        [
+          "analytical",
+          "argumentative",
+          "descriptive",
+          "expository",
+          "narrative",
+        ].includes(s.id)
+      )
+    : writingStyles.filter((s) => !["narrative", "descriptive"].includes(s.id));
+
+  const wordCountOptions = isResearchPaper
+    ? [2000, 3000, 5000, 8000, 10000, 15000, 20000]
+    : [500, 1000, 1500, 2000, 3000, 5000];
+
   return (
     <div className="flex flex-wrap justify-center gap-3">
-      {/* Academic Level */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
-            {selectedLevel?.label || "Academic Level"}
-            <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="min-w-[160px]">
-          {academicLevels.map((level) => (
-            <DropdownMenuItem
-              key={level.id}
-              onClick={() => onUpdate({ academicLevel: level.id })}
-              className={
-                brief.academicLevel === level.id ? "bg-accent/10" : ""
-              }>
-              {level.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Academic Level - Only for Research Paper & Report */}
+      {!isEssay && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
+              {selectedLevel?.label || "Academic Level"}
+              <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[160px]">
+            {academicLevels.map((level) => (
+              <DropdownMenuItem
+                key={level.id}
+                onClick={() => onUpdate({ academicLevel: level.id })}
+                className={
+                  brief.academicLevel === level.id ? "bg-accent/10" : ""
+                }>
+                {level.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {/* Writing Style */}
       <DropdownMenu>
@@ -76,7 +99,7 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="min-w-[160px]">
-          {writingStyles.map((style) => (
+          {availableStyles.map((style) => (
             <DropdownMenuItem
               key={style.id}
               onClick={() => onUpdate({ writingStyle: style.id })}
@@ -87,6 +110,31 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Chapters - Only for Research Paper */}
+      {isResearchPaper && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
+              {brief.chapters ? `${brief.chapters} Chapters` : "Chapters"}
+              <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[120px]">
+            {[1, 2, 3, 4, 5].map((count) => (
+              <DropdownMenuItem
+                key={count}
+                onClick={() => onUpdate({ chapters: count })}
+                className={brief.chapters === count ? "bg-accent/10" : ""}>
+                {count} {count === 1 ? "Chapter" : "Chapters"}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
       {/* Word Count */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -94,12 +142,14 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
             variant="outline"
             size="sm"
             className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
-            {brief.wordCount ? `${brief.wordCount} words` : "Word Count"}
+            {brief.wordCount
+              ? `${brief.wordCount.toLocaleString()} words`
+              : "Word Count"}
             <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="min-w-[140px]">
-          {[1000, 2000, 3000, 5000, 8000, 10000].map((count) => (
+          {wordCountOptions.map((count) => (
             <DropdownMenuItem
               key={count}
               onClick={() => onUpdate({ wordCount: count })}
@@ -110,28 +160,44 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Sources */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
-            {brief.sourceCount ? `${brief.sourceCount} sources` : "Sources"}
-            <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="min-w-[120px]">
-          {[5, 10, 15, 20, 30].map((count) => (
-            <DropdownMenuItem
-              key={count}
-              onClick={() => onUpdate({ sourceCount: count })}
-              className={brief.sourceCount === count ? "bg-accent/10" : ""}>
-              {count} sources
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Sources Toggle & Count */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onUpdate({ includeSources: !brief.includeSources })}
+          className={`h-9 px-4 rounded-full border-border transition-colors ${
+            brief.includeSources
+              ? "bg-accent/10 text-accent border-accent/50"
+              : "bg-transparent text-muted-foreground hover:text-foreground"
+          }`}>
+          Include Sources
+        </Button>
+
+        {brief.includeSources && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
+                {brief.sourceCount ? `${brief.sourceCount} sources` : "Sources"}
+                <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="min-w-[120px]">
+              {[5, 10, 15, 20, 30].map((count) => (
+                <DropdownMenuItem
+                  key={count}
+                  onClick={() => onUpdate({ sourceCount: count })}
+                  className={brief.sourceCount === count ? "bg-accent/10" : ""}>
+                  {count} sources
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 }
