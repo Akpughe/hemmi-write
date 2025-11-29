@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { FileText, BookOpen, ClipboardList, GraduationCap } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { FileText, ClipboardList, GraduationCap } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const documentTypes = [
   {
@@ -22,27 +22,24 @@ const documentTypes = [
     icon: ClipboardList,
     description: "Formal structured document",
   },
-  {
-    id: "thesis",
-    label: "Thesis/Chapter",
-    icon: BookOpen,
-    description: "Long-form academic work",
-  },
-] as const
+] as const;
 
-type DocumentType = (typeof documentTypes)[number]["id"]
+type DocumentType = (typeof documentTypes)[number]["id"];
 
 interface DocumentTypeSelectorProps {
-  selected: string
-  onSelect: (type: DocumentType) => void
+  selected: string;
+  onSelect: (type: DocumentType) => void;
 }
 
-export function DocumentTypeSelector({ selected, onSelect }: DocumentTypeSelectorProps) {
+export function DocumentTypeSelector({
+  selected,
+  onSelect,
+}: DocumentTypeSelectorProps) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
       {documentTypes.map((type) => {
-        const Icon = type.icon
-        const isSelected = selected === type.id
+        const Icon = type.icon;
+        const isSelected = selected === type.id;
 
         return (
           <button
@@ -53,14 +50,13 @@ export function DocumentTypeSelector({ selected, onSelect }: DocumentTypeSelecto
               "text-sm font-medium",
               isSelected
                 ? "bg-foreground text-background border-foreground"
-                : "bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground",
-            )}
-          >
+                : "bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground"
+            )}>
             <Icon className="w-4 h-4" />
             <span>{type.label}</span>
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }
