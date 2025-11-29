@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from "react";
 import {
-  Search,
-  Check,
-  X,
   Loader2,
   RefreshCw,
   ChevronRight,
   FileText,
+  Upload,
+  Layers,
+  BookOpen,
+  Check,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import type {
@@ -50,27 +51,14 @@ export function LeftPanel({
 }: LeftPanelProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
+  const [activeTab, setActiveTab] = useState<"sections" | "sources">(
+    "sections"
+  );
+  const [isUploading, setIsUploading] = useState(false);
 
   // Helper to check if a section is an abstract
   const isAbstractSection = (sectionTitle: string) => {
     return sectionTitle.toLowerCase().includes("abstract");
-  };
-
-  // Helper to get display name for a section (with chapter number)
-  const getSectionDisplayName = (index: number) => {
-    if (!plan) return "";
-    const section = plan.sections[index];
-    if (isAbstractSection(section.title)) {
-      return section.title; // Just "Abstract"
-    }
-    // Count actual chapters (excluding abstract)
-    let chapterNumber = 1;
-    for (let i = 0; i < index; i++) {
-      if (!isAbstractSection(plan.sections[i].title)) {
-        chapterNumber++;
-      }
-    }
-    return `${chapterNumber}. ${section.title}`;
   };
 
   const fetchResearch = async () => {
@@ -103,16 +91,22 @@ export function LeftPanel({
       setSources(mappedSources);
     } catch (error) {
       console.error("Research error:", error);
-      // Fallback or error state could be added here
     } finally {
       setIsSearching(false);
     }
   };
 
-  // Trigger research on mount
+  // Trigger research on mount if needed
   useEffect(() => {
-    if (currentStep === "research" && sources.length === 0) {
+    if (
+      currentStep === "research" &&
+      sources.length === 0 &&
+      brief.includeSources
+    ) {
       fetchResearch();
+    } else if (currentStep === "research" && !brief.includeSources) {
+      // Skip research if sources are disabled
+      onStepChange("planning");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
@@ -121,6 +115,35 @@ export function LeftPanel({
     setSources(
       sources.map((s) => (s.id === id ? { ...s, selected: !s.selected } : s))
     );
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    // Mock upload for now - in real app would upload to S3
+    try {
+      // Simulate upload delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const newSource: Source = {
+        id: `pdf-${Date.now()}`,
+        title: file.name,
+        url: URL.createObjectURL(file), // Temporary local URL
+        snippet: "Uploaded PDF Document",
+        selected: true,
+        author: "User Upload",
+        publishedDate: new Date().toLocaleDateString(),
+      };
+
+      setSources([...sources, newSource]);
+      setActiveTab("sources");
+    } catch (error) {
+      console.error("Upload failed", error);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleApproveResearch = async () => {
@@ -141,6 +164,7 @@ export function LeftPanel({
           sources: selectedSources,
           academicLevel: mapUIAcademicLevelToEnum(brief.academicLevel),
           writingStyle: mapUIWritingStyleToEnum(brief.writingStyle),
+          chapters: brief.chapters, // Pass chapters count
         }),
       });
 
@@ -165,7 +189,6 @@ export function LeftPanel({
       setPlan(mappedPlan);
     } catch (error) {
       console.error("Planning error:", error);
-      // Handle error
     } finally {
       setIsPlanning(false);
     }
@@ -175,135 +198,70 @@ export function LeftPanel({
     onStepChange("writing");
   };
 
-  if (currentStep === "research") {
-    return (
-      <aside className="w-80 border-r border-border flex flex-col bg-card">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Search className="w-4 h-4 text-accent" />
-            <span>Research Discovery</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Finding relevant sources for your topic
+  // Auto-transition to writing step when plan is ready
+  useEffect(() => {
+    if (plan && currentStep === "planning") {
+      // Immediately transition to writing step so editor shows
+      onStepChange("writing");
+    }
+  }, [plan, currentStep, onStepChange]);
+
+  const handleStartWritingTask = () => {
+    onStepChange("writing");
+  };
+
+  return (
+    <aside className="w-80 border-r border-border flex flex-col bg-card h-full">
+      {/* Header with Tabs */}
+      <div className="shrink-0 border-b border-border">
+        <div className="p-4 pb-2">
+          <h2 className="text-sm font-semibold text-foreground mb-1">
+            {brief.topic || "Untitled Project"}
+          </h2>
+          <p className="text-xs text-muted-foreground capitalize">
+            {brief.documentType.replace("-", " ")} • {brief.academicLevel}
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {isSearching ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="w-6 h-6 animate-spin mb-3" />
-              <span className="text-sm">Searching for sources...</span>
-            </div>
-          ) : (
-            sources.map((source) => (
-              <div
-                key={source.id}
-                className={cn(
-                  "p-3 rounded-lg border transition-all cursor-pointer",
-                  source.selected
-                    ? "border-accent/50 bg-accent/5"
-                    : "border-border bg-muted/30 opacity-60"
-                )}
-                onClick={() => toggleSource(source.id)}>
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="text-sm font-medium leading-tight line-clamp-2">
-                    {source.title}
-                  </h4>
-                  <button
-                    className={cn(
-                      "shrink-0 w-5 h-5 rounded-full flex items-center justify-center transition-colors",
-                      source.selected
-                        ? "bg-accent text-accent-foreground"
-                        : "bg-muted text-muted-foreground"
-                    )}>
-                    {source.selected ? (
-                      <Check className="w-3 h-3" />
-                    ) : (
-                      <X className="w-3 h-3" />
-                    )}
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                  {source.snippet}
-                </p>
-                <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                  {source.author && <span>{source.author}</span>}
-                  {source.publishedDate && (
-                    <span>• {source.publishedDate}</span>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
+        <div className="flex items-center px-2">
+          <button
+            onClick={() => setActiveTab("sections")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium border-b-2 transition-colors",
+              activeTab === "sections"
+                ? "border-accent text-accent"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}>
+            <Layers className="w-3 h-3" />
+            SECTIONS
+          </button>
+          <button
+            onClick={() => setActiveTab("sources")}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium border-b-2 transition-colors",
+              activeTab === "sources"
+                ? "border-accent text-accent"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}>
+            <BookOpen className="w-3 h-3" />
+            SOURCES
+          </button>
         </div>
+      </div>
 
-        {!isSearching && sources.length > 0 && (
-          <div className="p-3 border-t border-border space-y-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchResearch}
-              className="w-full justify-center gap-2">
-              <RefreshCw className="w-3 h-3" />
-              Find more sources
-            </Button>
-            <Button
-              onClick={handleApproveResearch}
-              className="w-full gap-2"
-              disabled={sources.filter((s) => s.selected).length === 0}>
-              Approve & Continue
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-      </aside>
-    );
-  }
-
-  if (
-    currentStep === "planning" ||
-    currentStep === "writing" ||
-    currentStep === "complete"
-  ) {
-    return (
-      <aside className="w-80 border-r border-border flex flex-col bg-card">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Check className="w-4 h-4 text-accent" />
-            <span>Document Blueprint</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Structure and outline for your document
-          </p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3">
-          {isPlanning ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="w-6 h-6 animate-spin mb-3" />
-              <span className="text-sm">Creating your blueprint...</span>
-            </div>
-          ) : plan ? (
-            <div className="space-y-4">
-              {/* Title & Approach */}
-              <div className="p-3 rounded-lg bg-muted/30 border border-border">
-                <h3 className="font-medium text-sm">{plan.title}</h3>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {plan.approach}
-                </p>
-                <div className="mt-2 inline-block px-2 py-0.5 rounded text-xs bg-accent/10 text-accent">
-                  {plan.tone}
-                </div>
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto p-3 min-h-0">
+        {activeTab === "sections" ? (
+          <div className="space-y-4">
+            {isPlanning ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Loader2 className="w-6 h-6 animate-spin mb-3" />
+                <span className="text-sm">Creating blueprint...</span>
               </div>
-
-              {/* Sections checklist */}
+            ) : plan ? (
               <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">
-                  Sections
-                </h4>
                 {plan.sections.map((section, index) => {
                   const isAbstract = isAbstractSection(section.title);
-                  // Calculate chapter number for non-abstract sections
                   let displayNumber = index + 1;
                   if (!isAbstract) {
                     displayNumber = 1;
@@ -320,7 +278,7 @@ export function LeftPanel({
                       className={cn(
                         "p-3 rounded-lg border transition-all",
                         section.status === "complete"
-                          ? "border-accent/50 bg-accent/5"
+                          ? "border-green-500/50 bg-green-500/5"
                           : section.status === "writing"
                           ? "border-foreground/30 bg-foreground/5"
                           : section.status === "review"
@@ -332,7 +290,7 @@ export function LeftPanel({
                           className={cn(
                             "w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
                             section.status === "complete"
-                              ? "bg-accent text-accent-foreground"
+                              ? "bg-green-500 text-white"
                               : section.status === "writing"
                               ? "bg-foreground text-background"
                               : section.status === "review"
@@ -355,51 +313,138 @@ export function LeftPanel({
                           {section.title}
                         </span>
                       </div>
-                      <ul className="mt-2 ml-7 space-y-1">
-                        {section.keyPoints.map((point, i) => (
-                          <li
-                            key={i}
-                            className="text-xs text-muted-foreground list-disc">
-                            {point}
-                          </li>
-                        ))}
-                      </ul>
 
-                      {/* Accept/Reject buttons for review status */}
-                      {section.status === "review" && chapterHandlers && (
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <button
-                            onClick={chapterHandlers.reject}
-                            className="flex items-center justify-center w-6 h-6 rounded bg-red-500 hover:bg-red-600 transition-colors shrink-0"
-                            title="Regenerate">
-                            <X className="w-3 h-3 text-white" />
-                          </button>
-                          <button
-                            onClick={chapterHandlers.approve}
-                            className="px-3 py-1 text-xs font-medium bg-accent hover:bg-accent/90 text-accent-foreground rounded transition-colors">
-                            Accept
-                          </button>
-                        </div>
+                      {/* Key Points */}
+                      {section.keyPoints && section.keyPoints.length > 0 && (
+                        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                          {section.keyPoints.map((point, idx) => (
+                            <li key={idx} className="flex items-start gap-1">
+                              <ChevronRight className="w-3 h-3 shrink-0 mt-0.5" />
+                              <span>{point}</span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
+
+                      {/* Review Actions */}
+                      {(section.status === "review" ||
+                        section.status === "complete") &&
+                        chapterHandlers && (
+                          <div className="mt-2 flex items-center justify-end gap-2">
+                            <button
+                              onClick={chapterHandlers.reject}
+                              className="p-1 rounded hover:bg-red-100 text-red-500 transition-colors"
+                              title="Regenerate">
+                              <RefreshCw className="w-3 h-3" />
+                            </button>
+                            {section.status === "review" && (
+                              <button
+                                onClick={chapterHandlers.approve}
+                                className="px-2 py-1 text-xs font-medium bg-accent hover:bg-accent/90 text-accent-foreground rounded transition-colors">
+                                Accept
+                              </button>
+                            )}
+                          </div>
+                        )}
                     </div>
                   );
                 })}
               </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Structure will appear here after research.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-medium text-muted-foreground">
+                {sources.length} Sources
+              </h3>
+              <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                <Upload className="w-3 h-3" />
+                Add PDF
+                <input
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                />
+              </label>
             </div>
-          ) : null}
-        </div>
 
-        {!isPlanning && plan && currentStep === "planning" && (
-          <div className="p-3 border-t border-border">
-            <Button onClick={handleApprovePlan} className="w-full gap-2">
-              Approve & Start Writing
-              <ChevronRight className="w-4 h-4" />
-            </Button>
+            {isUploading && (
+              <div className="p-3 rounded-lg border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground text-xs">
+                <Loader2 className="w-3 h-3 animate-spin mr-2" />
+                Uploading...
+              </div>
+            )}
+
+            {sources.map((source) => (
+              <div
+                key={source.id}
+                className={cn(
+                  "p-3 rounded-lg border transition-all cursor-pointer group",
+                  source.selected
+                    ? "border-accent/50 bg-accent/5"
+                    : "border-border bg-muted/30 opacity-60"
+                )}
+                onClick={() => toggleSource(source.id)}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
+                    <div className="mt-0.5 shrink-0">
+                      {source.id.startsWith("pdf-") ? (
+                        <FileText className="w-4 h-4 text-red-400" />
+                      ) : (
+                        <BookOpen className="w-4 h-4 text-blue-400" />
+                      )}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-accent transition-colors">
+                        {source.title}
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {source.snippet}
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className={cn(
+                      "shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                      source.selected
+                        ? "bg-accent border-accent text-accent-foreground"
+                        : "border-muted-foreground/30"
+                    )}>
+                    {source.selected && <Check className="w-3 h-3" />}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
-      </aside>
-    );
-  }
+      </div>
 
-  return null;
+      {/* Fixed Bottom Actions */}
+      <div className="shrink-0 p-4 border-t border-border bg-card">
+        {currentStep === "research" && activeTab === "sources" && (
+          <Button
+            onClick={handleApproveResearch}
+            className="w-full gap-2"
+            disabled={sources.filter((s) => s.selected).length === 0}>
+            Generate Structure
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        )}
+
+        {currentStep === "planning" && activeTab === "sections" && plan && (
+          <Button onClick={handleApprovePlan} className="w-full gap-2">
+            Start Writing
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+    </aside>
+  );
 }
