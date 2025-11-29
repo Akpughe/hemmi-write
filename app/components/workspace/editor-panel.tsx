@@ -1,23 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { DocumentPlan, WorkflowStep, Source, WritingBrief } from "@/lib/types/ui";
+import { useEffect, useState, Dispatch, SetStateAction } from "react";
+import type {
+  DocumentPlan,
+  WorkflowStep,
+  Source,
+  WritingBrief,
+} from "@/lib/types/ui";
 import { TiptapEditor } from "./tiptap-editor";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, Download, FileText } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
   mapUIDocumentTypeToEnum,
   mapUIAcademicLevelToEnum,
   mapUIWritingStyleToEnum,
 } from "@/lib/utils/documentTypeMapper";
-import { DocumentType, AcademicLevel, WritingStyle } from "@/lib/types/document";
+import {
+  DocumentType,
+  AcademicLevel,
+  WritingStyle,
+} from "@/lib/types/document";
 import { marked } from "marked";
 
 interface EditorPanelProps {
   content: string;
   setContent: (content: string) => void;
   plan: DocumentPlan | null;
-  setPlan: (plan: DocumentPlan) => void;
+  setPlan: Dispatch<SetStateAction<DocumentPlan | null>>;
   currentStep: WorkflowStep;
   brief: WritingBrief;
   sources: Source[];
@@ -27,6 +36,7 @@ interface EditorPanelProps {
     approve: () => void;
     reject: () => void;
   }) => void;
+  onStepChange: (step: WorkflowStep) => void;
 }
 
 export function EditorPanel({
@@ -38,12 +48,20 @@ export function EditorPanel({
   brief,
   sources,
   setChapterHandlers,
+  onStepChange,
 }: EditorPanelProps) {
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [currentChapterContent, setCurrentChapterContent] = useState("");
   const [showChapterReview, setShowChapterReview] = useState(false);
   const [approvedContent, setApprovedContent] = useState("");
+  const [wordCount, setWordCount] = useState(0);
+
+  // Update word count whenever content changes
+  useEffect(() => {
+    const text = content.replace(/<[^>]*>/g, "");
+    setWordCount(text.trim().split(/\s+/).length);
+  }, [content]);
 
   // Configure marked for better formatting
   marked.setOptions({
@@ -60,31 +78,15 @@ export function EditorPanel({
   const getSectionDisplayName = (index: number) => {
     if (!plan) return "";
     const section = plan.sections[index];
-    if (isAbstractSection(section.title)) {
-      return "Abstract";
-    }
-    // Count actual chapters (excluding abstract)
-    let chapterNumber = 1;
-    for (let i = 0; i < index; i++) {
-      if (!isAbstractSection(plan.sections[i].title)) {
-        chapterNumber++;
-      }
-    }
-    return `Chapter ${chapterNumber}`;
+    // Return the actual section title
+    return section.title || `Section ${index + 1}`;
   };
 
   // Check if we should use chapter-by-chapter generation
   const shouldUseChapterMode = () => {
     if (!plan) return false;
-    const documentType = mapUIDocumentTypeToEnum(brief.documentType);
-    const hasAcademicConfig =
-      brief.academicLevel !== undefined && brief.writingStyle !== undefined;
-    const hasMultipleSections = plan.sections && plan.sections.length >= 5;
-    return (
-      documentType === DocumentType.RESEARCH_PAPER &&
-      hasAcademicConfig &&
-      hasMultipleSections
-    );
+    // Enable section-by-section generation for all structured documents
+    return plan.sections && plan.sections.length > 0;
   };
 
   // Update section status in the left panel
@@ -92,18 +94,22 @@ export function EditorPanel({
     index: number,
     status: "pending" | "writing" | "review" | "complete"
   ) => {
-    if (!plan) return;
-    const updatedPlan = {
-      ...plan,
-      sections: plan.sections.map((section, i) =>
-        i === index ? { ...section, status } : section
-      ),
-    };
-    setPlan(updatedPlan);
+    setPlan((prevPlan) => {
+      if (!prevPlan) return prevPlan;
+      return {
+        ...prevPlan,
+        sections: prevPlan.sections.map((section, i) =>
+          i === index ? { ...section, status } : section
+        ),
+      };
+    });
   };
 
   // Generate a single chapter
-  const generateChapter = async (chapterIndex: number) => {
+  const generateChapter = async (
+    chapterIndex: number,
+    startTextOverride?: string
+  ) => {
     if (!plan) return;
 
     setIsWriting(true);
@@ -111,123 +117,128 @@ export function EditorPanel({
     setShowChapterReview(false);
     updateSectionStatus(chapterIndex, "writing");
 
-    // Capture the current approved content at the start
-    setApprovedContent((currentApproved) => {
-      const previousText = currentApproved;
+    // Determine the starting text (preamble or previously approved content)
+    // Priority:
+    // 1. Explicit override (passed from handleApproveChapter to avoid stale state)
+    // 2. If first chapter, use current editor content (preamble)
+    // 3. Fallback to approvedContent state
+    const startText =
+      startTextOverride !== undefined
+        ? startTextOverride
+        : chapterIndex === 0
+        ? content
+        : approvedContent;
 
-      // Start async generation
-      (async () => {
-        try {
-          const apiSources = sources
-            .filter((s) => s.selected)
-            .map((s) => ({
-              id: s.id,
-              title: s.title,
-              url: s.url,
-              excerpt: s.snippet,
-              author: s.author,
-              publishedDate: s.publishedDate,
-              selected: s.selected,
-            }));
+    // Start async generation
+    try {
+      const apiSources = sources
+        .filter((s) => s.selected)
+        .map((s) => ({
+          id: s.id,
+          title: s.title,
+          url: s.url,
+          excerpt: s.snippet,
+          author: s.author,
+          publishedDate: s.publishedDate,
+          selected: s.selected,
+        }));
 
-          const section = plan.sections[chapterIndex];
-          const apiSection = {
-            heading: section.title,
-            description: "",
-            keyPoints: section.keyPoints,
-            estimatedWordCount: Math.floor(
-              (brief.wordCount || 5000) / plan.sections.length
-            ),
-          };
+      const section = plan.sections[chapterIndex];
+      const apiSection = {
+        heading: section.title,
+        description: "",
+        keyPoints: section.keyPoints,
+        estimatedWordCount: Math.floor(
+          (brief.wordCount || 5000) / plan.sections.length
+        ),
+      };
 
-          const response = await fetch("/api/write/generate-chapter", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              documentType: mapUIDocumentTypeToEnum(brief.documentType),
-              topic: brief.topic,
-              instructions: brief.instructions || "",
-              sources: apiSources,
-              chapter: apiSection,
-              chapterIndex,
-              totalChapters: plan.sections.length,
-              previousChaptersText: previousText,
-              academicLevel:
-                mapUIAcademicLevelToEnum(brief.academicLevel) ||
-                AcademicLevel.GRADUATE,
-              writingStyle:
-                mapUIWritingStyleToEnum(brief.writingStyle) ||
-                WritingStyle.CHAPTER_BASED,
-              documentTitle: plan.title,
-              documentApproach: plan.approach,
-              documentTone: plan.tone,
-            }),
-          });
+      const isReport = brief.documentType === "report";
+      const endpoint = isReport
+        ? "/api/write/generate-report-section"
+        : "/api/write/generate-chapter";
 
-          if (!response.ok) throw new Error("Failed to generate chapter");
-          if (!response.body) throw new Error("No response body");
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentType: mapUIDocumentTypeToEnum(brief.documentType),
+          topic: brief.topic,
+          instructions: brief.instructions || "",
+          sources: apiSources,
+          chapter: apiSection,
+          chapterIndex,
+          totalChapters: plan.sections.length,
+          previousChaptersText: startText, // Pass the preamble/previous text
+          academicLevel:
+            mapUIAcademicLevelToEnum(brief.academicLevel) ||
+            AcademicLevel.GRADUATE,
+          writingStyle:
+            mapUIWritingStyleToEnum(brief.writingStyle) ||
+            WritingStyle.ANALYTICAL,
+          documentTitle: plan.title,
+          documentApproach: plan.approach,
+          documentTone: plan.tone,
+          aiProvider: brief.aiProvider,
+        }),
+      });
 
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-          let accumulated = "";
+      if (!response.ok) throw new Error("Failed to generate chapter");
+      if (!response.body) throw new Error("No response body");
 
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
 
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split("\n");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const data = JSON.parse(line.substring(6));
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
 
-                  if (data.error) {
-                    throw new Error(data.error);
-                  }
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.substring(6));
 
-                  if (data.done) {
-                    break;
-                  }
-
-                  if (data.content) {
-                    accumulated += data.content;
-                    setCurrentChapterContent(accumulated);
-                    // Don't update editor during streaming - we'll convert and render when complete
-                  }
-                } catch (e) {
-                  console.warn("Failed to parse SSE data:", line);
-                }
+              if (data.error) {
+                throw new Error(data.error);
               }
+
+              if (data.done) {
+                break;
+              }
+
+              if (data.content) {
+                accumulated += data.content;
+                setCurrentChapterContent(accumulated);
+                // Don't update editor during streaming - we'll convert and render when complete
+              }
+            } catch (e) {
+              console.warn("Failed to parse SSE data:", line);
             }
           }
-
-          // Chapter generation complete - convert markdown to HTML and display
-          const htmlContent = await marked.parse(accumulated);
-          setCurrentChapterContent(htmlContent);
-
-          // Update editor with approved + current formatted chapter
-          setContent(
-            previousText
-              ? previousText + "\n\n" + htmlContent
-              : htmlContent
-          );
-
-          // Set status to review
-          updateSectionStatus(chapterIndex, "review");
-          setShowChapterReview(true);
-          setIsWriting(false);
-        } catch (error) {
-          console.error("Chapter generation error:", error);
-          setIsWriting(false);
-          updateSectionStatus(chapterIndex, "pending");
         }
-      })();
+      }
 
-      // Return the current approved content unchanged
-      return currentApproved;
-    });
+      // Chapter generation complete - convert markdown to HTML and display
+      const htmlContent = await marked.parse(accumulated);
+      setCurrentChapterContent(htmlContent);
+
+      // Update editor with approved + current formatted chapter
+      // Use startText (which includes preamble) + new content
+      setContent(startText ? startText + "\n\n" + htmlContent : htmlContent);
+
+      // Set status to review
+      updateSectionStatus(chapterIndex, "review");
+      setShowChapterReview(true);
+      setIsWriting(false);
+    } catch (error) {
+      console.error("Chapter generation error:", error);
+      setIsWriting(false);
+      updateSectionStatus(chapterIndex, "pending");
+    }
   };
 
   // Handle chapter approval
@@ -239,11 +250,32 @@ export function EditorPanel({
 
     // Add current chapter to approved content using state callback
     setApprovedContent((prev) => {
-      const newApprovedContent = prev
-        ? prev + "\n\n" + currentChapterContent
-        : currentChapterContent;
-      setContent(newApprovedContent);
-      return newApprovedContent;
+      // If this is the first chapter, 'prev' might be empty but we might have a preamble in 'content'
+      // However, since we are appending to 'approvedContent', we need to be careful.
+      // Actually, we should just use the current editor content as the new approved content base?
+      // No, 'content' includes the *current chapter* which is what we are approving.
+
+      // If chapterIndex is 0, we need to make sure the preamble is included in the approved content state.
+      // But wait, if we used 'startText' in generateChapter, we just need to make sure we don't lose it.
+
+      // Simplest approach: The editor content IS the source of truth for what is visible.
+      // When we approve, we are saying "Everything currently in the editor is now approved".
+      // So let's just sync approvedContent to the current editor content (which includes preamble + new chapter).
+
+      // But wait, 'content' state in EditorPanel might be HTML. 'approvedContent' seems to be used as 'previousText' for next generation.
+      // If 'content' is HTML, passing it as 'previousChaptersText' to LLM is fine (it can handle it or we strip it).
+      // Let's assume 'content' is the source of truth.
+
+      // However, 'currentChapterContent' is also state.
+      // Let's stick to the existing pattern but fix the base.
+
+      const base =
+        currentChapterIndex === 0 && !prev
+          ? content.replace(currentChapterContent, "").trim()
+          : prev;
+      // Actually, 'content' = startText + \n\n + htmlContent.
+      // So if we just set approvedContent to 'content', we are good for the next round.
+      return content;
     });
 
     setShowChapterReview(false);
@@ -253,10 +285,13 @@ export function EditorPanel({
     if (currentChapterIndex < plan.sections.length - 1) {
       const nextIndex = currentChapterIndex + 1;
       setCurrentChapterIndex(nextIndex);
-      generateChapter(nextIndex);
+      // Pass the current 'content' (which is now the approved content) explicitly
+      // to avoid reading stale 'approvedContent' state in the next render cycle
+      generateChapter(nextIndex, content);
     } else {
       // All chapters complete
       setIsWriting(false);
+      onStepChange("complete");
     }
   };
 
@@ -265,11 +300,13 @@ export function EditorPanel({
     generateChapter(currentChapterIndex);
   };
 
-  // Traditional single-generation mode for non-research papers
   const generateDocument = async () => {
     if (!plan) return;
     setIsWriting(true);
-    setContent("");
+
+    // Capture current content (preamble) to append to
+    const startContent = content;
+    // setContent(""); // Removed to preserve preamble
 
     try {
       const apiSources = sources
@@ -351,7 +388,22 @@ export function EditorPanel({
 
       // Convert accumulated markdown to HTML and display
       const htmlContent = await marked.parse(accumulated);
-      setContent(htmlContent);
+
+      // Append to startContent (preamble)
+      setContent(
+        startContent ? startContent + "\n\n" + htmlContent : htmlContent
+      );
+
+      // Mark ALL sections as complete since this is single-pass generation
+      const completedPlan = {
+        ...plan,
+        sections: plan.sections.map((s) => ({
+          ...s,
+          status: "complete" as const,
+        })),
+      };
+      setPlan(completedPlan);
+      onStepChange("complete");
     } catch (error) {
       console.error("Generation error:", error);
     } finally {
@@ -359,7 +411,7 @@ export function EditorPanel({
     }
   };
 
-  // Expose chapter handlers to parent
+  // Set up chapter handlers for external control
   useEffect(() => {
     if (setChapterHandlers) {
       setChapterHandlers({
@@ -370,17 +422,23 @@ export function EditorPanel({
   }, [handleApproveChapter, handleRejectChapter, setChapterHandlers]);
 
   // Start generation when entering writing step
-  useEffect(() => {
-    if (currentStep === "writing" && plan && !isWriting && !content) {
-      if (shouldUseChapterMode()) {
-        setCurrentChapterIndex(0);
-        generateChapter(0);
-      } else {
-        generateDocument();
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, plan]);
+  // Auto-generation removed. User must manually start.
+  // useEffect(() => {
+  //   if (currentStep === "writing" && plan && !isWriting && !content) {
+  //     if (shouldUseChapterMode()) {
+  //       setCurrentChapterIndex(0);
+  //       generateChapter(0);
+  //     } else {
+  //       generateDocument();
+  //     }
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [currentStep, plan]);
+
+  const handleExport = (format: "docx" | "pdf") => {
+    // Mock export for now
+    alert(`Exporting as ${format.toUpperCase()}...`);
+  };
 
   if (currentStep === "research") {
     return (
@@ -417,34 +475,85 @@ export function EditorPanel({
   }
 
   return (
-    <main className="flex-1 flex flex-col bg-background overflow-hidden">
-      {/* Editor header */}
-      <div className="h-10 border-b border-border px-4 flex items-center justify-between bg-card">
-        <span className="text-sm font-medium">Document Editor</span>
-        {isWriting && plan && (
-          <div className="flex items-center gap-2 text-xs text-accent">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            <span>Writing {getSectionDisplayName(currentChapterIndex)}...</span>
-          </div>
-        )}
+    <main className="flex-1 flex flex-col bg-background overflow-hidden relative">
+      {/* Editor header - Sticky Toolbar */}
+      <div className="h-12 border-b border-border px-4 flex items-center justify-between bg-card shrink-0 z-20">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">Document Editor</span>
+          <div className="h-4 w-px bg-border" />
+          <span className="text-xs text-muted-foreground">
+            {wordCount.toLocaleString()} words
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {isWriting && plan && (
+            <div className="flex items-center gap-2 text-xs text-accent mr-4">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>
+                Writing {getSectionDisplayName(currentChapterIndex)}...
+              </span>
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleExport("docx")}>
+            <FileText className="w-4 h-4 mr-2" />
+            DOCX
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => handleExport("pdf")}>
+            <Download className="w-4 h-4 mr-2" />
+            PDF
+          </Button>
+
+          {/* Manual Start Button - Hide if all sections are complete */}
+          {!isWriting &&
+            !showChapterReview &&
+            plan &&
+            currentStep === "writing" &&
+            !plan.sections.every((s) => s.status === "complete") && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (shouldUseChapterMode()) {
+                    // If we are at the start (index 0) or resuming
+                    // When manually starting/resuming, we rely on state, so no override needed
+                    generateChapter(currentChapterIndex);
+                  } else {
+                    generateDocument();
+                  }
+                }}
+                className="gap-2 bg-accent hover:bg-accent/90 ml-2">
+                <Loader2 className="w-4 h-4" />
+                {currentChapterIndex === 0 && !content
+                  ? "Start Generating"
+                  : "Continue Generating"}
+              </Button>
+            )}
+        </div>
       </div>
 
-      {/* TipTap Editor */}
-      <div className="flex-1 overflow-hidden relative">
-        <TiptapEditor
-          content={content}
-          onChange={setContent}
-          editable={!isWriting && !showChapterReview}
-        />
+      {/* TipTap Editor - Scrollable */}
+      <div className="flex-1 overflow-y-auto relative">
+        <div className="min-h-full">
+          <TiptapEditor
+            content={content}
+            onChange={setContent}
+            editable={!isWriting && !showChapterReview}
+          />
+        </div>
 
         {/* Loading overlay while generating */}
         {isWriting && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-30">
             <div className="flex flex-col items-center gap-4">
               <Loader2 className="w-12 h-12 text-accent animate-spin" />
               <div className="text-center">
                 <p className="text-lg font-medium">
-                  Generating {plan && getSectionDisplayName(currentChapterIndex)}...
+                  Generating{" "}
+                  {plan && getSectionDisplayName(currentChapterIndex)}...
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Writing with full formatting
@@ -454,9 +563,9 @@ export function EditorPanel({
           </div>
         )}
 
-        {/* Accept/Reject buttons overlay - shown below the current chapter */}
+        {/* Accept/Reject buttons overlay - Fixed at bottom */}
         {showChapterReview && plan && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-20 pb-6">
+          <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
             <div className="max-w-3xl mx-auto px-8">
               <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
                 <div className="flex items-center justify-between gap-4">
@@ -465,8 +574,13 @@ export function EditorPanel({
                       {getSectionDisplayName(currentChapterIndex)} Complete
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Review the {isAbstractSection(plan.sections[currentChapterIndex].title) ? "abstract" : "chapter"} above and approve to continue or
-                      regenerate if needed
+                      Review the{" "}
+                      {isAbstractSection(
+                        plan.sections[currentChapterIndex].title
+                      )
+                        ? "abstract"
+                        : "chapter"}{" "}
+                      above and approve to continue or regenerate if needed
                     </p>
                   </div>
                   <div className="flex gap-2">
