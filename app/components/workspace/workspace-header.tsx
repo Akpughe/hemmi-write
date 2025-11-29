@@ -60,7 +60,12 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
                   isPending && "text-muted-foreground"
                 )}>
                 {isComplete && <Check className="w-3 h-3" />}
-                {isCurrent && <Loader2 className="w-3 h-3 animate-spin" />}
+                {isCurrent && step.id !== "complete" && (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                )}
+                {isCurrent && step.id === "complete" && (
+                  <Check className="w-3 h-3" />
+                )}
                 {isPending && <Circle className="w-3 h-3" />}
                 <span>{step.label}</span>
               </div>
