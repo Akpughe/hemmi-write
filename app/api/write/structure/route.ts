@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { generateObject } from "ai";
+import { createGroq } from "@ai-sdk/groq";
+import { z } from "zod";
 import {
-  StructureRequest,
-  DocumentStructure,
   DOCUMENT_TYPE_CONFIGS,
   DocumentType,
   AcademicLevel,
@@ -9,10 +10,10 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
-import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
-import { generateTableOfContents } from "@/lib/utils/tableOfContents";
-import { aiService } from "@/lib/services/aiService";
-import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 function generateStructurePrompt(
   documentType: string,
@@ -176,7 +177,7 @@ Return your response as a JSON object with this exact structure:
       "heading": ${
         isResearchPaper && academicLevel
           ? '"Chapter 1: Introduction"'
-          : '"Section heading"'
+          : '"Section heading (e.g., Introduction, Findings, Analysis - NO chapter numbers)"'
       },
       "description": "What this ${
         isResearchPaper && academicLevel ? "chapter" : "section"
@@ -243,6 +244,9 @@ IMPORTANT:`;
     basePrompt += `
 - Include ${config.structure.length - 1} main sections (excluding references)
 - Each section should have 3-5 key points
+- **CRITICAL**: Use ONLY simple section headings (e.g., "Introduction", "Findings", "Analysis")
+- **DO NOT** use chapter numbers or "Chapter X:" format - this is NOT a research paper
+- Use direct, descriptive section titles that match standard ${config.label.toLowerCase()} structure
 - Be specific about what arguments, evidence, or analysis each section will contain
 - Consider how you'll cite the provided sources throughout`;
   }
@@ -254,95 +258,138 @@ IMPORTANT:`;
   return basePrompt;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body: StructureRequest = await request.json();
     const {
       documentType,
       topic,
       instructions,
-      sources,
       wordCount,
-      userFeedback,
+      sources,
       academicLevel,
       writingStyle,
-      aiProvider,
-    } = body;
+      chapters,
+    } = await req.json();
 
-    if (!documentType || !topic || !sources || sources.length === 0) {
+    // Get config for the document type
+    const config =
+      DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
+
+    if (!config) {
       return NextResponse.json(
-        { error: "Document type, topic, and sources are required" },
+        { error: "Invalid document type" },
         { status: 400 }
       );
     }
 
-    // Determine AI provider
-    const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
+    // Construct the prompt
+    const isResearchPaper = documentType === "RESEARCH_PAPER";
+    const prompt = `
+      Create a detailed structure for a ${
+        config.label
+      } on the topic: "${topic}".
+      
+      DOCUMENT TYPE: ${config.label.toUpperCase()}
+      ${
+        !isResearchPaper
+          ? `
+      ⚠️ CRITICAL FORMAT RULE: This is a ${config.label.toUpperCase()}, NOT a research paper.
+      - DO NOT use "Chapter 1:", "Chapter 2:", etc.
+      - Use ONLY simple section headings: "Introduction", "Findings", "Analysis", "Conclusion", etc.
+      - NO chapter numbering in section titles
+      `
+          : ""
+      }
+      
+      CONTEXT:
+      - Document Type: ${config.label}
+      - Academic Level: ${academicLevel || "Undergraduate"}
+      - Writing Style: ${writingStyle || "Analytical"}
+      - Target Word Count: ${wordCount || config.suggestedWordCountMin} words
+      ${chapters ? `- Number of Chapters: ${chapters}` : ""}
+      ${instructions ? `- User Instructions: ${instructions}` : ""}
+      
+      SOURCES:
+      ${
+        sources && sources.length > 0
+          ? sources
+              .map(
+                (s: { title: string; snippet: string }) =>
+                  `- ${s.title}: ${s.snippet}`
+              )
+              .join("\n")
+          : "No specific sources provided. Use general knowledge."
+      }
+      
+      HUMANIZATION INSTRUCTIONS (CRITICAL):
+      - Write in a clear, simple, and spartan style.
+      - Use active voice and impactful sentences.
+      - Focus on actionable insights, data, and examples.
+      - Address the reader directly ("you", "your").
+      - AVOID: Glassmorphism, complex metaphors, generalizations, setup language, warnings, unnecessary adjectives/adverbs, hashtags, semicolons, asterisks.
+      - AVOID WORDS: "delve", "landscape", "tapestry", "comprehensive", "insightful", "nuanced", "pivotal", "crucial".
+      
+      STRUCTURE REQUIREMENTS:
+      - Title: A catchy and relevant title.
+      - Approach: A brief description of how the document will be written.
+      - Tone: The tone of the document (e.g., Formal, Persuasive).
+      - Sections: A list of sections with specific formatting:
+        ${
+          isResearchPaper
+            ? `
+        FOR RESEARCH PAPERS:
+        - Use "Chapter X: Title" format (e.g., "Chapter 1: Introduction", "Chapter 2: Literature Review")
+        - Create exactly ${chapters || 5} main body chapters plus Abstract
+        `
+            : `
+        FOR ${config.label.toUpperCase()}S:
+        - Use SIMPLE section headings WITHOUT chapter numbers
+        - Examples: "Introduction", "Background", "Findings", "Analysis", "Recommendations", "Conclusion"
+        - DO NOT write "Chapter 1:", "Chapter 2:", etc.
+        - Follow standard ${config.label.toLowerCase()} structure with ${
+                config.structure.length - 1
+              } main sections
+        `
+        }
+        - Each section must have a 'heading' and a list of 'keyPoints'.
+      
+      
+      Return the response in JSON format with the following schema:
+      {
+        "title": "string",
+        "approach": "string",
+        "tone": "string",
+        "sections": [
+          {
+            "heading": "string",
+            "keyPoints": ["string", "string"]
+          }
+        ]
+      }
+    `;
 
-    // Format sources for the prompt
-    const sourcesText = formatSourcesForPrompt(
-      sources.map((s) => ({
-        title: s.title,
-        excerpt: s.excerpt,
-        author: s.author,
-      }))
-    );
+    const result = await generateObject({
+      model: groq("openai/gpt-oss-120b"),
+      schema: z.object({
+        title: z.string(),
+        approach: z.string(),
+        tone: z.string(),
+        sections: z.array(
+          z.object({
+            heading: z.string(),
+            keyPoints: z.array(z.string()),
+          })
+        ),
+      }),
+      prompt,
+    });
 
-    // Generate the prompt
-    const prompt = generateStructurePrompt(
-      documentType,
-      topic,
-      instructions || "",
-      wordCount || 3000,
-      sourcesText,
-      academicLevel,
-      writingStyle,
-      userFeedback
-    );
-
-    // Call AI service
-    const responseText = await aiService.getChatCompletion(
-      provider,
-      [
-        {
-          role: "system",
-          content:
-            "You are an expert academic writer who creates detailed document structures. Always respond with valid JSON only.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      0.7,
-      4000
-    );
-
-    // Parse JSON from response (handle potential markdown code blocks)
-    let structure: DocumentStructure;
-    try {
-      // Remove markdown code blocks if present
-      const jsonText = responseText
-        .replace(/```json\n?/g, "")
-        .replace(/```\n?/g, "")
-        .trim();
-      structure = JSON.parse(jsonText);
-    } catch {
-      console.error("Failed to parse structure JSON:", responseText);
-      throw new Error("Failed to parse structure from AI response");
-    }
-
-    // Generate table of contents for research papers
-    if (documentType === DocumentType.RESEARCH_PAPER && writingStyle) {
-      const toc = generateTableOfContents(structure, writingStyle);
-      structure.tableOfContents = toc;
-    }
-
-    return NextResponse.json({ structure });
-  } catch (error: unknown) {
+    return NextResponse.json({ structure: result.object });
+  } catch (error) {
     console.error("Structure generation error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Failed to generate structure";
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate structure" },
+      { status: 500 }
+    );
   }
 }
