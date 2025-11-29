@@ -1,29 +1,38 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import type { WritingBrief, WorkflowStep, Source, DocumentPlan } from "@/lib/types"
-import { WorkspaceHeader } from "./workspace-header"
-import { LeftPanel } from "./left-panel"
-import { EditorPanel } from "./editor-panel"
-import { RightPanel } from "./right-panel"
+import { useState } from "react";
+import type {
+  WritingBrief,
+  WorkflowStep,
+  Source,
+  DocumentPlan,
+} from "@/lib/types";
+import { WorkspaceHeader } from "./workspace-header";
+import { LeftPanel } from "./left-panel";
+import { EditorPanel } from "./editor-panel";
+import { RightPanel } from "./right-panel";
 
 interface WorkspaceLayoutProps {
-  brief: WritingBrief
-  currentStep: WorkflowStep
-  onStepChange: (step: WorkflowStep) => void
+  brief: WritingBrief;
+  currentStep: WorkflowStep;
+  onStepChange: (step: WorkflowStep) => void;
 }
 
-export function WorkspaceLayout({ brief, currentStep, onStepChange }: WorkspaceLayoutProps) {
-  const [sources, setSources] = useState<Source[]>([])
-  const [plan, setPlan] = useState<DocumentPlan | null>(null)
-  const [editorContent, setEditorContent] = useState("")
+export function WorkspaceLayout({
+  brief,
+  currentStep,
+  onStepChange,
+}: WorkspaceLayoutProps) {
+  const [sources, setSources] = useState<Source[]>([]);
+  const [plan, setPlan] = useState<DocumentPlan | null>(null);
+  const [editorContent, setEditorContent] = useState("");
   const [chapterHandlers, setChapterHandlers] = useState<{
-    approve: () => void
-    reject: () => void
-  } | null>(null)
+    approve: () => void;
+    reject: () => void;
+  } | null>(null);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       <WorkspaceHeader brief={brief} currentStep={currentStep} />
 
       <div className="flex-1 flex overflow-hidden">
@@ -49,11 +58,12 @@ export function WorkspaceLayout({ brief, currentStep, onStepChange }: WorkspaceL
           brief={brief}
           sources={sources}
           setChapterHandlers={setChapterHandlers}
+          onStepChange={onStepChange}
         />
 
         {/* Right Panel - Brief & Chat */}
         <RightPanel brief={brief} currentStep={currentStep} />
       </div>
     </div>
-  )
+  );
 }

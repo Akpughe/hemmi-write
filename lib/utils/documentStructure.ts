@@ -5,7 +5,7 @@ import {
   WritingStyle,
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
-} from '@/lib/types/document';
+} from "@/lib/types/document";
 
 // Get the structure outline for a specific document type
 export function getDocumentStructure(documentType: DocumentType): string[] {
@@ -23,9 +23,9 @@ export function generateDocumentPrompt(
   writingStyle?: WritingStyle
 ): string {
   const config = DOCUMENT_TYPE_CONFIGS[documentType];
-  const structure = config.structure.join(', ');
+  const structure = config.structure.join(", ");
 
-  let basePrompt = '';
+  let basePrompt = "";
 
   switch (documentType) {
     case DocumentType.RESEARCH_PAPER:
@@ -34,7 +34,9 @@ export function generateDocumentPrompt(
         const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
         const styleConfig = WRITING_STYLE_CONFIGS[writingStyle];
 
-        basePrompt = `Write a comprehensive research paper on "${topic}" at the ${levelConfig.label} level.
+        basePrompt = `Write a comprehensive research paper on "${topic}" at the ${
+          levelConfig.label
+        } level.
 
 ACADEMIC LEVEL REQUIREMENTS:
 - Writing Depth: ${levelConfig.technicalDepth}
@@ -91,15 +93,6 @@ CRITICAL REQUIREMENTS FOR ${levelConfig.label.toUpperCase()} LEVEL:`;
 HEADING FORMAT (${styleConfig.label}):`;
 
         switch (writingStyle) {
-          case WritingStyle.CHAPTER_BASED:
-            basePrompt += `
-Use "Chapter 1: [Title]", "Chapter 2: [Title]" format for main sections.
-Example: "Chapter 1: Introduction", "Chapter 2: Literature Review"`;
-            break;
-          case WritingStyle.SECTION_BASED:
-            basePrompt += `
-Use descriptive headings only (e.g., "Introduction", "Methodology") without chapter numbers.`;
-            break;
           case WritingStyle.NARRATIVE:
             basePrompt += `
 Use minimal headings. Let the content flow naturally with subtle section breaks.`;
@@ -123,9 +116,11 @@ CITATION STRATEGY:
 - Compare sources: "While [1] argues X, [2] suggests Y, indicating..."
 - Use sources to support analysis, not replace it
 
-${instructions ? `ADDITIONAL INSTRUCTIONS: ${instructions}\n` : ''}
+${instructions ? `ADDITIONAL INSTRUCTIONS: ${instructions}\n` : ""}
 
-Write the complete research paper now with ${levelConfig.label} level depth and rigor:`;
+Write the complete research paper now with ${
+          levelConfig.label
+        } level depth and rigor:`;
       } else {
         // Fallback to original prompt if level/style not provided
         basePrompt = `You are an expert academic writer. Write a comprehensive research paper on the topic: "${topic}".
@@ -145,7 +140,7 @@ Requirements:
 Sources to reference:
 ${sourcesText}
 
-${instructions ? `Additional instructions: ${instructions}\n` : ''}
+${instructions ? `Additional instructions: ${instructions}\n` : ""}
 Write the complete research paper now:`;
       }
       break;
@@ -167,7 +162,7 @@ Requirements:
 Sources to reference:
 ${sourcesText}
 
-${instructions ? `Additional instructions: ${instructions}\n` : ''}
+${instructions ? `Additional instructions: ${instructions}\n` : ""}
 Write the complete essay now:`;
       break;
 
@@ -189,29 +184,8 @@ Requirements:
 Sources to reference:
 ${sourcesText}
 
-${instructions ? `Additional instructions: ${instructions}\n` : ''}
+${instructions ? `Additional instructions: ${instructions}\n` : ""}
 Write the complete report now:`;
-      break;
-
-    case DocumentType.ASSIGNMENT:
-      basePrompt = `You are an expert academic writer. Write a comprehensive assignment on the topic: "${topic}".
-
-Structure your assignment with: ${structure}.
-
-Requirements:
-- Target word count: approximately ${wordCount} words
-- Provide thorough analysis and critical thinking
-- Support arguments with evidence from sources using citations [1], [2], [3]
-- Demonstrate understanding of key concepts
-- Include examples and applications
-- Maintain academic tone and proper formatting
-- Use ${config.citationStyle} citation style
-
-Sources to reference:
-${sourcesText}
-
-${instructions ? `Additional instructions: ${instructions}\n` : ''}
-Write the complete assignment now:`;
       break;
 
     default:
@@ -222,7 +196,7 @@ Target word count: approximately ${wordCount} words.
 Use the following sources and cite them with [1], [2], [3] format:
 ${sourcesText}
 
-${instructions ? `Additional instructions: ${instructions}\n` : ''}
+${instructions ? `Additional instructions: ${instructions}\n` : ""}
 Write the document now:`;
   }
 
@@ -230,14 +204,16 @@ Write the document now:`;
 }
 
 // Format sources for inclusion in the prompt
-export function formatSourcesForPrompt(sources: Array<{ title: string; excerpt: string; author?: string }>): string {
+export function formatSourcesForPrompt(
+  sources: Array<{ title: string; excerpt: string; author?: string }>
+): string {
   return sources
     .map((source, index) => {
-      const authorInfo = source.author ? ` by ${source.author}` : '';
+      const authorInfo = source.author ? ` by ${source.author}` : "";
       return `[${index + 1}] ${source.title}${authorInfo}
 Excerpt: ${source.excerpt}`;
     })
-    .join('\n\n');
+    .join("\n\n");
 }
 
 // Get word count recommendations as a string
@@ -249,16 +225,25 @@ export function getWordCountGuidance(documentType: DocumentType): string {
 // Calculate default word count for a document type (midpoint of range)
 export function getDefaultWordCount(documentType: DocumentType): number {
   const config = DOCUMENT_TYPE_CONFIGS[documentType];
-  return Math.floor((config.suggestedWordCountMin + config.suggestedWordCountMax) / 2);
+  return Math.floor(
+    (config.suggestedWordCountMin + config.suggestedWordCountMax) / 2
+  );
 }
 
 // Validate word count is within reasonable bounds
-export function validateWordCount(wordCount: number, min: number = 500, max: number = 15000): boolean {
+export function validateWordCount(
+  wordCount: number,
+  min: number = 500,
+  max: number = 15000
+): boolean {
   return wordCount >= min && wordCount <= max;
 }
 
 // Get system message for the AI based on document type and academic level (for research papers)
-export function getSystemMessage(documentType: DocumentType, academicLevel?: AcademicLevel): string {
+export function getSystemMessage(
+  documentType: DocumentType,
+  academicLevel?: AcademicLevel
+): string {
   const config = DOCUMENT_TYPE_CONFIGS[documentType];
 
   // Base message for all types
@@ -331,7 +316,9 @@ Evidence-based writing requirements:
 
 When citing sources, always use numbered markers like [1], [2], [3] that correspond to the sources provided. These markers should be placed immediately after the relevant statement or claim.
 
-Structure your research paper with these sections: ${config.structure.join(', ')}.`;
+Structure your research paper with these sections: ${config.structure.join(
+      ", "
+    )}.`;
   } else {
     // Standard message for other document types
     baseMessage += `
@@ -345,7 +332,9 @@ Your writing style is:
 
 When citing sources, always use numbered markers like [1], [2], [3] that correspond to the sources provided. These markers should be placed immediately after the relevant statement or claim.
 
-Structure your document according to standard ${config.label.toLowerCase()} format with these sections: ${config.structure.join(', ')}.`;
+Structure your document according to standard ${config.label.toLowerCase()} format with these sections: ${config.structure.join(
+      ", "
+    )}.`;
   }
 
   return baseMessage;

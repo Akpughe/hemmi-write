@@ -13,6 +13,7 @@ export default function HomePage() {
     documentType: "research-paper",
     academicLevel: "undergraduate",
     writingStyle: "analytical",
+    includeSources: true,
   });
   const [topic, setTopic] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -28,6 +29,8 @@ export default function HomePage() {
       documentType: brief.documentType || "research-paper",
       academicLevel: brief.academicLevel || "undergraduate",
       writingStyle: brief.writingStyle || "analytical",
+      includeSources: brief.includeSources ?? true,
+      chapters: brief.chapters,
     };
     sessionStorage.setItem("writingBrief", JSON.stringify(fullBrief));
     router.push("/workspace");

@@ -14,8 +14,7 @@ export function mapUIDocumentTypeToEnum(uiType: string): DocumentType {
     "research-paper": DocumentType.RESEARCH_PAPER,
     essay: DocumentType.ESSAY,
     report: DocumentType.REPORT,
-    thesis: DocumentType.ASSIGNMENT, // Map thesis to ASSIGNMENT
-    assignment: DocumentType.ASSIGNMENT,
+    thesis: DocumentType.RESEARCH_PAPER, // Map thesis to RESEARCH_PAPER
   };
 
   const mapped = mapping[uiType.toLowerCase()];
@@ -39,10 +38,9 @@ export function mapEnumToUIDocumentType(enumType: DocumentType): string {
     [DocumentType.RESEARCH_PAPER]: "research-paper",
     [DocumentType.ESSAY]: "essay",
     [DocumentType.REPORT]: "report",
-    [DocumentType.ASSIGNMENT]: "assignment",
   };
 
-  return mapping[enumType] || "essay";
+  return mapping[enumType] || "research-paper";
 }
 
 /**
@@ -50,30 +48,25 @@ export function mapEnumToUIDocumentType(enumType: DocumentType): string {
  * UI uses: "high-school" | "undergraduate" | "graduate" | "doctoral" | "professional"
  * API uses: UNDERGRADUATE | GRADUATE | POSTGRADUATE
  */
-export function mapUIAcademicLevelToEnum(
-  uiLevel?: string
-): AcademicLevel | undefined {
-  if (!uiLevel) return undefined;
-
+export function mapUIAcademicLevelToEnum(uiLevel: string): AcademicLevel {
   const mapping: Record<string, AcademicLevel> = {
-    "high-school": AcademicLevel.UNDERGRADUATE,
     undergraduate: AcademicLevel.UNDERGRADUATE,
     graduate: AcademicLevel.GRADUATE,
-    doctoral: AcademicLevel.POSTGRADUATE,
     postgraduate: AcademicLevel.POSTGRADUATE,
-    professional: AcademicLevel.GRADUATE,
+    phd: AcademicLevel.POSTGRADUATE,
   };
 
-  const mapped = mapping[uiLevel.toLowerCase()];
+  return mapping[uiLevel.toLowerCase()] || AcademicLevel.UNDERGRADUATE;
+}
 
-  if (!mapped) {
-    console.warn(
-      `Unknown academic level: "${uiLevel}", defaulting to GRADUATE`
-    );
-    return AcademicLevel.GRADUATE;
-  }
+export function mapEnumAcademicLevelToUI(level: AcademicLevel): string {
+  const mapping: Record<AcademicLevel, string> = {
+    [AcademicLevel.UNDERGRADUATE]: "Undergraduate",
+    [AcademicLevel.GRADUATE]: "Graduate",
+    [AcademicLevel.POSTGRADUATE]: "Postgraduate",
+  };
 
-  return mapped;
+  return mapping[level] || "Undergraduate";
 }
 
 /**
@@ -81,30 +74,30 @@ export function mapUIAcademicLevelToEnum(
  * UI uses: "analytical" | "argumentative" | "descriptive" | "expository" | "narrative"
  * API uses: CHAPTER_BASED | SECTION_BASED | NARRATIVE | TECHNICAL
  */
-export function mapUIWritingStyleToEnum(
-  uiStyle?: string
-): WritingStyle | undefined {
-  if (!uiStyle) return undefined;
-
+export function mapUIWritingStyleToEnum(uiStyle: string): WritingStyle {
   const mapping: Record<string, WritingStyle> = {
-    analytical: WritingStyle.CHAPTER_BASED,
-    argumentative: WritingStyle.SECTION_BASED,
-    descriptive: WritingStyle.NARRATIVE,
-    expository: WritingStyle.TECHNICAL,
+    analytical: WritingStyle.ANALYTICAL,
+    argumentative: WritingStyle.ARGUMENTATIVE,
+    descriptive: WritingStyle.DESCRIPTIVE,
+    expository: WritingStyle.EXPOSITORY,
     narrative: WritingStyle.NARRATIVE,
-    "chapter-based": WritingStyle.CHAPTER_BASED,
-    "section-based": WritingStyle.SECTION_BASED,
     technical: WritingStyle.TECHNICAL,
+    "chapter-based": WritingStyle.ANALYTICAL,
+    "section-based": WritingStyle.DESCRIPTIVE,
   };
 
-  const mapped = mapping[uiStyle.toLowerCase()];
+  return mapping[uiStyle.toLowerCase()] || WritingStyle.ANALYTICAL;
+}
 
-  if (!mapped) {
-    console.warn(
-      `Unknown writing style: "${uiStyle}", defaulting to CHAPTER_BASED`
-    );
-    return WritingStyle.CHAPTER_BASED;
-  }
+export function mapEnumWritingStyleToUI(style: WritingStyle): string {
+  const mapping: Record<WritingStyle, string> = {
+    [WritingStyle.ANALYTICAL]: "Analytical",
+    [WritingStyle.ARGUMENTATIVE]: "Argumentative",
+    [WritingStyle.DESCRIPTIVE]: "Descriptive",
+    [WritingStyle.EXPOSITORY]: "Expository",
+    [WritingStyle.NARRATIVE]: "Narrative",
+    [WritingStyle.TECHNICAL]: "Technical",
+  };
 
-  return mapped;
+  return mapping[style] || "Analytical";
 }
