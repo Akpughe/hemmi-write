@@ -64,6 +64,7 @@ export function mapEnumAcademicLevelToUI(level: AcademicLevel): string {
     [AcademicLevel.UNDERGRADUATE]: "Undergraduate",
     [AcademicLevel.GRADUATE]: "Graduate",
     [AcademicLevel.POSTGRADUATE]: "Postgraduate",
+    [AcademicLevel.PROFESSIONAL]: "Professional",
   };
 
   return mapping[level] || "Undergraduate";

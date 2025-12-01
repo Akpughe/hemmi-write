@@ -18,6 +18,7 @@ export interface WritingBrief {
   sourceCount?: number;
   chapters?: number;
   includeSources?: boolean;
+  aiProvider?: string;
 }
 
 export interface Source {
