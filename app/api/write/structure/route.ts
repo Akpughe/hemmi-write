@@ -1,18 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { generateObject } from "ai";
+import { createGroq } from "@ai-sdk/groq";
+import { z } from "zod";
 import {
-  StructureRequest,
-  DocumentStructure,
   DOCUMENT_TYPE_CONFIGS,
   DocumentType,
   AcademicLevel,
   WritingStyle,
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
-} from '@/lib/types/document';
-import { formatSourcesForPrompt } from '@/lib/utils/documentStructure';
-import { generateTableOfContents } from '@/lib/utils/tableOfContents';
-import { aiService } from '@/lib/services/aiService';
-import { AIProvider, DEFAULT_AI_PROVIDER } from '@/lib/config/aiModels';
+} from "@/lib/types/document";
+
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 function generateStructurePrompt(
   documentType: string,
@@ -24,14 +25,25 @@ function generateStructurePrompt(
   writingStyle?: WritingStyle,
   userFeedback?: string
 ): string {
-  const config = DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
+  const config =
+    DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
+
+  // Validate that the config exists
+  if (!config) {
+    throw new Error(
+      `Invalid document type: ${documentType}. Valid types are: ${Object.keys(
+        DOCUMENT_TYPE_CONFIGS
+      ).join(", ")}`
+    );
+  }
+
   const isResearchPaper = documentType === DocumentType.RESEARCH_PAPER;
 
   let basePrompt = `You are an expert academic writer planning a ${config.label.toLowerCase()}.
 
 TOPIC: "${topic}"
 TARGET WORD COUNT: ${wordCount} words
-${instructions ? `ADDITIONAL INSTRUCTIONS: ${instructions}` : ''}`;
+${instructions ? `ADDITIONAL INSTRUCTIONS: ${instructions}` : ""}`;
 
   // Add level and style guidance for research papers
   if (isResearchPaper && academicLevel && writingStyle) {
@@ -98,7 +110,9 @@ CHAPTER STRUCTURE FOR RESEARCH PAPERS:`;
     (Presentation of Data, Discussion of Findings tied to research questions)
   * Chapter 5 - Summary, Conclusion, and Recommendations: 2,000-2,500 words
     (Summary of Findings, Conclusion, Recommendations for practice and future research)
-- Total target: ${wordCount >= 12000 ? wordCount : '12,000-15,000'} words (40-60 pages)
+- Total target: ${
+          wordCount >= 12000 ? wordCount : "12,000-15,000"
+        } words (40-60 pages)
 - Each section will be generated separately with full token budget`;
         break;
       case AcademicLevel.GRADUATE:
@@ -115,7 +129,7 @@ CHAPTER STRUCTURE FOR RESEARCH PAPERS:`;
   * Results: 4,000-6,000 words
   * Discussion: 4,000-6,000 words
   * Conclusion and Recommendations: 3,000-4,000 words
-- Total target: ${wordCount >= 25000 ? wordCount : '25,000-35,000'} words
+- Total target: ${wordCount >= 25000 ? wordCount : "25,000-35,000"} words
 - Each section will be generated separately with full token budget`;
         break;
       case AcademicLevel.POSTGRADUATE:
@@ -134,7 +148,7 @@ CHAPTER STRUCTURE FOR RESEARCH PAPERS:`;
   * Implications: 4,000-6,000 words
   * Conclusion and Recommendations: 4,000-6,000 words
   * Additional chapters as needed: 4,000-8,000 words each
-- Total target: ${wordCount >= 50000 ? wordCount : '50,000-70,000'} words
+- Total target: ${wordCount >= 50000 ? wordCount : "50,000-70,000"} words
 - Each section will be generated separately with full token budget`;
         break;
     }
@@ -145,7 +159,11 @@ CHAPTER STRUCTURE FOR RESEARCH PAPERS:`;
 AVAILABLE SOURCES:
 ${sourcesText}
 
-${userFeedback ? `USER FEEDBACK ON PREVIOUS STRUCTURE:\n${userFeedback}\n\nPlease revise the structure based on this feedback.\n` : ''}
+${
+  userFeedback
+    ? `USER FEEDBACK ON PREVIOUS STRUCTURE:\n${userFeedback}\n\nPlease revise the structure based on this feedback.\n`
+    : ""
+}
 
 Create a detailed structure/outline for this ${config.label.toLowerCase()}. Think through your approach and break down exactly what you will write.
 
@@ -156,9 +174,27 @@ Return your response as a JSON object with this exact structure:
   "tone": "Describe the writing tone (e.g., formal academic, persuasive, analytical, etc.)",
   "sections": [
     {
-      "heading": ${isResearchPaper && academicLevel ? '"Chapter 1: Introduction"' : '"Section heading"'},
-      "description": "What this ${isResearchPaper && academicLevel ? 'chapter' : 'section'} will cover (1-2 sentences)",
-      "keyPoints": ["${isResearchPaper && academicLevel ? '1.1 Subsection title' : 'Key point 1'}", "${isResearchPaper && academicLevel ? '1.2 Subsection title' : 'Key point 2'}", "${isResearchPaper && academicLevel ? '1.3 Subsection title' : 'Key point 3'}"]${isResearchPaper && academicLevel ? ',\n      "estimatedWordCount": 3000' : ''}
+      "heading": ${
+        isResearchPaper && academicLevel
+          ? '"Chapter 1: Introduction"'
+          : '"Section heading (e.g., Introduction, Findings, Analysis - NO chapter numbers)"'
+      },
+      "description": "What this ${
+        isResearchPaper && academicLevel ? "chapter" : "section"
+      } will cover (1-2 sentences)",
+      "keyPoints": ["${
+        isResearchPaper && academicLevel
+          ? "1.1 Subsection title"
+          : "Key point 1"
+      }", "${
+    isResearchPaper && academicLevel ? "1.2 Subsection title" : "Key point 2"
+  }", "${
+    isResearchPaper && academicLevel ? "1.3 Subsection title" : "Key point 3"
+  }"]${
+    isResearchPaper && academicLevel
+      ? ',\n      "estimatedWordCount": 3000'
+      : ""
+  }
     }
   ],
   "estimatedWordCount": ${wordCount}
@@ -176,7 +212,9 @@ IMPORTANT:`;
 - Each chapter MUST have 3-5 subsections as keyPoints (e.g., "1.1 Background of the Study", "1.2 Problem Statement")
 - Each section MUST include "estimatedWordCount" field with the word count specified in the guidance above
 - Follow the standard undergraduate structure: Abstract, Introduction, Literature Review, Methodology, Results and Analysis, Summary/Conclusion/Recommendations
-- Total word count should be ${wordCount >= 12000 ? wordCount : '12,000-15,000'} words`;
+- Total word count should be ${
+          wordCount >= 12000 ? wordCount : "12,000-15,000"
+        } words`;
         break;
       case AcademicLevel.GRADUATE:
         basePrompt += `
@@ -184,7 +222,9 @@ IMPORTANT:`;
 - Abstract should have NO keyPoints (it's a single paragraph)
 - Each chapter MUST have 3-5 subsections as keyPoints
 - Each section MUST include "estimatedWordCount" field with appropriate word count for that section's importance
-- Total word count should be ${wordCount >= 25000 ? wordCount : '25,000-35,000'} words`;
+- Total word count should be ${
+          wordCount >= 25000 ? wordCount : "25,000-35,000"
+        } words`;
         break;
       case AcademicLevel.POSTGRADUATE:
         basePrompt += `
@@ -192,7 +232,9 @@ IMPORTANT:`;
 - Abstract should have NO keyPoints (it's a single paragraph)
 - Each chapter MUST have 3-5 subsections as keyPoints
 - Each section MUST include "estimatedWordCount" field with appropriate word count for that section's importance
-- Total word count should be ${wordCount >= 50000 ? wordCount : '50,000-70,000'} words`;
+- Total word count should be ${
+          wordCount >= 50000 ? wordCount : "50,000-70,000"
+        } words`;
         break;
     }
     basePrompt += `
@@ -202,6 +244,9 @@ IMPORTANT:`;
     basePrompt += `
 - Include ${config.structure.length - 1} main sections (excluding references)
 - Each section should have 3-5 key points
+- **CRITICAL**: Use ONLY simple section headings (e.g., "Introduction", "Findings", "Analysis")
+- **DO NOT** use chapter numbers or "Chapter X:" format - this is NOT a research paper
+- Use direct, descriptive section titles that match standard ${config.label.toLowerCase()} structure
 - Be specific about what arguments, evidence, or analysis each section will contain
 - Consider how you'll cite the provided sources throughout`;
   }
@@ -213,82 +258,137 @@ IMPORTANT:`;
   return basePrompt;
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const body: StructureRequest = await request.json();
-    const { documentType, topic, instructions, sources, wordCount, userFeedback, academicLevel, writingStyle, aiProvider } = body;
+    const {
+      documentType,
+      topic,
+      instructions,
+      wordCount,
+      sources,
+      academicLevel,
+      writingStyle,
+      chapters,
+    } = await req.json();
 
-    if (!documentType || !topic || !sources || sources.length === 0) {
+    // Get config for the document type
+    const config =
+      DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
+
+    if (!config) {
       return NextResponse.json(
-        { error: 'Document type, topic, and sources are required' },
+        { error: "Invalid document type" },
         { status: 400 }
       );
     }
 
-    // Determine AI provider
-    const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
+    // Construct the prompt
+    const isResearchPaper = documentType === "RESEARCH_PAPER";
+    const prompt = `
+      Create a detailed structure for a ${
+        config.label
+      } on the topic: "${topic}".
+      
+      DOCUMENT TYPE: ${config.label.toUpperCase()}
+      ${
+        !isResearchPaper
+          ? `
+      ⚠️ CRITICAL FORMAT RULE: This is a ${config.label.toUpperCase()}, NOT a research paper.
+      - DO NOT use "Chapter 1:", "Chapter 2:", etc.
+      - Use ONLY simple section headings: "Introduction", "Findings", "Analysis", "Conclusion", etc.
+      - NO chapter numbering in section titles
+      `
+          : ""
+      }
+      
+      CONTEXT:
+      - Document Type: ${config.label}
+      - Academic Level: ${academicLevel || "Undergraduate"}
+      - Writing Style: ${writingStyle || "Analytical"}
+      - Target Word Count: ${wordCount || config.suggestedWordCountMin} words
+      ${chapters ? `- Number of Chapters: ${chapters}` : ""}
+      ${instructions ? `- User Instructions: ${instructions}` : ""}
+      
+      SOURCES:
+      ${
+        sources && sources.length > 0
+          ? sources
+              .map(
+                (s: { title: string; snippet: string }) =>
+                  `- ${s.title}: ${s.snippet}`
+              )
+              .join("\n")
+          : "No specific sources provided. Use general knowledge."
+      }
+      
+      HUMANIZATION INSTRUCTIONS (CRITICAL):
+      - Write in a clear, simple, and spartan style.
+      - Use active voice and impactful sentences.
+      - Focus on actionable insights, data, and examples.
+      - Address the reader directly ("you", "your").
+      - AVOID: Glassmorphism, complex metaphors, generalizations, setup language, warnings, unnecessary adjectives/adverbs, hashtags, semicolons, asterisks.
+      - AVOID WORDS: "delve", "landscape", "tapestry", "comprehensive", "insightful", "nuanced", "pivotal", "crucial".
+      
+      STRUCTURE REQUIREMENTS:
+      - Title: A catchy and relevant title.
+      - Approach: A brief description of how the document will be written.
+      - Tone: The tone of the document (e.g., Formal, Persuasive).
+      - Sections: A list of sections with specific formatting:
+        ${
+          isResearchPaper
+            ? `
+        FOR RESEARCH PAPERS:
+        - Use "Chapter X: Title" format (e.g., "Chapter 1: Introduction", "Chapter 2: Literature Review")
+        - Create exactly ${chapters || 5} main body chapters plus Abstract
+        `
+            : `
+        FOR ${config.label.toUpperCase()}S:
+        - Use SIMPLE section headings WITHOUT chapter numbers
+        - Examples: "Introduction", "Background", "Findings", "Analysis", "Recommendations", "Conclusion"
+        - DO NOT write "Chapter 1:", "Chapter 2:", etc.
+        - Follow standard ${config.label.toLowerCase()} structure with ${
+                config.structure.length - 1
+              } main sections
+        `
+        }
+        - Each section must have a 'heading' and a list of 'keyPoints'.
+      
+      
+      Return the response in JSON format with the following schema:
+      {
+        "title": "string",
+        "approach": "string",
+        "tone": "string",
+        "sections": [
+          {
+            "heading": "string",
+            "keyPoints": ["string", "string"]
+          }
+        ]
+      }
+    `;
 
-    // Format sources for the prompt
-    const sourcesText = formatSourcesForPrompt(
-      sources.map((s) => ({
-        title: s.title,
-        excerpt: s.excerpt,
-        author: s.author,
-      }))
-    );
+    const result = await generateObject({
+      model: groq("openai/gpt-oss-120b"),
+      schema: z.object({
+        title: z.string(),
+        approach: z.string(),
+        tone: z.string(),
+        sections: z.array(
+          z.object({
+            heading: z.string(),
+            keyPoints: z.array(z.string()),
+          })
+        ),
+      }),
+      prompt,
+    });
 
-    // Generate the prompt
-    const prompt = generateStructurePrompt(
-      documentType,
-      topic,
-      instructions || '',
-      wordCount || 3000,
-      sourcesText,
-      academicLevel,
-      writingStyle,
-      userFeedback
-    );
-
-    // Call AI service
-    const responseText = await aiService.getChatCompletion(
-      provider,
-      [
-        {
-          role: 'system',
-          content: 'You are an expert academic writer who creates detailed document structures. Always respond with valid JSON only.',
-        },
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      0.7,
-      4000
-    );
-
-    // Parse JSON from response (handle potential markdown code blocks)
-    let structure: DocumentStructure;
-    try {
-      // Remove markdown code blocks if present
-      const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      structure = JSON.parse(jsonText);
-    } catch (parseError) {
-      console.error('Failed to parse structure JSON:', responseText);
-      throw new Error('Failed to parse structure from AI response');
-    }
-
-    // Generate table of contents for research papers
-    if (documentType === DocumentType.RESEARCH_PAPER && writingStyle) {
-      const toc = generateTableOfContents(structure, writingStyle);
-      structure.tableOfContents = toc;
-    }
-
-    return NextResponse.json({ structure });
-
-  } catch (error: any) {
-    console.error('Structure generation error:', error);
+    return NextResponse.json({ structure: result.object });
+  } catch (error) {
+    console.error("Structure generation error:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to generate structure' },
+      { error: "Failed to generate structure" },
       { status: 500 }
     );
   }

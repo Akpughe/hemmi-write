@@ -1,111 +1,49 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Groq from 'groq-sdk';
-import Exa from 'exa-js';
+import { NextRequest, NextResponse } from "next/server";
+import { generateText } from "ai";
+import { createGroq } from "@ai-sdk/groq";
 
-const groq = new Groq({
+const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-const exa = new Exa(process.env.EXA_API_KEY);
-
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-    const { messages } = await request.json();
+    const { messages, brief, sources, currentContent } = await req.json();
 
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: 'Messages array is required' },
-        { status: 400 }
-      );
-    }
+    const systemPrompt = `You are Hemmi, an intelligent writing assistant for the Write Nuton platform.
+    
+    CONTEXT:
+    - Topic: ${brief.topic}
+    - Document Type: ${brief.documentType}
+    - Academic Level: ${brief.academicLevel}
+    - Writing Style: ${brief.writingStyle}
+    
+    SOURCES:
+    ${sources.map((s: any) => `- ${s.title}: ${s.snippet}`).join("\n")}
+    
+    INSTRUCTIONS:
+    - Answer the user's questions based on the provided sources and context.
+    - If the user asks for specific information from a source, cite it.
+    - Keep responses concise and helpful.
+    - You can help with research, planning, and writing.
+    - If asked to write a section, use the specified writing style.
+    `;
 
-    // Get the last user message to check if we need to search
-    const lastMessage = messages[messages.length - 1];
-    const userQuery = lastMessage.content;
-
-    // Determine if we need to use Exa search based on the query
-    const needsSearch = shouldUseSearch(userQuery);
-
-    let contextFromSearch = '';
-
-    if (needsSearch) {
-      try {
-        // Use Exa to search for relevant information
-        const searchResults = await exa.searchAndContents(userQuery, {
-          type: 'auto',
-          numResults: 3,
-          text: true,
-        });
-
-        if (searchResults.results && searchResults.results.length > 0) {
-          contextFromSearch = '\n\nRelevant information from the web:\n' +
-            searchResults.results
-              .map((result: any, index: number) =>
-                `${index + 1}. ${result.title}\n${result.text?.substring(0, 500)}...\nSource: ${result.url}`
-              )
-              .join('\n\n');
-        }
-      } catch (searchError) {
-        console.error('Exa search error:', searchError);
-        // Continue without search results if search fails
-      }
-    }
-
-    // Prepare messages for Groq
-    const groqMessages = [...messages];
-
-    // If we have search context, add it to the last user message
-    if (contextFromSearch) {
-      groqMessages[groqMessages.length - 1] = {
-        ...lastMessage,
-        content: userQuery + contextFromSearch,
-      };
-    }
-
-    // Call Groq API with openai/gpt-oss-120b model
-    const completion = await groq.chat.completions.create({
-      messages: groqMessages,
-      model: 'openai/gpt-oss-120b',
-      temperature: 0.7,
-      max_tokens: 2048,
-      top_p: 1,
-      stream: false,
+    const result = await generateText({
+      model: groq("openai/gpt-oss-120b"),
+      system: systemPrompt,
+      messages,
     });
-
-    const assistantMessage = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
 
     return NextResponse.json({
-      message: assistantMessage,
-      usedSearch: needsSearch && contextFromSearch.length > 0,
+      role: "assistant",
+      content: result.text,
     });
-
-  } catch (error: any) {
-    console.error('Chat API error:', error);
+  } catch (error) {
+    console.error("Chat error:", error);
     return NextResponse.json(
-      { error: error.message || 'An error occurred while processing your request' },
+      { error: "Failed to process chat request" },
       { status: 500 }
     );
   }
-}
-
-// Helper function to determine if we should use search
-function shouldUseSearch(query: string): boolean {
-  const searchKeywords = [
-    'search',
-    'find',
-    'look up',
-    'what is',
-    'who is',
-    'when did',
-    'where is',
-    'how to',
-    'latest',
-    'current',
-    'recent',
-    'news',
-    'information about',
-  ];
-
-  const lowerQuery = query.toLowerCase();
-  return searchKeywords.some(keyword => lowerQuery.includes(keyword));
 }

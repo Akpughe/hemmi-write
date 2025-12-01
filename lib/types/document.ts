@@ -1,23 +1,23 @@
 // Type definitions for the autonomous writing tool
 
 export enum DocumentType {
-  REPORT = 'REPORT',
-  RESEARCH_PAPER = 'RESEARCH_PAPER',
-  ESSAY = 'ESSAY',
-  ASSIGNMENT = 'ASSIGNMENT',
+  REPORT = "REPORT",
+  RESEARCH_PAPER = "RESEARCH_PAPER",
+  ESSAY = "ESSAY",
 }
 
 export enum CitationStyle {
-  APA = 'APA',
-  MLA = 'MLA',
-  HARVARD = 'HARVARD',
-  CHICAGO = 'CHICAGO',
+  APA = "APA",
+  MLA = "MLA",
+  HARVARD = "HARVARD",
+  CHICAGO = "CHICAGO",
 }
 
 export enum AcademicLevel {
-  UNDERGRADUATE = 'UNDERGRADUATE',
-  GRADUATE = 'GRADUATE',        // DEFAULT
-  POSTGRADUATE = 'POSTGRADUATE'
+  UNDERGRADUATE = "UNDERGRADUATE",
+  GRADUATE = "GRADUATE", // DEFAULT
+  POSTGRADUATE = "POSTGRADUATE",
+  PROFESSIONAL = "PROFESSIONAL",
 }
 
 export interface AcademicLevelConfig {
@@ -26,15 +26,17 @@ export interface AcademicLevelConfig {
   description: string;
   icon: string;
   citationsPerSection: string;
-  technicalDepth: 'moderate' | 'high' | 'very-high';
+  technicalDepth: "moderate" | "high" | "very-high";
   analysisStyle: string;
 }
 
 export enum WritingStyle {
-  CHAPTER_BASED = 'CHAPTER_BASED',   // DEFAULT
-  SECTION_BASED = 'SECTION_BASED',
-  NARRATIVE = 'NARRATIVE',
-  TECHNICAL = 'TECHNICAL',
+  ANALYTICAL = "ANALYTICAL",
+  ARGUMENTATIVE = "ARGUMENTATIVE",
+  DESCRIPTIVE = "DESCRIPTIVE",
+  EXPOSITORY = "EXPOSITORY",
+  NARRATIVE = "NARRATIVE",
+  TECHNICAL = "TECHNICAL",
 }
 
 export interface WritingStyleConfig {
@@ -196,106 +198,138 @@ export interface DeepRegenerateResponse {
 export const DOCUMENT_TYPE_CONFIGS: Record<DocumentType, DocumentTypeConfig> = {
   [DocumentType.RESEARCH_PAPER]: {
     type: DocumentType.RESEARCH_PAPER,
-    label: 'Research Paper',
-    description: 'Academic research paper with methodology and analysis',
+    label: "Research Paper",
+    description: "Academic research paper with methodology and analysis",
     citationStyle: CitationStyle.APA,
-    structure: ['Abstract', 'Introduction', 'Methods', 'Results', 'Discussion', 'References'],
-    suggestedWordCountMin: 12000,
-    suggestedWordCountMax: 70000,
-    icon: '📄',
+    structure: [
+      "Abstract",
+      "Introduction",
+      "Methods",
+      "Results",
+      "Discussion",
+      "References",
+    ],
+    suggestedWordCountMin: 2000,
+    suggestedWordCountMax: 100000,
+    icon: "📄",
   },
   [DocumentType.ESSAY]: {
     type: DocumentType.ESSAY,
-    label: 'Essay',
-    description: 'Analytical or argumentative essay with thesis statement',
+    label: "Essay",
+    description: "Analytical or argumentative essay",
     citationStyle: CitationStyle.MLA,
-    structure: ['Introduction', 'Body Paragraphs', 'Conclusion', 'Works Cited'],
-    suggestedWordCountMin: 1000,
-    suggestedWordCountMax: 3000,
-    icon: '📝',
+    structure: ["Introduction", "Body Paragraphs", "Conclusion", "Works Cited"],
+    suggestedWordCountMin: 500,
+    suggestedWordCountMax: 5000,
+    icon: "📝",
   },
   [DocumentType.REPORT]: {
     type: DocumentType.REPORT,
-    label: 'Report',
-    description: 'Structured report with findings and recommendations',
+    label: "Report",
+    description: "Structured report with findings and recommendations",
     citationStyle: CitationStyle.HARVARD,
-    structure: ['Executive Summary', 'Introduction', 'Sections', 'Conclusion', 'References'],
-    suggestedWordCountMin: 2000,
-    suggestedWordCountMax: 5000,
-    icon: '📊',
-  },
-  [DocumentType.ASSIGNMENT]: {
-    type: DocumentType.ASSIGNMENT,
-    label: 'Assignment',
-    description: 'Academic assignment or coursework',
-    citationStyle: CitationStyle.CHICAGO,
-    structure: ['Introduction', 'Analysis', 'Conclusion', 'Bibliography'],
-    suggestedWordCountMin: 1500,
-    suggestedWordCountMax: 4000,
-    icon: '📚',
+    structure: [
+      "Executive Summary",
+      "Introduction",
+      "Background",
+      "Findings",
+      "Analysis",
+      "Recommendations",
+      "Conclusion",
+      "References",
+    ],
+    suggestedWordCountMin: 1000,
+    suggestedWordCountMax: 10000,
+    icon: "📊",
   },
 };
 
 // Academic level configurations
-export const ACADEMIC_LEVEL_CONFIGS: Record<AcademicLevel, AcademicLevelConfig> = {
+export const ACADEMIC_LEVEL_CONFIGS: Record<
+  AcademicLevel,
+  AcademicLevelConfig
+> = {
   [AcademicLevel.UNDERGRADUATE]: {
     level: AcademicLevel.UNDERGRADUATE,
-    label: 'Undergraduate',
-    description: 'Bachelor\'s level writing with foundational analysis',
-    icon: '🎓',
-    citationsPerSection: '2-3',
-    technicalDepth: 'moderate',
-    analysisStyle: 'Clear explanation with basic critical analysis',
+    label: "Undergraduate",
+    description: "Bachelor's level writing with foundational analysis",
+    icon: "🎓",
+    citationsPerSection: "2-3",
+    technicalDepth: "moderate",
+    analysisStyle: "Clear explanation with basic critical analysis",
   },
   [AcademicLevel.GRADUATE]: {
     level: AcademicLevel.GRADUATE,
-    label: 'Graduate (Masters)',
-    description: 'Advanced analysis with comprehensive citations',
-    icon: '📚',
-    citationsPerSection: '3-5',
-    technicalDepth: 'high',
-    analysisStyle: 'Critical synthesis with theoretical frameworks',
+    label: "Graduate (Masters)",
+    description: "Advanced analysis with comprehensive citations",
+    icon: "📚",
+    citationsPerSection: "3-5",
+    technicalDepth: "high",
+    analysisStyle: "Critical synthesis with theoretical frameworks",
   },
   [AcademicLevel.POSTGRADUATE]: {
     level: AcademicLevel.POSTGRADUATE,
-    label: 'Postgraduate (PhD)',
-    description: 'Original research-level depth and rigor',
-    icon: '🔬',
-    citationsPerSection: '5-8',
-    technicalDepth: 'very-high',
-    analysisStyle: 'Novel contributions with exhaustive literature review',
+    label: "Postgraduate (PhD)",
+    description: "Original research-level depth and rigor",
+    icon: "🔬",
+    citationsPerSection: "5-8",
+    technicalDepth: "very-high",
+    analysisStyle: "Novel contributions with exhaustive literature review",
+  },
+  [AcademicLevel.PROFESSIONAL]: {
+    level: AcademicLevel.PROFESSIONAL,
+    label: "Professional",
+    description: "Business-focused, actionable, and concise",
+    icon: "mj",
+    citationsPerSection: "minimal",
+    technicalDepth: "moderate",
+    analysisStyle: "Data-driven insights with strategic recommendations",
   },
 };
 
 // Writing style configurations
 export const WRITING_STYLE_CONFIGS: Record<WritingStyle, WritingStyleConfig> = {
-  [WritingStyle.CHAPTER_BASED]: {
-    style: WritingStyle.CHAPTER_BASED,
-    label: 'Chapter-based',
-    description: 'Traditional chapters (Chapter 1, Chapter 2, etc.)',
-    icon: '📖',
-    headingFormat: 'chapter',
+  [WritingStyle.ANALYTICAL]: {
+    style: WritingStyle.ANALYTICAL,
+    label: "Analytical",
+    description: "Focuses on analyzing and interpreting data or texts",
+    icon: "🔍",
+    headingFormat: "standard",
   },
-  [WritingStyle.SECTION_BASED]: {
-    style: WritingStyle.SECTION_BASED,
-    label: 'Section-based',
-    description: 'Descriptive headings without chapter numbers',
-    icon: '📑',
-    headingFormat: 'section',
+  [WritingStyle.ARGUMENTATIVE]: {
+    style: WritingStyle.ARGUMENTATIVE,
+    label: "Argumentative",
+    description: "Presents arguments and evidence to support a claim",
+    icon: "⚖️",
+    headingFormat: "standard",
+  },
+  [WritingStyle.DESCRIPTIVE]: {
+    style: WritingStyle.DESCRIPTIVE,
+    label: "Descriptive",
+    description: "Detailed description of a person, place, or event",
+    icon: "🎨",
+    headingFormat: "standard",
+  },
+  [WritingStyle.EXPOSITORY]: {
+    style: WritingStyle.EXPOSITORY,
+    label: "Expository",
+    description: "Explains or informs about a topic",
+    icon: "💡",
+    headingFormat: "standard",
   },
   [WritingStyle.NARRATIVE]: {
     style: WritingStyle.NARRATIVE,
-    label: 'Narrative Flow',
-    description: 'Essay-style with minimal structural breaks',
-    icon: '✍️',
-    headingFormat: 'minimal',
+    label: "Narrative",
+    description: "Tells a story or recounts events",
+    icon: "📖",
+    headingFormat: "minimal",
   },
   [WritingStyle.TECHNICAL]: {
     style: WritingStyle.TECHNICAL,
-    label: 'Technical/Professional',
-    description: 'Numbered sections (1.0, 1.1, 1.2)',
-    icon: '🔢',
-    headingFormat: 'numbered',
+    label: "Technical",
+    description: "Formal and objective technical writing",
+    icon: "⚙️",
+    headingFormat: "numbered",
   },
 };
 

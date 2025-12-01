@@ -1,5 +1,9 @@
-import Exa from 'exa-js';
-import { TargetedSearchResult, ResearchSource, DocumentType } from '@/lib/types/document';
+import Exa from "exa-js";
+import {
+  TargetedSearchResult,
+  ResearchSource,
+  DocumentType,
+} from "@/lib/types/document";
 
 const exa = new Exa(process.env.EXA_API_KEY);
 
@@ -20,7 +24,11 @@ export async function conductTargetedResearch(
   // Process searches sequentially to avoid rate limiting
   for (const query of searchQueries) {
     try {
-      const searchResult = await searchForQuery(query, documentType, existingSourceUrls);
+      const searchResult = await searchForQuery(
+        query,
+        documentType,
+        existingSourceUrls
+      );
       results.push(searchResult);
     } catch (error: any) {
       console.error(`Search failed for query "${query}":`, error);
@@ -51,7 +59,7 @@ async function searchForQuery(
 
   // Use Exa search with parameters optimized for additional research
   const searchResults = await exa.searchAndContents(enhancedQuery, {
-    type: 'neural',
+    type: "neural",
     useAutoprompt: true,
     numResults: 15, // Get 5 results per query (not overwhelming)
     text: {
@@ -71,11 +79,14 @@ async function searchForQuery(
     .slice(0, 4) // Take top 4 unique results
     .map((result: any, index: number) => {
       const author = extractAuthor(result);
-      const excerpt = result.highlights?.[0] || result.text?.substring(0, 500) || result.title;
+      const excerpt =
+        result.highlights?.[0] ||
+        result.text?.substring(0, 500) ||
+        result.title;
 
       return {
         id: result.id || `targeted-${Date.now()}-${index}`,
-        title: result.title || 'Untitled',
+        title: result.title || "Untitled",
         url: result.url,
         author,
         publishedDate: result.publishedDate,
@@ -98,27 +109,31 @@ async function searchForQuery(
 /**
  * Enhance search query based on document type
  */
-function enhanceQueryForDocumentType(query: string, documentType: DocumentType): string {
-  let prefix = '';
+function enhanceQueryForDocumentType(
+  query: string,
+  documentType: DocumentType
+): string {
+  let prefix = "";
 
   switch (documentType) {
     case DocumentType.RESEARCH_PAPER:
-      prefix = 'academic research';
+      prefix = "academic research";
       break;
     case DocumentType.ESSAY:
-      prefix = 'analysis';
+      prefix = "analysis";
       break;
     case DocumentType.REPORT:
-      prefix = 'comprehensive report';
-      break;
-    case DocumentType.ASSIGNMENT:
-      prefix = 'educational information';
+      prefix = "comprehensive report";
       break;
   }
 
   // Check if query already has similar prefix
   const lowerQuery = query.toLowerCase();
-  if (lowerQuery.includes('research') || lowerQuery.includes('academic') || lowerQuery.includes('study')) {
+  if (
+    lowerQuery.includes("research") ||
+    lowerQuery.includes("academic") ||
+    lowerQuery.includes("study")
+  ) {
     return query; // Already well-formed
   }
 
@@ -137,14 +152,14 @@ function extractAuthor(result: any): string | undefined {
     const url = new URL(result.url);
     const hostname = url.hostname;
 
-    if (hostname.includes('medium.com') && url.pathname.includes('@')) {
+    if (hostname.includes("medium.com") && url.pathname.includes("@")) {
       const authorMatch = url.pathname.match(/@([^/]+)/);
       if (authorMatch) {
         return authorMatch[1];
       }
     }
 
-    return hostname.replace('www.', '');
+    return hostname.replace("www.", "");
   } catch {
     return undefined;
   }
