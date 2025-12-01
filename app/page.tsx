@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PromptInput } from "@/app/components/landing/prompt-input";
 import { DocumentTypeSelector } from "@/app/components/landing/document-type-selector";
 import { OptionsPanel } from "@/app/components/landing/options-panel";
+import { ThemeToggle } from "@/app/components/ui/theme-toggle";
 import type { WritingBrief } from "@/lib/types/ui";
 
 export default function HomePage() {
@@ -46,6 +47,11 @@ export default function HomePage() {
           </div>
           <span className="text-foreground/80 font-medium">Write Nuton</span>
         </div>
+      </div>
+
+      {/* Theme toggle */}
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
       </div>
 
       <div className="w-full max-w-2xl flex flex-col items-center gap-8">

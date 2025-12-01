@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, Dispatch, SetStateAction } from "react";
+import {
+  useEffect,
+  useState,
+  Dispatch,
+  SetStateAction,
+  useCallback,
+} from "react";
 import type {
   DocumentPlan,
   WorkflowStep,
@@ -242,7 +248,7 @@ export function EditorPanel({
   };
 
   // Handle chapter approval
-  const handleApproveChapter = () => {
+  const handleApproveChapter = useCallback(() => {
     if (!plan) return;
 
     // Mark current section as complete
@@ -293,12 +299,14 @@ export function EditorPanel({
       setIsWriting(false);
       onStepChange("complete");
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, currentChapterIndex, content, currentChapterContent, onStepChange]);
 
   // Handle chapter rejection (regenerate)
-  const handleRejectChapter = () => {
+  const handleRejectChapter = useCallback(() => {
     generateChapter(currentChapterIndex);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentChapterIndex]);
 
   const generateDocument = async () => {
     if (!plan) return;
