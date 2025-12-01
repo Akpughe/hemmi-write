@@ -3,6 +3,7 @@
 import { ArrowLeft, Check, Circle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/button";
+import { ThemeToggle } from "@/app/components/ui/theme-toggle";
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +82,9 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
           );
         })}
       </div>
-      <div className="w-[120px]" /> {/* Spacer for balance */}
+      <div className="flex items-center">
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

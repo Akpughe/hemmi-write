@@ -3,6 +3,7 @@ import { Inter, Lora } from "next/font/google";
 import "./globals.css";
 import { EditorProvider } from "@/lib/contexts/EditorContext";
 import { ThemeProvider } from "@/app/components/theme-provider";
+import SupabaseProvider from "@/lib/context/SupabaseContext";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -28,19 +29,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${lora.variable} antialiased`}
         style={{ fontFamily: "var(--font-inter)" }}>
-        <EditorProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange>
-            {children}
-          </ThemeProvider>
-        </EditorProvider>
+        <SupabaseProvider>
+          <EditorProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange>
+              {children}
+            </ThemeProvider>
+          </EditorProvider>
+        </SupabaseProvider>
       </body>
     </html>
   );
