@@ -10,6 +10,8 @@ import {
   Loader2,
   Copy,
   Plus,
+  X,
+  Quote,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
@@ -18,6 +20,8 @@ import { cn } from "@/lib/utils";
 interface RightPanelProps {
   brief: WritingBrief;
   currentStep: WorkflowStep;
+  askAIContext?: string | null;
+  onClearContext?: () => void;
 }
 
 interface Message {
@@ -41,7 +45,12 @@ const academicLevelLabels = {
   professional: "Professional",
 };
 
-export function RightPanel({ brief, currentStep }: RightPanelProps) {
+export function RightPanel({
+  brief,
+  currentStep,
+  askAIContext,
+  onClearContext,
+}: RightPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -70,9 +79,15 @@ export function RightPanel({ brief, currentStep }: RightPanelProps) {
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: askAIContext
+        ? `[Context: "${askAIContext}"]\n\n${input}`
+        : input,
       timestamp: new Date(),
     };
+
+    if (askAIContext && onClearContext) {
+      onClearContext();
+    }
 
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
@@ -171,6 +186,22 @@ export function RightPanel({ brief, currentStep }: RightPanelProps) {
 
         {/* Input Area */}
         <div className="shrink-0 p-4 border-t border-border bg-card">
+          {askAIContext && (
+            <div className="mb-3 p-3 bg-muted/50 rounded-lg border border-border relative group">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1">
+                <Quote className="w-3 h-3" />
+                <span>Selected Context</span>
+              </div>
+              <p className="text-sm text-foreground line-clamp-3 italic">
+                "{askAIContext}"
+              </p>
+              <button
+                onClick={onClearContext}
+                className="absolute -top-2 -right-2 p-1 bg-background border border-border rounded-full shadow-sm hover:bg-muted transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="relative">
             <input
               type="text"

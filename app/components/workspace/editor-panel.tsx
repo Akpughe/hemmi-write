@@ -46,6 +46,7 @@ interface EditorPanelProps {
     reject: () => void;
   }) => void;
   onStepChange: (step: WorkflowStep) => void;
+  onAskAI?: (text: string) => void;
 }
 
 export function EditorPanel({
@@ -58,6 +59,7 @@ export function EditorPanel({
   sources,
   setChapterHandlers,
   onStepChange,
+  onAskAI,
 }: EditorPanelProps) {
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -87,14 +89,18 @@ export function EditorPanel({
   const generateTOCHtml = useCallback(() => {
     if (!plan?.tableOfContents?.items) return "";
 
-    let tocHtml = '<div class="table-of-contents" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem;">';
-    tocHtml += '<h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;">Table of Contents</h2>';
+    let tocHtml =
+      '<div class="table-of-contents" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem;">';
+    tocHtml +=
+      '<h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;">Table of Contents</h2>';
     tocHtml += '<div style="line-height: 1.8;">';
 
     plan.tableOfContents.items.forEach((item) => {
       if (item.level === 1) {
         // Main chapter/section
-        const numberPrefix = item.sectionNumber ? `${item.sectionNumber}. ` : "";
+        const numberPrefix = item.sectionNumber
+          ? `${item.sectionNumber}. `
+          : "";
         tocHtml += `<div style="font-weight: 600; margin-top: 0.75rem;">${numberPrefix}${item.title}</div>`;
       } else if (item.level === 2) {
         // Subsection
@@ -102,7 +108,7 @@ export function EditorPanel({
       }
     });
 
-    tocHtml += '</div></div>';
+    tocHtml += "</div></div>";
     return tocHtml;
   }, [plan]);
 
@@ -160,9 +166,10 @@ export function EditorPanel({
           : approvedContent;
 
       const section = plan.sections[chapterIndex];
-      const isReferencesSection = section.title.toLowerCase().includes("references") ||
-                                   section.title.toLowerCase().includes("works cited") ||
-                                   section.title.toLowerCase().includes("bibliography");
+      const isReferencesSection =
+        section.title.toLowerCase().includes("references") ||
+        section.title.toLowerCase().includes("works cited") ||
+        section.title.toLowerCase().includes("bibliography");
 
       // Handle References section specially
       if (isReferencesSection) {
@@ -181,22 +188,27 @@ export function EditorPanel({
 
           // Get citation style from brief, default to APA
           const citationStyleMap: Record<string, CitationStyle> = {
-            "APA": CitationStyle.APA,
-            "MLA": CitationStyle.MLA,
-            "HARVARD": CitationStyle.HARVARD,
-            "CHICAGO": CitationStyle.CHICAGO,
+            APA: CitationStyle.APA,
+            MLA: CitationStyle.MLA,
+            HARVARD: CitationStyle.HARVARD,
+            CHICAGO: CitationStyle.CHICAGO,
           };
           const citationStyle = citationStyleMap[brief.citationStyle || "APA"];
 
           // Generate references markdown
-          const referencesMarkdown = generateReferenceList(apiSources, citationStyle);
+          const referencesMarkdown = generateReferenceList(
+            apiSources,
+            citationStyle
+          );
 
           // Convert to HTML
           const htmlContent = await marked.parse(referencesMarkdown);
           setCurrentChapterContent(htmlContent);
 
           // Update editor with approved + references
-          setContent(startText ? startText + "\n\n" + htmlContent : htmlContent);
+          setContent(
+            startText ? startText + "\n\n" + htmlContent : htmlContent
+          );
 
           // Set status to review
           updateSectionStatus(chapterIndex, "review");
@@ -318,7 +330,9 @@ export function EditorPanel({
 
         // Update editor with approved + current formatted chapter
         // Use startText (which includes preamble) + new content
-        setContent(startText ? startText + "\n\n" + finalContent : finalContent);
+        setContent(
+          startText ? startText + "\n\n" + finalContent : finalContent
+        );
 
         // Set status to review
         updateSectionStatus(chapterIndex, "review");
@@ -659,6 +673,7 @@ export function EditorPanel({
             content={content}
             onChange={setContent}
             editable={!isWriting && !showChapterReview}
+            onAskAI={onAskAI}
           />
         </div>
 
