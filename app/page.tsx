@@ -13,6 +13,7 @@ export default function HomePage() {
     documentType: "research-paper",
     academicLevel: "undergraduate",
     writingStyle: "analytical",
+    citationStyle: "APA",
     includeSources: true,
   });
   const [topic, setTopic] = useState("");
@@ -29,6 +30,7 @@ export default function HomePage() {
       documentType: brief.documentType || "research-paper",
       academicLevel: brief.academicLevel || "undergraduate",
       writingStyle: brief.writingStyle || "analytical",
+      citationStyle: brief.citationStyle || "APA",
       includeSources: brief.includeSources ?? true,
       chapters: brief.chapters,
     };
