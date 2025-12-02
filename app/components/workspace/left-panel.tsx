@@ -177,6 +177,7 @@ export function LeftPanel({
       const mappedPlan: DocumentPlan = {
         title: apiStructure.title,
         approach: apiStructure.approach,
+        tableOfContents: apiStructure.tableOfContents,
         tone: apiStructure.tone,
         sections: apiStructure.sections.map((s: any, i: number) => ({
           id: `section-${i}`,
@@ -185,6 +186,8 @@ export function LeftPanel({
           status: "pending",
         })),
       };
+
+      console.log("mappedPlan", mappedPlan);
 
       setPlan(mappedPlan);
     } catch (error) {
@@ -382,9 +385,9 @@ export function LeftPanel({
               </div>
             )}
 
-            {sources.map((source) => (
+            {sources.map((source, index) => (
               <div
-                key={source.id}
+                key={`${index}-${source.id}`}
                 className={cn(
                   "p-3 rounded-lg border transition-all cursor-pointer group",
                   source.selected
