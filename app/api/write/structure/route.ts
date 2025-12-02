@@ -383,8 +383,75 @@ export async function POST(req: NextRequest) {
       }),
       prompt,
     });
+      if (isResearchPaper) {
+    result.object.sections.push({
+      heading: "References",
+      keyPoints: [], // Empty keyPoints since References is auto-generated from citations
+    });
+  }
 
-    return NextResponse.json({ structure: result.object });
+    // Generate Table of Contents from sections
+    const tocItems: any[] = [];
+    let chapterNumber = 0; // Track chapter numbers separately from index
+
+    result.object.sections.forEach((section, index) => {
+      // Check if this is an Abstract (should not be numbered)
+      const isAbstract = section.heading.toLowerCase().includes("abstract");
+
+      // Increment chapter number only for non-abstract sections
+      if (!isAbstract && isResearchPaper) {
+        chapterNumber++;
+      }
+
+      // Add chapter/section as level 1
+      tocItems.push({
+        level: 1,
+        title: section.heading,
+        sectionNumber: isResearchPaper && !isAbstract ? `${chapterNumber}` : undefined,
+      });
+
+      // Add subsections/keyPoints as level 2 for research papers
+      if (isResearchPaper && section.keyPoints && section.keyPoints.length > 0) {
+        section.keyPoints.forEach((keyPoint, subIndex) => {
+          // Extract or generate subsection number
+          let subsectionTitle = keyPoint;
+
+          // Check if keyPoint already has numbering (e.g., "1.1 Title" or "1.1. Title")
+          const hasNumbering = /^\d+\.\d+[\.\s]/.test(keyPoint);
+
+          // If not numbered and not abstract, add subsection numbering
+          if (!hasNumbering && !isAbstract) {
+            subsectionTitle = `${chapterNumber}.${subIndex + 1} ${keyPoint}`;
+          }
+
+          tocItems.push({
+            level: 2,
+            title: subsectionTitle,
+            sectionNumber: undefined,
+          });
+        });
+      }
+    });
+
+    // Add References to TOC for Research Papers
+    if (isResearchPaper) {
+      tocItems.push({
+        level: 1,
+        title: "References",
+        sectionNumber: undefined,
+      });
+    }
+
+    const tableOfContents = {
+      items: tocItems,
+    };
+
+    return NextResponse.json({
+      structure: {
+        ...result.object,
+        tableOfContents,
+      },
+    });
   } catch (error) {
     console.error("Structure generation error:", error);
     return NextResponse.json(
