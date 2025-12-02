@@ -162,8 +162,11 @@ WRITING REQUIREMENTS:
        : "- Synthesize and conclude the entire document"
    }
 
-4. CONTENT DEPTH:
-   - Write approximately ${targetWordCount} words total for this chapter
+4. CONTENT DEPTH & WORD COUNT REQUIREMENT:
+   - Write ${targetWordCount} words for this chapter (±10% tolerance acceptable)
+   - Target range: ${Math.floor(targetWordCount * 0.9)}-${Math.ceil(targetWordCount * 1.1)} words
+   - Expand analysis and add substantive evidence-based discussion to reach target
+   - Do NOT pad with fluff - add depth to your analysis
    - Each subsection should include:
      * Clear topic sentences
      * Evidence from sources with citations
@@ -202,8 +205,21 @@ Begin writing now:`;
   return prompt;
 }
 
-function getSystemMessage(academicLevel: AcademicLevel): string {
+function getSystemMessage(academicLevel: AcademicLevel, isAbstract: boolean = false): string {
   const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
+
+  if (isAbstract) {
+    return `You are an expert academic writer specializing in ${levelConfig.label.toLowerCase()}-level research papers.
+
+Your task is to write a concise, well-structured abstract that:
+- Summarizes the research in a single cohesive paragraph
+- Uses clear, professional academic language
+- Follows standard abstract conventions (background, objectives, methodology, findings, conclusions)
+- Does NOT include citations (abstracts are standalone summaries)
+- Maintains the appropriate academic tone and depth for ${levelConfig.label.toLowerCase()}-level work
+
+Write the abstract directly without preamble or meta-commentary. Just provide the abstract content itself.`;
+  }
 
   return `You are an expert academic writer specializing in ${levelConfig.label.toLowerCase()}-level research papers. Your writing demonstrates:
 
@@ -272,14 +288,14 @@ export async function POST(request: NextRequest) {
       }))
     );
 
-    // Smart context truncation: Keep only last 2000 words of previous chapters
+    // Smart context truncation: Keep only last 3500 words of previous chapters for better consistency
     let truncatedContext = previousChaptersText || "";
     if (truncatedContext) {
       const words = truncatedContext.split(/\s+/);
-      if (words.length > 2000) {
+      if (words.length > 3500) {
         truncatedContext =
           "...(earlier content omitted for brevity)...\n\n" +
-          words.slice(-2000).join(" ");
+          words.slice(-3500).join(" ");
       }
     }
 
@@ -300,7 +316,18 @@ export async function POST(request: NextRequest) {
       documentTone
     );
 
-    const systemMessage = getSystemMessage(academicLevel);
+    const isAbstract = chapter.heading.toLowerCase().includes("abstract");
+    const systemMessage = getSystemMessage(academicLevel, isAbstract);
+
+    // Calculate dynamic token limit based on target word count
+    // Formula: 1.33 tokens/word + 20% buffer for formatting
+    const targetWordCount = chapter.estimatedWordCount || 5000;
+    const estimatedTokens = Math.ceil(targetWordCount * 1.33 * 1.2);
+
+    // Cap at model limits but allow much higher than current 8000
+    const maxTokenLimit = Math.min(estimatedTokens, 16000);
+
+    console.log(`Chapter ${chapterIndex + 1}: Target ${targetWordCount} words, using ${maxTokenLimit} tokens`);
 
     // Create streaming response
     const encoder = new TextEncoder();
@@ -315,7 +342,7 @@ export async function POST(request: NextRequest) {
               { role: "user", content: userPrompt },
             ],
             0.7,
-            8000
+            maxTokenLimit
           )) {
             if (chunk.done) {
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;
