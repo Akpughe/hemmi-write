@@ -1,15 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PromptInput } from "@/app/components/landing/prompt-input";
 import { DocumentTypeSelector } from "@/app/components/landing/document-type-selector";
 import { OptionsPanel } from "@/app/components/landing/options-panel";
 import { ThemeToggle } from "@/app/components/ui/theme-toggle";
+import { Button } from "@/app/components/ui/button";
+import { AuthModal } from "@/app/components/auth/auth-modal";
+import { useSupabase } from "@/lib/context/SupabaseContext";
 import type { WritingBrief } from "@/lib/types/ui";
+
+import { UserMenu } from "@/app/components/auth/user-menu";
 
 export default function HomePage() {
   const router = useRouter();
+  const { session } = useSupabase();
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authNextPath, setAuthNextPath] = useState<string | null>(null);
   const [brief, setBrief] = useState<Partial<WritingBrief>>({
     documentType: "research-paper",
     academicLevel: "undergraduate",
@@ -19,11 +27,37 @@ export default function HomePage() {
   });
   const [topic, setTopic] = useState("");
   const [instructions, setInstructions] = useState("");
+  const hasRestoredRef = useRef(false);
 
-  const handleSubmit = () => {
-    if (!topic.trim()) return;
+  // Restore saved data when component mounts (for display purposes only)
+  // Navigation is handled by auth callback or handleSubmit
+  useEffect(() => {
+    // Only run once on mount
+    if (hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
 
-    // Store brief in sessionStorage and navigate to workspace
+    const savedBrief = localStorage.getItem("writingBrief");
+    if (savedBrief) {
+      try {
+        const parsedBrief: WritingBrief = JSON.parse(savedBrief);
+        setBrief({
+          documentType: parsedBrief.documentType,
+          academicLevel: parsedBrief.academicLevel,
+          writingStyle: parsedBrief.writingStyle,
+          citationStyle: parsedBrief.citationStyle,
+          includeSources: parsedBrief.includeSources,
+          chapters: parsedBrief.chapters,
+        });
+        setTopic(parsedBrief.topic || "");
+        setInstructions(parsedBrief.instructions || "");
+      } catch (error) {
+        console.error("Failed to restore saved brief:", error);
+      }
+    }
+  }, []);
+
+  const saveBrief = () => {
+    // Store brief in localStorage (survives OAuth redirects)
     const fullBrief: WritingBrief = {
       ...brief,
       topic,
@@ -35,12 +69,36 @@ export default function HomePage() {
       includeSources: brief.includeSources ?? true,
       chapters: brief.chapters,
     };
-    sessionStorage.setItem("writingBrief", JSON.stringify(fullBrief));
-    router.push("/workspace");
+    localStorage.setItem("writingBrief", JSON.stringify(fullBrief));
+  };
+
+  const handleSubmit = () => {
+    if (!topic.trim()) return;
+
+    saveBrief();
+
+    if (!session) {
+      setAuthNextPath("/workspace");
+      setIsAuthModalOpen(true);
+    } else {
+      router.push("/workspace");
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    setIsAuthModalOpen(false);
+    if (authNextPath) {
+      router.push(authNextPath);
+    }
+  };
+
+  const handleLoginClick = () => {
+    setAuthNextPath(null); // Stay on page after login
+    setIsAuthModalOpen(true);
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative">
       {/* Logo mark */}
       <div className="absolute top-6 left-6">
         <div className="flex items-center gap-2">
@@ -51,8 +109,15 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Theme toggle */}
-      <div className="absolute top-6 right-6">
+      {/* Header Actions */}
+      <div className="absolute top-6 right-6 flex items-center gap-4">
+        {session ? (
+          <UserMenu session={session} />
+        ) : (
+          <Button variant="ghost" onClick={handleLoginClick}>
+            Log in
+          </Button>
+        )}
         <ThemeToggle />
       </div>
 
@@ -90,6 +155,13 @@ export default function HomePage() {
           onUpdate={(updates) => setBrief({ ...brief, ...updates })}
         />
       </div>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+        nextPath={authNextPath}
+      />
     </main>
   );
 }
