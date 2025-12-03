@@ -75,10 +75,57 @@ export function EditorPanel({
   }, [content]);
 
   // Configure marked for better formatting
-  marked.setOptions({
+  marked.use({
     breaks: true, // Convert \n to <br>
     gfm: true, // GitHub Flavored Markdown
+    headerIds: false, // Don't add IDs to headings
+    mangle: false, // Don't escape emails
   });
+
+  // Custom renderer to add proper spacing classes to AI-generated content
+  const renderer = new marked.Renderer();
+
+  // Override paragraph rendering
+  renderer.paragraph = (token: any) => {
+    return `<p class="mb-5 leading-relaxed">${token.text}</p>`;
+  };
+
+  // Override heading rendering with proper spacing
+  renderer.heading = (token: any) => {
+    const spacingClasses = {
+      1: "text-4xl leading-tight mb-6 mt-8 font-bold tracking-tight",
+      2: "text-3xl leading-snug mb-5 mt-8 font-bold tracking-tight",
+      3: "text-2xl leading-snug mb-4 mt-6 font-bold tracking-tight",
+      4: "text-xl leading-normal mb-3 mt-5 font-bold tracking-tight",
+      5: "text-lg leading-normal mb-3 mt-4 font-bold tracking-tight",
+      6: "text-base leading-normal mb-2 mt-4 font-semibold tracking-tight",
+    };
+
+    const classes =
+      spacingClasses[token.depth as keyof typeof spacingClasses] ||
+      spacingClasses[1];
+    return `<h${token.depth} class="${classes}">${token.text}</h${token.depth}>`;
+  };
+
+  // Override list rendering
+  renderer.list = (token: any) => {
+    const tag = token.ordered ? "ol" : "ul";
+    const classes = token.ordered ? "mb-5 mt-2" : "mb-5 mt-2 list-disc";
+    return `<${tag} class="${classes}">${token.items}</${tag}>`;
+  };
+
+  // Override list item rendering
+  renderer.listitem = (token: any) => {
+    return `<li class="mb-2 leading-relaxed">${token.text}</li>`;
+  };
+
+  // Override blockquote rendering
+  renderer.blockquote = (token: any) => {
+    return `<blockquote class="border-l-4 border-accent pl-4 pr-4 italic text-muted-foreground my-6">${token.text}</blockquote>`;
+  };
+
+  // Apply custom renderer
+  marked.use({ renderer });
 
   // Helper to check if a section is an abstract
   const isAbstractSection = (sectionTitle: string) => {

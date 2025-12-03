@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -119,4 +120,111 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ===================================================================
+   TipTap Editor Enhanced Prose Styles - Google Docs Quality
+   =================================================================== */
+
+.tiptap-editor {
+  /* Base typography settings */
+  @apply prose prose-lg max-w-none;
+  @apply font-serif text-foreground;
+  @apply focus:outline-none;
+  @apply min-h-[500px] px-12 py-8;
+
+  /* Heading base styles */
+  @apply prose-headings:font-bold prose-headings:tracking-tight prose-headings:text-foreground;
+
+  /* Heading 1 - Title style */
+  @apply prose-h1:text-4xl prose-h1:leading-tight;
+  @apply prose-h1:mb-6 prose-h1:mt-8;
+
+  /* Heading 2 - Major sections */
+  @apply prose-h2:text-3xl prose-h2:leading-snug;
+  @apply prose-h2:mb-5 prose-h2:mt-8;
+
+  /* Heading 3 - Subsections */
+  @apply prose-h3:text-2xl prose-h3:leading-snug;
+  @apply prose-h3:mb-4 prose-h3:mt-6;
+
+  /* Heading 4 - Sub-subsections */
+  @apply prose-h4:text-xl prose-h4:leading-normal;
+  @apply prose-h4:mb-3 prose-h4:mt-5;
+
+  /* Heading 5 - Minor headings */
+  @apply prose-h5:text-lg prose-h5:leading-normal;
+  @apply prose-h5:mb-3 prose-h5:mt-4;
+
+  /* Heading 6 - Smallest headings */
+  @apply prose-h6:text-base prose-h6:leading-normal prose-h6:font-semibold;
+  @apply prose-h6:mb-2 prose-h6:mt-4;
+
+  /* Paragraph spacing - Google Docs uses generous spacing */
+  @apply prose-p:mb-5 prose-p:mt-0;
+  @apply prose-p:leading-relaxed;
+
+  /* List styling and spacing */
+  @apply prose-ul:mb-5 prose-ul:mt-2 prose-ul:list-disc;
+  @apply prose-ol:mb-5 prose-ol:mt-2;
+  @apply prose-li:mb-2 prose-li:leading-relaxed;
+
+  /* Nested list spacing */
+  @apply prose-li:prose-ul:mt-2 prose-li:prose-ol:mt-2;
+
+  /* Blockquote styling */
+  @apply prose-blockquote:border-l-4 prose-blockquote:border-accent;
+  @apply prose-blockquote:pl-4 prose-blockquote:pr-4;
+  @apply prose-blockquote:italic prose-blockquote:text-muted-foreground;
+  @apply prose-blockquote:my-6;
+
+  /* Strong (bold) text */
+  @apply prose-strong:font-bold prose-strong:text-foreground;
+
+  /* Emphasis (italic) text */
+  @apply prose-em:italic;
+
+  /* Links */
+  @apply prose-a:text-accent prose-a:underline;
+  @apply prose-a:hover:text-accent/80;
+
+  /* Code (if using code blocks) */
+  @apply prose-code:bg-muted prose-code:px-1 prose-code:py-0.5;
+  @apply prose-code:rounded prose-code:text-sm;
+}
+
+/* First element should have no top margin */
+.tiptap-editor > *:first-child {
+  margin-top: 0 !important;
+}
+
+/* Last element should have no bottom margin */
+.tiptap-editor > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Text alignment utilities (TipTap applies these via data attributes) */
+.tiptap-editor [data-text-align="left"] {
+  text-align: left;
+}
+
+.tiptap-editor [data-text-align="center"] {
+  text-align: center;
+}
+
+.tiptap-editor [data-text-align="right"] {
+  text-align: right;
+}
+
+.tiptap-editor [data-text-align="justify"] {
+  text-align: justify;
+}
+
+/* Placeholder styling */
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  @apply text-muted-foreground;
 }
