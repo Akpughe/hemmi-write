@@ -78,6 +78,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check if we got any results
+    if (!searchResults) {
+      console.warn("No search results found");
+      return NextResponse.json({
+        sources: [],
+        query: enhancedQuery,
+      });
+    }
+
     // Transform Exa results into our ResearchSource format
     const sources: ResearchSource[] = searchResults.results.map(
       (result: any, index: number) => {

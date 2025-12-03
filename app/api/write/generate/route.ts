@@ -88,9 +88,9 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
     // Calculate dynamic token limit based on target word count
-    const estimatedTokens = Math.ceil(wordCount * 1.33 * 1.2);
+    const estimatedTokens = Math.ceil((wordCount ?? 3000) * 1.33 * 1.2);
     const maxTokenLimit = Math.min(estimatedTokens, 16000);
-    console.log(`Traditional mode: Target ${wordCount} words, using ${maxTokenLimit} tokens`);
+    console.log(`Traditional mode: Target ${wordCount ?? 3000} words, using ${maxTokenLimit} tokens`);
 
     const stream = new ReadableStream({
       async start(controller) {

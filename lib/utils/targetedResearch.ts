@@ -107,6 +107,16 @@ async function searchForQuery(
     }
   }
 
+  // Check if we got any results
+  if (!searchResults) {
+    console.warn(`No search results found for query: ${query}`);
+    return {
+      query: enhancedQuery,
+      sources: [],
+      rationale: `Search for "${query}" did not return any results.`,
+    };
+  }
+
   // Transform and filter results
   const sources: ResearchSource[] = searchResults.results
     .filter((result: any) => {

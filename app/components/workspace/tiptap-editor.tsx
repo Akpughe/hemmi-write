@@ -24,7 +24,6 @@ import { useState } from "react";
 interface TiptapEditorProps {
   content: string;
   onChange: (content: string) => void;
-  onChange: (content: string) => void;
   editable?: boolean;
   onAskAI?: (text: string) => void;
 }

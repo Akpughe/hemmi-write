@@ -184,6 +184,7 @@ export function EditorPanel({
               excerpt: s.snippet || "",
               author: s.author,
               publishedDate: s.publishedDate,
+              selected: true, // All filtered sources are selected
             }));
 
           // Get citation style from brief, default to APA
