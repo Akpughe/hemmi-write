@@ -30,6 +30,11 @@ export function WorkspaceLayout({
     approve: () => void;
     reject: () => void;
   } | null>(null);
+  const [askAIContext, setAskAIContext] = useState<string | null>(null);
+
+  const handleAskAI = (text: string) => {
+    setAskAIContext(text);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -59,10 +64,16 @@ export function WorkspaceLayout({
           sources={sources}
           setChapterHandlers={setChapterHandlers}
           onStepChange={onStepChange}
+          onAskAI={handleAskAI}
         />
 
         {/* Right Panel - Brief & Chat */}
-        <RightPanel brief={brief} currentStep={currentStep} />
+        <RightPanel
+          brief={brief}
+          currentStep={currentStep}
+          askAIContext={askAIContext}
+          onClearContext={() => setAskAIContext(null)}
+        />
       </div>
     </div>
   );

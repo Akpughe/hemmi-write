@@ -87,6 +87,11 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
 
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
+    // Calculate dynamic token limit based on target word count
+    const estimatedTokens = Math.ceil((wordCount ?? 3000) * 1.33 * 1.2);
+    const maxTokenLimit = Math.min(estimatedTokens, 16000);
+    console.log(`Traditional mode: Target ${wordCount ?? 3000} words, using ${maxTokenLimit} tokens`);
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
@@ -98,7 +103,7 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
               { role: "user", content: userPrompt },
             ],
             0.7,
-            8000
+            maxTokenLimit
           )) {
             if (chunk.done) {
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;

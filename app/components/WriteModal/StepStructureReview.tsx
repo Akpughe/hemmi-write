@@ -294,6 +294,47 @@ export default function StepStructureReview({
           <h4 className="font-semibold text-gray-700 mb-3">
             Document Structure
           </h4>
+
+          {/* Table of Contents Preview */}
+          {(structure.tableOfContents || structure.sections.length > 0) && (
+            <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-gray-500" />
+                Table of Contents
+              </h5>
+              <div className="space-y-1 pl-1">
+                {(
+                  structure.tableOfContents?.items ||
+                  structure.sections.map((section, index) => ({
+                    level: 1,
+                    title: section.heading,
+                    sectionNumber:
+                      documentType === "RESEARCH_PAPER"
+                        ? `${index + 1}`
+                        : undefined,
+                  }))
+                ).map((item, idx) => (
+                  <div key={idx} className="text-sm text-gray-700 font-mono">
+                    <span className="text-gray-400 mr-2">
+                      {item.sectionNumber || "•"}
+                    </span>
+                    {item.title}
+                  </div>
+                ))}
+                {/* Always show References for Research Papers if not already in list */}
+                {documentType === "RESEARCH_PAPER" &&
+                  !(structure.tableOfContents?.items || []).some((i) =>
+                    i.title.toLowerCase().includes("references")
+                  ) && (
+                    <div className="text-sm text-gray-700 font-mono">
+                      <span className="text-gray-400 mr-2">•</span>
+                      References
+                    </div>
+                  )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
             {structure.sections.map((section, index) => (
               <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, Dispatch, SetStateAction } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  Dispatch,
+  SetStateAction,
+} from "react";
 import type {
   DocumentPlan,
   WorkflowStep,
@@ -19,7 +25,10 @@ import {
   DocumentType,
   AcademicLevel,
   WritingStyle,
+  CitationStyle,
+  ResearchSource,
 } from "@/lib/types/document";
+import { generateReferenceList } from "@/lib/utils/citations";
 import { marked } from "marked";
 
 interface EditorPanelProps {
@@ -37,6 +46,7 @@ interface EditorPanelProps {
     reject: () => void;
   }) => void;
   onStepChange: (step: WorkflowStep) => void;
+  onAskAI?: (text: string) => void;
 }
 
 export function EditorPanel({
@@ -49,6 +59,7 @@ export function EditorPanel({
   sources,
   setChapterHandlers,
   onStepChange,
+  onAskAI,
 }: EditorPanelProps) {
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -74,6 +85,33 @@ export function EditorPanel({
     return sectionTitle.toLowerCase().includes("abstract");
   };
 
+  // Helper to generate Table of Contents HTML
+  const generateTOCHtml = useCallback(() => {
+    if (!plan?.tableOfContents?.items) return "";
+
+    let tocHtml =
+      '<div class="table-of-contents" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem;">';
+    tocHtml +=
+      '<h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;">Table of Contents</h2>';
+    tocHtml += '<div style="line-height: 1.8;">';
+
+    plan.tableOfContents.items.forEach((item) => {
+      if (item.level === 1) {
+        // Main chapter/section
+        const numberPrefix = item.sectionNumber
+          ? `${item.sectionNumber}. `
+          : "";
+        tocHtml += `<div style="font-weight: 600; margin-top: 0.75rem;">${numberPrefix}${item.title}</div>`;
+      } else if (item.level === 2) {
+        // Subsection
+        tocHtml += `<div style="margin-left: 1.5rem; color: #6b7280;">${item.title}</div>`;
+      }
+    });
+
+    tocHtml += "</div></div>";
+    return tocHtml;
+  }, [plan]);
+
   // Helper to get display name for a section
   const getSectionDisplayName = (index: number) => {
     if (!plan) return "";
@@ -90,159 +128,240 @@ export function EditorPanel({
   };
 
   // Update section status in the left panel
-  const updateSectionStatus = (
-    index: number,
-    status: "pending" | "writing" | "review" | "complete"
-  ) => {
-    setPlan((prevPlan) => {
-      if (!prevPlan) return prevPlan;
-      return {
-        ...prevPlan,
-        sections: prevPlan.sections.map((section, i) =>
-          i === index ? { ...section, status } : section
-        ),
-      };
-    });
-  };
+  const updateSectionStatus = useCallback(
+    (index: number, status: "pending" | "writing" | "review" | "complete") => {
+      setPlan((prevPlan) => {
+        if (!prevPlan) return prevPlan;
+        return {
+          ...prevPlan,
+          sections: prevPlan.sections.map((section, i) =>
+            i === index ? { ...section, status } : section
+          ),
+        };
+      });
+    },
+    [setPlan]
+  );
 
   // Generate a single chapter
-  const generateChapter = async (
-    chapterIndex: number,
-    startTextOverride?: string
-  ) => {
-    if (!plan) return;
+  const generateChapter = useCallback(
+    async (chapterIndex: number, startTextOverride?: string) => {
+      if (!plan) return;
 
-    setIsWriting(true);
-    setCurrentChapterContent("");
-    setShowChapterReview(false);
-    updateSectionStatus(chapterIndex, "writing");
+      setIsWriting(true);
+      setCurrentChapterContent("");
+      setShowChapterReview(false);
+      updateSectionStatus(chapterIndex, "writing");
 
-    // Determine the starting text (preamble or previously approved content)
-    // Priority:
-    // 1. Explicit override (passed from handleApproveChapter to avoid stale state)
-    // 2. If first chapter, use current editor content (preamble)
-    // 3. Fallback to approvedContent state
-    const startText =
-      startTextOverride !== undefined
-        ? startTextOverride
-        : chapterIndex === 0
-        ? content
-        : approvedContent;
-
-    // Start async generation
-    try {
-      const apiSources = sources
-        .filter((s) => s.selected)
-        .map((s) => ({
-          id: s.id,
-          title: s.title,
-          url: s.url,
-          excerpt: s.snippet,
-          author: s.author,
-          publishedDate: s.publishedDate,
-          selected: s.selected,
-        }));
+      // Determine the starting text (preamble or previously approved content)
+      // Priority:
+      // 1. Explicit override (passed from handleApproveChapter to avoid stale state)
+      // 2. If first chapter, use current editor content (preamble)
+      // 3. Fallback to approvedContent state
+      const startText =
+        startTextOverride !== undefined
+          ? startTextOverride
+          : chapterIndex === 0
+          ? content
+          : approvedContent;
 
       const section = plan.sections[chapterIndex];
-      const apiSection = {
-        heading: section.title,
-        description: "",
-        keyPoints: section.keyPoints,
-        estimatedWordCount: Math.floor(
-          (brief.wordCount || 5000) / plan.sections.length
-        ),
-      };
+      const isReferencesSection =
+        section.title.toLowerCase().includes("references") ||
+        section.title.toLowerCase().includes("works cited") ||
+        section.title.toLowerCase().includes("bibliography");
 
-      const isReport = brief.documentType === "report";
-      const endpoint = isReport
-        ? "/api/write/generate-report-section"
-        : "/api/write/generate-chapter";
+      // Handle References section specially
+      if (isReferencesSection) {
+        try {
+          // Convert UI sources to ResearchSource format
+          const apiSources: ResearchSource[] = sources
+            .filter((s) => s.selected)
+            .map((s) => ({
+              id: s.id,
+              title: s.title,
+              url: s.url,
+              excerpt: s.snippet || "",
+              author: s.author,
+              publishedDate: s.publishedDate,
+              selected: true, // All filtered sources are selected
+            }));
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentType: mapUIDocumentTypeToEnum(brief.documentType),
-          topic: brief.topic,
-          instructions: brief.instructions || "",
-          sources: apiSources,
-          chapter: apiSection,
-          chapterIndex,
-          totalChapters: plan.sections.length,
-          previousChaptersText: startText, // Pass the preamble/previous text
-          academicLevel:
-            mapUIAcademicLevelToEnum(brief.academicLevel) ||
-            AcademicLevel.GRADUATE,
-          writingStyle:
-            mapUIWritingStyleToEnum(brief.writingStyle) ||
-            WritingStyle.ANALYTICAL,
-          documentTitle: plan.title,
-          documentApproach: plan.approach,
-          documentTone: plan.tone,
-          aiProvider: brief.aiProvider,
-        }),
-      });
+          // Get citation style from brief, default to APA
+          const citationStyleMap: Record<string, CitationStyle> = {
+            APA: CitationStyle.APA,
+            MLA: CitationStyle.MLA,
+            HARVARD: CitationStyle.HARVARD,
+            CHICAGO: CitationStyle.CHICAGO,
+          };
+          const citationStyle = citationStyleMap[brief.citationStyle || "APA"];
 
-      if (!response.ok) throw new Error("Failed to generate chapter");
-      if (!response.body) throw new Error("No response body");
+          // Generate references markdown
+          const referencesMarkdown = generateReferenceList(
+            apiSources,
+            citationStyle
+          );
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulated = "";
+          // Convert to HTML
+          const htmlContent = await marked.parse(referencesMarkdown);
+          setCurrentChapterContent(htmlContent);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+          // Update editor with approved + references
+          setContent(
+            startText ? startText + "\n\n" + htmlContent : htmlContent
+          );
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            try {
-              const data = JSON.parse(line.substring(6));
-
-              if (data.error) {
-                throw new Error(data.error);
-              }
-
-              if (data.done) {
-                break;
-              }
-
-              if (data.content) {
-                accumulated += data.content;
-                setCurrentChapterContent(accumulated);
-                // Don't update editor during streaming - we'll convert and render when complete
-              }
-            } catch (e) {
-              console.warn("Failed to parse SSE data:", line);
-            }
-          }
+          // Set status to review
+          updateSectionStatus(chapterIndex, "review");
+          setShowChapterReview(true);
+          setIsWriting(false);
+          return;
+        } catch (error) {
+          console.error("References generation error:", error);
+          setIsWriting(false);
+          updateSectionStatus(chapterIndex, "pending");
+          return;
         }
       }
 
-      // Chapter generation complete - convert markdown to HTML and display
-      const htmlContent = await marked.parse(accumulated);
-      setCurrentChapterContent(htmlContent);
+      // Start async generation for regular chapters
+      try {
+        const apiSources = sources
+          .filter((s) => s.selected)
+          .map((s) => ({
+            id: s.id,
+            title: s.title,
+            url: s.url,
+            excerpt: s.snippet,
+            author: s.author,
+            publishedDate: s.publishedDate,
+            selected: s.selected,
+          }));
 
-      // Update editor with approved + current formatted chapter
-      // Use startText (which includes preamble) + new content
-      setContent(startText ? startText + "\n\n" + htmlContent : htmlContent);
+        const apiSection = {
+          heading: section.title,
+          description: "",
+          keyPoints: section.keyPoints,
+          estimatedWordCount: Math.floor(
+            (brief.wordCount || 5000) / plan.sections.length
+          ),
+        };
 
-      // Set status to review
-      updateSectionStatus(chapterIndex, "review");
-      setShowChapterReview(true);
-      setIsWriting(false);
-    } catch (error) {
-      console.error("Chapter generation error:", error);
-      setIsWriting(false);
-      updateSectionStatus(chapterIndex, "pending");
-    }
-  };
+        const isReport = brief.documentType === "report";
+        const endpoint = isReport
+          ? "/api/write/generate-report-section"
+          : "/api/write/generate-chapter";
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            documentType: mapUIDocumentTypeToEnum(brief.documentType),
+            topic: brief.topic,
+            instructions: brief.instructions || "",
+            sources: apiSources,
+            chapter: apiSection,
+            chapterIndex,
+            totalChapters: plan.sections.length,
+            previousChaptersText: startText, // Pass the preamble/previous text
+            academicLevel:
+              mapUIAcademicLevelToEnum(brief.academicLevel) ||
+              AcademicLevel.GRADUATE,
+            writingStyle:
+              mapUIWritingStyleToEnum(brief.writingStyle) ||
+              WritingStyle.ANALYTICAL,
+            documentTitle: plan.title,
+            documentApproach: plan.approach,
+            documentTone: plan.tone,
+            aiProvider: brief.aiProvider,
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to generate chapter");
+        if (!response.body) throw new Error("No response body");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.substring(6));
+
+                if (data.error) {
+                  throw new Error(data.error);
+                }
+
+                if (data.done) {
+                  break;
+                }
+
+                if (data.content) {
+                  accumulated += data.content;
+                  setCurrentChapterContent(accumulated);
+                  // Don't update editor during streaming - we'll convert and render when complete
+                }
+              } catch (e) {
+                console.warn("Failed to parse SSE data:", line);
+              }
+            }
+          }
+        }
+
+        // Chapter generation complete - convert markdown to HTML and display
+        const htmlContent = await marked.parse(accumulated);
+        setCurrentChapterContent(htmlContent);
+
+        // If this is the first chapter (Abstract), prepend the Table of Contents
+        let finalContent = htmlContent;
+        if (chapterIndex === 0) {
+          const tocHtml = generateTOCHtml();
+          if (tocHtml) {
+            finalContent = tocHtml + "\n\n" + htmlContent;
+          }
+        }
+
+        // Update editor with approved + current formatted chapter
+        // Use startText (which includes preamble) + new content
+        setContent(
+          startText ? startText + "\n\n" + finalContent : finalContent
+        );
+
+        // Set status to review
+        updateSectionStatus(chapterIndex, "review");
+        setShowChapterReview(true);
+        setIsWriting(false);
+      } catch (error) {
+        console.error("Chapter generation error:", error);
+        setIsWriting(false);
+        updateSectionStatus(chapterIndex, "pending");
+      }
+    },
+    [
+      plan,
+      content,
+      approvedContent,
+      sources,
+      brief,
+      updateSectionStatus,
+      setContent,
+      setCurrentChapterContent,
+      setShowChapterReview,
+      setIsWriting,
+      generateTOCHtml,
+    ]
+  );
 
   // Handle chapter approval
-  const handleApproveChapter = () => {
+  const handleApproveChapter = useCallback(() => {
     if (!plan) return;
 
     // Mark current section as complete
@@ -293,12 +412,25 @@ export function EditorPanel({
       setIsWriting(false);
       onStepChange("complete");
     }
-  };
+  }, [
+    plan,
+    currentChapterIndex,
+    content,
+    currentChapterContent,
+    updateSectionStatus,
+    generateChapter,
+    onStepChange,
+    setApprovedContent,
+    setShowChapterReview,
+    setCurrentChapterContent,
+    setCurrentChapterIndex,
+    setIsWriting,
+  ]);
 
   // Handle chapter rejection (regenerate)
-  const handleRejectChapter = () => {
+  const handleRejectChapter = useCallback(() => {
     generateChapter(currentChapterIndex);
-  };
+  }, [currentChapterIndex, generateChapter]);
 
   const generateDocument = async () => {
     if (!plan) return;
@@ -542,6 +674,7 @@ export function EditorPanel({
             content={content}
             onChange={setContent}
             editable={!isWriting && !showChapterReview}
+            onAskAI={onAskAI}
           />
         </div>
 

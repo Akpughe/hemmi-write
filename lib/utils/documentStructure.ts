@@ -128,7 +128,10 @@ Write the complete research paper now with ${
 Structure your paper with the following sections: ${structure}.
 
 Requirements:
-- Target word count: approximately ${wordCount} words
+- Target word count: ${wordCount} words (±10% tolerance)
+- Acceptable range: ${Math.floor(wordCount * 0.9)}-${Math.ceil(wordCount * 1.1)} words
+- Expand analysis depth to reach target - add more evidence and discussion
+- Maintain quality - no padding or fluff
 - Use formal academic language and objective tone
 - Include an abstract (150-250 words) summarizing the key findings
 - Present research methodology clearly
@@ -151,7 +154,10 @@ Write the complete research paper now:`;
 Structure your essay with: ${structure}.
 
 Requirements:
-- Target word count: approximately ${wordCount} words
+- Target word count: ${wordCount} words (±10% tolerance)
+- Acceptable range: ${Math.floor(wordCount * 0.9)}-${Math.ceil(wordCount * 1.1)} words
+- Expand analysis depth to reach target - add more evidence and discussion
+- Maintain quality - no padding or fluff
 - Include a clear thesis statement in the introduction
 - Develop 3-5 body paragraphs with topic sentences
 - Use evidence from sources to support arguments with citations [1], [2], [3]
@@ -172,7 +178,10 @@ Write the complete essay now:`;
 Structure your report with: ${structure}.
 
 Requirements:
-- Target word count: approximately ${wordCount} words
+- Target word count: ${wordCount} words (±10% tolerance)
+- Acceptable range: ${Math.floor(wordCount * 0.9)}-${Math.ceil(wordCount * 1.1)} words
+- Expand analysis depth to reach target - add more evidence and discussion
+- Maintain quality - no padding or fluff
 - Begin with an executive summary (200-300 words)
 - Use clear section headings and subheadings
 - Present findings objectively with data and evidence
@@ -191,7 +200,10 @@ Write the complete report now:`;
     default:
       basePrompt = `Write a comprehensive document on the topic: "${topic}".
 
-Target word count: approximately ${wordCount} words.
+Target word count: ${wordCount} words (±10% tolerance)
+Acceptable range: ${Math.floor(wordCount * 0.9)}-${Math.ceil(wordCount * 1.1)} words
+Expand analysis depth to reach target - add more evidence and discussion
+Maintain quality - no padding or fluff
 
 Use the following sources and cite them with [1], [2], [3] format:
 ${sourcesText}
