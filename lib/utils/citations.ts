@@ -57,7 +57,12 @@ export function formatReference(source: ResearchSource, style: CitationStyle): s
 
 // Generate the full reference list/bibliography section
 export function generateReferenceList(sources: ResearchSource[], style: CitationStyle): string {
-  if (sources.length === 0) return '';
+  if (sources.length === 0) {
+    console.warn('No sources provided for reference list');
+    return '\n\n## References\n\n*No sources were provided for this document.*';
+  }
+
+  console.log(`Generating reference list with ${sources.length} sources in ${style} format`);
 
   // Get the appropriate heading based on citation style
   const heading = getReferenceListHeading(style);
@@ -107,10 +112,35 @@ export function processCitations(content: string, sources: ResearchSource[], sty
   return processedContent;
 }
 
+// Remove AI-generated references sections to prevent duplication
+function removeAIGeneratedReferences(content: string): string {
+  // Match reference section headers with various levels (#, ##, ###) and spacing
+  // Matches:
+  // - Newline or start of string
+  // - One or more # characters
+  // - Optional whitespace
+  // - "References", "Works Cited", etc. (case insensitive)
+  // - Optional whitespace
+  // - Newline or end of string
+  const pattern = /(\n|^)#+\s*(References?|Works?\s+Cited|Bibliography|Reference\s+List)\s*(\n|$)/i;
+
+  const match = content.match(pattern);
+  if (match && match.index !== undefined) {
+    // Return content up to the start of the match
+    // If the match starts with a newline, keep it to preserve spacing of previous section
+    return content.substring(0, match.index + (match[0].startsWith('\n') ? 1 : 0));
+  }
+  
+  return content;
+}
+
 // Complete citation formatting: process in-text citations and add reference list
 export function formatWithCitations(content: string, sources: ResearchSource[], style: CitationStyle): string {
+  // Remove AI-generated references to prevent duplication
+  const cleanedContent = removeAIGeneratedReferences(content);
+
   // First, process all in-text citation markers
-  const processedContent = processCitations(content, sources, style);
+  const processedContent = processCitations(cleanedContent, sources, style);
 
   // Then, append the reference list at the end
   const referenceList = generateReferenceList(sources, style);

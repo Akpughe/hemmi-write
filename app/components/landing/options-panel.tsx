@@ -26,6 +26,13 @@ const writingStyles = [
   { id: "narrative", label: "Narrative" },
 ] as const;
 
+const citationStyles = [
+  { id: "APA", label: "APA" },
+  { id: "MLA", label: "MLA" },
+  { id: "HARVARD", label: "Harvard" },
+  { id: "CHICAGO", label: "Chicago" },
+] as const;
+
 interface OptionsPanelProps {
   brief: Partial<WritingBrief>;
   onUpdate: (updates: Partial<WritingBrief>) => void;
@@ -36,6 +43,7 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
     (l) => l.id === brief.academicLevel
   );
   const selectedStyle = writingStyles.find((s) => s.id === brief.writingStyle);
+  const selectedCitation = citationStyles.find((c) => c.id === brief.citationStyle);
 
   // Dynamic options based on document type
   const isResearchPaper = brief.documentType === "research-paper";
@@ -55,7 +63,7 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
     : writingStyles.filter((s) => !["narrative", "descriptive"].includes(s.id));
 
   const wordCountOptions = isResearchPaper
-    ? [2000, 3000, 5000, 8000, 10000, 15000, 20000]
+    ? [2000, 3000, 5000, 8000, 10000, 15000, 20000, 30000]
     : [500, 1000, 1500, 2000, 3000, 5000];
 
   return (
@@ -104,6 +112,29 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
               key={style.id}
               onClick={() => onUpdate({ writingStyle: style.id })}
               className={brief.writingStyle === style.id ? "bg-accent/10" : ""}>
+              {style.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Citation Style */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 px-4 rounded-full border-border bg-transparent text-muted-foreground hover:text-foreground hover:border-foreground/50">
+            {selectedCitation?.label || "Citation Style"}
+            <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" className="min-w-[140px]">
+          {citationStyles.map((style) => (
+            <DropdownMenuItem
+              key={style.id}
+              onClick={() => onUpdate({ citationStyle: style.id })}
+              className={brief.citationStyle === style.id ? "bg-accent/10" : ""}>
               {style.label}
             </DropdownMenuItem>
           ))}

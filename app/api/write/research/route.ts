@@ -26,18 +26,66 @@ export async function POST(request: NextRequest) {
 
     console.log("Searching with Exa for:", enhancedQuery);
 
-    // Use Exa search with enhanced parameters
-    const searchResults = await exa.searchAndContents(enhancedQuery, {
-      type: "neural", // Use neural search for better semantic matching
-      useAutoprompt: true, // Let Exa optimize the search query
-      numResults: numSources,
-      text: {
-        maxCharacters: 1000, // Get meaningful excerpts
-      },
-      highlights: {
-        numSentences: 3, // Get key highlights
-      },
-    });
+    // HYBRID APPROACH: Try category-filtered search first for better quality
+    let searchResults;
+    let category: "research paper" | "pdf" | undefined;
+
+    if (documentType === DocumentType.RESEARCH_PAPER) {
+      category = "research paper";
+    } else if (documentType === DocumentType.REPORT) {
+      category = "pdf";
+    }
+
+    // First attempt: category-filtered for quality
+    if (category) {
+      console.log(`Using category filter: ${category}`);
+      searchResults = await exa.searchAndContents(enhancedQuery, {
+        type: "neural",
+        useAutoprompt: true,
+        numResults: Math.min(numSources, 10), // Get fewer high-quality first
+        category,
+        text: {
+          maxCharacters: 1000,
+        },
+        highlights: {
+          numSentences: 3,
+        },
+      });
+    }
+
+    // Supplement with general search if needed
+    const neededSources = numSources - (searchResults?.results.length || 0);
+    if (neededSources > 0) {
+      console.log(`Supplementing with ${neededSources} general search results`);
+      const generalResults = await exa.searchAndContents(enhancedQuery, {
+        type: "neural",
+        useAutoprompt: true,
+        numResults: neededSources,
+        // No category filter - broader search
+        text: {
+          maxCharacters: 1000,
+        },
+        highlights: {
+          numSentences: 3,
+        },
+      });
+
+      // Merge results
+      if (searchResults) {
+        searchResults.results = [...searchResults.results, ...generalResults.results];
+      } else {
+        searchResults = generalResults;
+      }
+    }
+
+    // Check if we got any results
+    if (!searchResults) {
+      console.warn("No search results found");
+      return NextResponse.json({
+        sources: [],
+        query: enhancedQuery,
+      });
+    }
 
     // Transform Exa results into our ResearchSource format
     const sources: ResearchSource[] = searchResults.results.map(
@@ -108,29 +156,61 @@ function enhanceQueryForDocumentType(
   return `${prefix} about ${topic}`;
 }
 
-// Try to extract author information from the result
+// Try to extract author information from the result with multiple fallback strategies
 function extractAuthor(result: any): string | undefined {
-  // Exa might provide author in different fields
-  if (result.author) {
-    return result.author;
+  // 1. Try Exa's author field
+  if (result.author && result.author.trim()) {
+    return result.author.trim();
   }
 
-  // Try to extract from URL (e.g., medium.com/@username)
+  // 2. Extract from URL patterns
   try {
     const url = new URL(result.url);
     const hostname = url.hostname;
+    const pathname = url.pathname;
 
-    // Check for known patterns
-    if (hostname.includes("medium.com") && url.pathname.includes("@")) {
-      const authorMatch = url.pathname.match(/@([^/]+)/);
-      if (authorMatch) {
-        return authorMatch[1];
+    // Medium: @username
+    if (hostname.includes("medium.com") && pathname.includes("@")) {
+      const match = pathname.match(/@([^/]+)/);
+      if (match) return match[1].replace(/-/g, ' ');
+    }
+
+    // Substack: username.substack.com
+    if (hostname.includes(".substack.com")) {
+      const subdomain = hostname.split('.')[0];
+      if (subdomain && subdomain !== 'www') {
+        return subdomain.replace(/-/g, ' ');
       }
     }
 
-    // For other sites, use the domain name as a fallback
-    return hostname.replace("www.", "");
+    // GitHub: github.com/username
+    if (hostname.includes("github.com")) {
+      const parts = pathname.split('/').filter(Boolean);
+      if (parts.length > 0) return parts[0];
+    }
+
+    // LinkedIn: /in/username
+    if (hostname.includes("linkedin.com") && pathname.includes("/in/")) {
+      const match = pathname.match(/\/in\/([^/]+)/);
+      if (match) return match[1].replace(/-/g, ' ');
+    }
+
+    // 3. Extract from title "by Author Name" pattern
+    if (result.title) {
+      const byMatch = result.title.match(/by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
+      if (byMatch) return byMatch[1];
+    }
+
+    // 4. Clean domain fallback
+    return hostname
+      .replace(/^www\./, '')
+      .split('.')[0]
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
   } catch {
-    return undefined;
+    return 'Unknown Author';
   }
 }

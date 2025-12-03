@@ -57,18 +57,65 @@ async function searchForQuery(
 
   console.log(`Targeted search for: ${enhancedQuery}`);
 
-  // Use Exa search with parameters optimized for additional research
-  const searchResults = await exa.searchAndContents(enhancedQuery, {
-    type: "neural",
-    useAutoprompt: true,
-    numResults: 15, // Get 5 results per query (not overwhelming)
-    text: {
-      maxCharacters: 1000,
-    },
-    highlights: {
-      numSentences: 3,
-    },
-  });
+  // HYBRID APPROACH: Try category-filtered search first for better quality
+  let searchResults;
+  let category: "research paper" | "pdf" | undefined;
+
+  if (documentType === DocumentType.RESEARCH_PAPER) {
+    category = "research paper";
+  } else if (documentType === DocumentType.REPORT) {
+    category = "pdf";
+  }
+
+  // First attempt: category-filtered for quality
+  if (category) {
+    searchResults = await exa.searchAndContents(enhancedQuery, {
+      type: "neural",
+      useAutoprompt: true,
+      numResults: 10, // Get fewer high-quality first
+      category,
+      text: {
+        maxCharacters: 1000,
+      },
+      highlights: {
+        numSentences: 3,
+      },
+    });
+  }
+
+  // Supplement with general search if needed
+  const neededSources = 15 - (searchResults?.results.length || 0);
+  if (neededSources > 0) {
+    const generalResults = await exa.searchAndContents(enhancedQuery, {
+      type: "neural",
+      useAutoprompt: true,
+      numResults: neededSources,
+      // No category filter - broader search
+      text: {
+        maxCharacters: 1000,
+      },
+      highlights: {
+        numSentences: 3,
+      },
+    });
+
+    // Merge results
+    if (searchResults) {
+      searchResults.results = [...searchResults.results, ...generalResults.results];
+    } else {
+      searchResults = generalResults;
+    }
+  }
+
+  // Check if we got any results
+  if (!searchResults) {
+    console.warn(`No search results found for query: ${query}`);
+    return {
+      query: enhancedQuery,
+      sources: [],
+      rationale: `Search for "${query}" did not return any results.`,
+    };
+  }
 
   // Transform and filter results
   const sources: ResearchSource[] = searchResults.results
@@ -144,24 +191,60 @@ function enhanceQueryForDocumentType(
  * Extract author from Exa result
  */
 function extractAuthor(result: any): string | undefined {
-  if (result.author) {
-    return result.author;
+  // 1. Try Exa's author field
+  if (result.author && result.author.trim()) {
+    return result.author.trim();
   }
 
+  // 2. Extract from URL patterns
   try {
     const url = new URL(result.url);
     const hostname = url.hostname;
+    const pathname = url.pathname;
 
-    if (hostname.includes("medium.com") && url.pathname.includes("@")) {
-      const authorMatch = url.pathname.match(/@([^/]+)/);
-      if (authorMatch) {
-        return authorMatch[1];
+    // Medium: @username
+    if (hostname.includes("medium.com") && pathname.includes("@")) {
+      const match = pathname.match(/@([^/]+)/);
+      if (match) return match[1].replace(/-/g, ' ');
+    }
+
+    // Substack: username.substack.com
+    if (hostname.includes(".substack.com")) {
+      const subdomain = hostname.split('.')[0];
+      if (subdomain && subdomain !== 'www') {
+        return subdomain.replace(/-/g, ' ');
       }
     }
 
-    return hostname.replace("www.", "");
+    // GitHub: github.com/username
+    if (hostname.includes("github.com")) {
+      const parts = pathname.split('/').filter(Boolean);
+      if (parts.length > 0) return parts[0];
+    }
+
+    // LinkedIn: /in/username
+    if (hostname.includes("linkedin.com") && pathname.includes("/in/")) {
+      const match = pathname.match(/\/in\/([^/]+)/);
+      if (match) return match[1].replace(/-/g, ' ');
+    }
+
+    // 3. Extract from title "by Author Name" pattern
+    if (result.title) {
+      const byMatch = result.title.match(/by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i);
+      if (byMatch) return byMatch[1];
+    }
+
+    // 4. Clean domain fallback
+    return hostname
+      .replace(/^www\./, '')
+      .split('.')[0]
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
   } catch {
-    return undefined;
+    return 'Unknown Author';
   }
 }
 

@@ -69,7 +69,8 @@ function ResetPasswordContent() {
           <CardHeader>
             <CardTitle>Check Your Email</CardTitle>
             <CardDescription>
-              We've sent you a password reset link. Please check your inbox.
+              We&apos;ve sent you a password reset link. Please check your
+              inbox.
             </CardDescription>
           </CardHeader>
           <CardFooter>

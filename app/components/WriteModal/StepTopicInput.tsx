@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import {
   DocumentType,
   DOCUMENT_TYPE_CONFIGS,
@@ -11,9 +11,12 @@ import {
   WritingStyle,
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
-} from '@/lib/types/document';
-import { AIProvider, AI_MODELS } from '@/lib/config/aiModels';
-import { getWordCountGuidance, getDefaultWordCount } from '@/lib/utils/documentStructure';
+} from "@/lib/types/document";
+import { AIProvider, AI_MODELS } from "@/lib/config/aiModels";
+import {
+  getWordCountGuidance,
+  getDefaultWordCount,
+} from "@/lib/utils/documentStructure";
 
 interface StepTopicInputProps {
   documentType: DocumentType;
@@ -45,25 +48,27 @@ export default function StepTopicInput({
   const defaultCount = getDefaultWordCount(documentType);
   const isResearchPaper = documentType === DocumentType.RESEARCH_PAPER;
 
-  const [topic, setTopic] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [wordCount, setWordCount] = useState<string>('');
+  const [topic, setTopic] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [wordCount, setWordCount] = useState<string>("");
   const [numSources, setNumSources] = useState<number>(20);
-  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>(initialAcademicLevel);
-  const [writingStyle, setWritingStyle] = useState<WritingStyle>(initialWritingStyle);
+  const [academicLevel, setAcademicLevel] =
+    useState<AcademicLevel>(initialAcademicLevel);
+  const [writingStyle, setWritingStyle] =
+    useState<WritingStyle>(initialWritingStyle);
   const [aiProvider, setAiProvider] = useState<AIProvider>(initialAiProvider);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!topic.trim()) {
-      setError('Please enter a topic');
+      setError("Please enter a topic");
       return;
     }
 
     if (topic.trim().length < 5) {
-      setError('Topic must be at least 5 characters');
+      setError("Topic must be at least 5 characters");
       return;
     }
 
@@ -71,7 +76,9 @@ export default function StepTopicInput({
     if (wordCount) {
       const count = parseInt(wordCount, 10);
       if (isNaN(count) || count < MIN_WORD_COUNT || count > MAX_WORD_COUNT) {
-        setError(`Word count must be between ${MIN_WORD_COUNT} and ${MAX_WORD_COUNT}`);
+        setError(
+          `Word count must be between ${MIN_WORD_COUNT} and ${MAX_WORD_COUNT}`
+        );
         return;
       }
       onSubmit(
@@ -132,17 +139,18 @@ export default function StepTopicInput({
                   onClick={() => setAcademicLevel(level)}
                   className={`p-4 border-2 rounded-lg text-left transition-all ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  }`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">{levelConfig.icon}</span>
                     <span className="font-semibold text-gray-900 text-sm">
                       {levelConfig.label}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600 mb-2">{levelConfig.description}</p>
+                  <p className="text-xs text-gray-600 mb-2">
+                    {levelConfig.description}
+                  </p>
                   <p className="text-xs text-gray-500">
                     {levelConfig.citationsPerSection} citations/section
                   </p>
@@ -170,17 +178,18 @@ export default function StepTopicInput({
                   onClick={() => setWritingStyle(style)}
                   className={`p-4 border-2 rounded-lg text-left transition-all ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  }`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xl">{styleConfig.icon}</span>
                     <span className="font-semibold text-gray-900 text-sm">
                       {styleConfig.label}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600">{styleConfig.description}</p>
+                  <p className="text-xs text-gray-600">
+                    {styleConfig.description}
+                  </p>
                 </button>
               );
             })}
@@ -204,19 +213,21 @@ export default function StepTopicInput({
                 onClick={() => setAiProvider(provider)}
                 className={`p-4 border-2 rounded-lg text-left transition-all ${
                   isSelected
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
+                    ? "border-blue-500 bg-blue-50"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                }`}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">{modelConfig.icon}</span>
                   <span className="font-semibold text-gray-900 text-sm">
                     {modelConfig.label}
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 mb-1">{modelConfig.description}</p>
+                <p className="text-xs text-gray-600 mb-1">
+                  {modelConfig.description}
+                </p>
                 <p className="text-xs text-gray-500">
-                  {modelConfig.maxTokens.toLocaleString()} tokens • {(modelConfig.contextWindow / 1000).toFixed(0)}K context
+                  {modelConfig.maxTokens.toLocaleString()} tokens •{" "}
+                  {(modelConfig.contextWindow / 1000).toFixed(0)}K context
                 </p>
               </button>
             );
@@ -225,7 +236,9 @@ export default function StepTopicInput({
       </div>
 
       <div>
-        <label htmlFor="topic" className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          htmlFor="topic"
+          className="block text-sm font-medium text-gray-700 mb-2">
           Topic <span className="text-red-500">*</span>
         </label>
         <input
@@ -234,18 +247,22 @@ export default function StepTopicInput({
           value={topic}
           onChange={(e) => {
             setTopic(e.target.value);
-            setError('');
+            setError("");
           }}
           placeholder="e.g., The impact of climate change on biodiversity"
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black"
           required
         />
-        <p className="mt-1 text-sm text-gray-500">Enter the main topic or subject of your {config.label.toLowerCase()}</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Enter the main topic or subject of your {config.label.toLowerCase()}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="wordCount" className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            htmlFor="wordCount"
+            className="block text-sm font-medium text-gray-700 mb-2">
             Word Count (optional)
           </label>
           <input
@@ -254,7 +271,7 @@ export default function StepTopicInput({
             value={wordCount}
             onChange={(e) => {
               setWordCount(e.target.value);
-              setError('');
+              setError("");
             }}
             placeholder={`Default: ${defaultCount}`}
             min={MIN_WORD_COUNT}
@@ -266,8 +283,41 @@ export default function StepTopicInput({
           </p>
         </div>
 
+        {isResearchPaper && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Quick Select Word Count
+            </label>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  setWordCount(e.target.value);
+                  setError("");
+                }
+              }}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black bg-white"
+              defaultValue="">
+              <option value="" disabled>
+                Select a target length...
+              </option>
+              <option value="12000">12,000 words (Minimum)</option>
+              <option value="15000">15,000 words</option>
+              <option value="20000">20,000 words</option>
+              <option value="25000">25,000 words</option>
+              <option value="30000">30,000 words</option>
+              <option value="40000">40,000 words</option>
+              <option value="50000">50,000 words</option>
+              <option value="60000">60,000 words</option>
+              <option value="80000">80,000 words</option>
+              <option value="100000">100,000 words (Maximum)</option>
+            </select>
+          </div>
+        )}
+
         <div>
-          <label htmlFor="numSources" className="block text-sm font-medium text-gray-700 mb-2">
+          <label
+            htmlFor="numSources"
+            className="block text-sm font-medium text-gray-700 mb-2">
             Number of Sources <span className="text-red-500">*</span>
           </label>
           <input
@@ -278,7 +328,7 @@ export default function StepTopicInput({
               const val = parseInt(e.target.value);
               if (val >= 5 && val <= 30) {
                 setNumSources(val);
-                setError('');
+                setError("");
               }
             }}
             min={5}
@@ -293,7 +343,9 @@ export default function StepTopicInput({
       </div>
 
       <div>
-        <label htmlFor="instructions" className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          htmlFor="instructions"
+          className="block text-sm font-medium text-gray-700 mb-2">
           Additional Instructions (optional)
         </label>
         <textarea
@@ -304,15 +356,22 @@ export default function StepTopicInput({
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-black"
           rows={4}
         />
-        <p className="mt-1 text-sm text-gray-500">Provide any specific requirements, focus areas, or constraints</p>
+        <p className="mt-1 text-sm text-gray-500">
+          Provide any specific requirements, focus areas, or constraints
+        </p>
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">What happens next?</h4>
+        <h4 className="font-semibold text-blue-900 mb-2">
+          What&apos;s happens next?
+        </h4>
         <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
-          <li>We'll search the web for credible sources on your topic</li>
-          <li>You'll review and select the sources to include</li>
-          <li>We'll generate your {config.label.toLowerCase()} with proper {config.citationStyle} citations</li>
+          <li>We&apos;ll search the web for credible sources on your topic</li>
+          <li>You&apos;ll review and select the sources to include</li>
+          <li>
+            We&apos;ll generate your {config.label.toLowerCase()} with proper{" "}
+            {config.citationStyle} citations
+          </li>
         </ol>
       </div>
 
@@ -320,15 +379,13 @@ export default function StepTopicInput({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        >
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
           Back
         </button>
         <button
           type="submit"
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-        >
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
           Research Sources
         </button>
       </div>

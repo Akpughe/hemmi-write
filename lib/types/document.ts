@@ -209,7 +209,7 @@ export const DOCUMENT_TYPE_CONFIGS: Record<DocumentType, DocumentTypeConfig> = {
       "Discussion",
       "References",
     ],
-    suggestedWordCountMin: 2000,
+    suggestedWordCountMin: 12000,
     suggestedWordCountMax: 100000,
     icon: "📄",
   },

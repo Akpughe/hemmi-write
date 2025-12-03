@@ -1,3 +1,5 @@
+import { TableOfContents } from "./document";
+
 export interface WritingBrief {
   topic: string;
   instructions?: string;
@@ -14,6 +16,7 @@ export interface WritingBrief {
     | "descriptive"
     | "expository"
     | "narrative";
+  citationStyle?: "APA" | "MLA" | "HARVARD" | "CHICAGO";
   wordCount?: number;
   sourceCount?: number;
   chapters?: number;
@@ -43,6 +46,7 @@ export interface DocumentPlan {
   approach: string;
   tone: string;
   sections: OutlineSection[];
+  tableOfContents?: TableOfContents;
 }
 
 export type WorkflowStep = "research" | "planning" | "writing" | "complete";
