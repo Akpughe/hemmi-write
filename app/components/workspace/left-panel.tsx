@@ -51,9 +51,7 @@ export function LeftPanel({
 }: LeftPanelProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sections" | "sources">(
-    "sections"
-  );
+  const [activeTab, setActiveTab] = useState<"sections" | "sources">("sources");
   const [isUploading, setIsUploading] = useState(false);
 
   // Helper to check if a section is an abstract
@@ -190,6 +188,8 @@ export function LeftPanel({
       console.log("mappedPlan", mappedPlan);
 
       setPlan(mappedPlan);
+      // Auto-switch to sections tab after structure is generated
+      setActiveTab("sections");
     } catch (error) {
       console.error("Planning error:", error);
     } finally {

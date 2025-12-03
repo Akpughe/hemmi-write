@@ -74,10 +74,8 @@ function ResetPasswordContent() {
             </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button
-              onClick={() => router.push("/auth/login")}
-              className="w-full">
-              Back to Login
+            <Button onClick={() => router.push("/")} className="w-full">
+              Back to Home
             </Button>
           </CardFooter>
         </Card>
@@ -177,8 +175,8 @@ function ResetPasswordContent() {
               {loading ? "Sending..." : "Send Reset Link"}
             </Button>
             <div className="text-sm text-center">
-              <Link href="/auth/login" className="text-primary hover:underline">
-                Back to login
+              <Link href="/" className="text-primary hover:underline">
+                Back to home
               </Link>
             </div>
           </CardFooter>
