@@ -49,9 +49,13 @@ function generateChapterPrompt(
   const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
   const styleConfig = WRITING_STYLE_CONFIGS[writingStyle];
 
-  const chapterNumber = chapterIndex + 1;
-  const targetWordCount = chapter.estimatedWordCount || 5000;
   const isAbstract = chapter.heading.toLowerCase().includes("abstract");
+  // Calculate proper chapter number, accounting for abstract at index 0
+  // If this is the abstract, don't assign a number
+  // If abstract exists (index 0), then Chapter 1 is at index 1, so use chapterIndex directly
+  // Otherwise, use chapterIndex + 1
+  const chapterNumber = isAbstract ? 0 : chapterIndex;
+  const targetWordCount = chapter.estimatedWordCount || 5000;
 
   let prompt = isAbstract
     ? `You are writing the Abstract for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
@@ -84,7 +88,7 @@ STRUCTURE (single paragraph format):
 1-2 sentences: Conclusions and implications
 
 Write the abstract as a SINGLE cohesive paragraph with proper flow between elements.`
-    : `You are writing Chapter ${chapterNumber} of ${totalChapters} for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
+    : `You are writing Chapter ${chapterNumber} of ${totalChapters - 1} for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
 
 DOCUMENT CONTEXT:
 Title: "${documentTitle}"
@@ -109,7 +113,7 @@ Chapter Description: ${chapter.description}
 
 SUBSECTIONS TO COVER:
 ${(chapter.keyPoints ?? [])
-  .map((point, idx) => `${chapterNumber}.${idx + 1}. ${point}`)
+  .map((point, idx) => isAbstract ? point : `${chapterNumber}.${idx + 1}. ${point}`)
   .join("\n")}
 
 TARGET WORD COUNT: ${targetWordCount} words
@@ -133,7 +137,7 @@ WRITING REQUIREMENTS:
    - Start with the chapter heading: "${chapter.heading}"
    - Include ALL ${
      (chapter.keyPoints ?? []).length
-   } subsections as ${chapterNumber}.1, ${chapterNumber}.2, etc.
+   } subsections as ${chapterNumber}.1, ${chapterNumber}.2, etc.${chapterNumber > 0 ? '' : ' (Note: Abstract typically has no subsections)'}
    - Each subsection should be substantial (${
      (chapter.keyPoints ?? []).length > 0
        ? Math.floor(targetWordCount / (chapter.keyPoints ?? []).length)
@@ -152,12 +156,12 @@ WRITING REQUIREMENTS:
 
 3. CONTINUITY:
    ${
-     chapterNumber > 1
+      chapterNumber > 1 && !isAbstract
        ? "- Reference concepts from previous chapters where relevant"
        : "- Set the foundation for subsequent chapters"
    }
    ${
-     chapterNumber < totalChapters
+      chapterNumber < (totalChapters - 1) && !isAbstract
        ? "- Foreshadow topics that will be explored in later chapters"
        : "- Synthesize and conclude the entire document"
    }
@@ -176,7 +180,7 @@ WRITING REQUIREMENTS:
 5. FORMATTING & PRESENTATION:
    - Use proper markdown formatting for excellent readability
    - Main chapter heading: # ${chapter.heading}
-   - Subsection headings: ## ${chapterNumber}.1 Subsection Title (with proper spacing)
+   - Subsection headings: ${isAbstract ? '(No subsections for abstract)' : `## ${chapterNumber}.1 Subsection Title (with proper spacing)`}
    - Use **bold** for key terms and important concepts
    - Use *italics* for emphasis and technical terms
    - Each paragraph should be 4-6 sentences for better flow
