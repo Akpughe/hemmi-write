@@ -1,11 +1,16 @@
 import { createClient } from './client'
 
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = async (next?: string) => {
   const supabase = createClient()
+  const redirectTo = new URL(`${location.origin}/auth/callback`)
+  if (next) {
+    redirectTo.searchParams.set('next', next)
+  }
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${location.origin}/auth/callback`,
+      redirectTo: redirectTo.toString(),
     },
   })
   return { data, error }
