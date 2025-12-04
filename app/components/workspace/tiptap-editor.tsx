@@ -22,12 +22,15 @@ import {
   AlignCenter,
   AlignRight,
   AlignJustify,
+  Sigma,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FloatingToolbar } from "./floating-toolbar";
 import { BottomToolbar } from "./bottom-toolbar";
 import { FormatDropdown } from "./format-dropdown";
+import { MathDialog } from "./math-dialog";
+import { InlineMath, BlockMath } from "./extensions/math";
 import { useState } from "react";
 
 interface TiptapEditorProps {
@@ -61,6 +64,9 @@ export function TiptapEditor({
     to: number;
   } | null>(null);
 
+  // Math Dialog State
+  const [isMathDialogOpen, setIsMathDialogOpen] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -84,6 +90,8 @@ export function TiptapEditor({
       FontFamily.configure({
         types: ["textStyle"],
       }),
+      InlineMath,
+      BlockMath,
     ],
     content,
     editable,
@@ -281,6 +289,16 @@ export function TiptapEditor({
     setBottomToolbarMode(null);
   };
 
+  const handleInsertMath = (latex: string, isBlock: boolean) => {
+    if (!editor) return;
+
+    if (isBlock) {
+      editor.chain().focus().insertContent({ type: "blockMath", attrs: { latex } }).run();
+    } else {
+      editor.chain().focus().insertContent({ type: "inlineMath", attrs: { latex } }).run();
+    }
+  };
+
   if (!editor) {
     return null;
   }
@@ -399,6 +417,18 @@ export function TiptapEditor({
           <Quote className="w-4 h-4" />
         </Button>
 
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Math equation button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsMathDialogOpen(true)}
+          className="h-8 w-8"
+          title="Insert math equation">
+          <Sigma className="w-4 h-4" />
+        </Button>
+
         <div className="flex-1" />
 
         {/* Undo/Redo group */}
@@ -445,6 +475,13 @@ export function TiptapEditor({
           />
         </div>
       </div>
+
+      {/* Math Dialog */}
+      <MathDialog
+        isOpen={isMathDialogOpen}
+        onClose={() => setIsMathDialogOpen(false)}
+        onInsert={handleInsertMath}
+      />
     </div>
   );
 }
