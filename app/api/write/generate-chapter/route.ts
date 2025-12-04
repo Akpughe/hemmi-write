@@ -12,6 +12,7 @@ import {
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 
 interface GenerateChapterRequest {
   documentType: DocumentType;
@@ -119,7 +120,9 @@ ${(chapter.keyPoints ?? [])
 TARGET WORD COUNT: ${targetWordCount} words
 
 AVAILABLE SOURCES:
-${sourcesText}`;
+${sourcesText}
+
+${getHumanizationPrompt(documentType, academicLevel, true)}`;
 
   // Add context from previous chapters if available
   if (previousChaptersText && previousChaptersText.trim()) {
@@ -177,20 +180,20 @@ WRITING REQUIREMENTS:
      * Critical analysis and synthesis
      * Transitions to next subsection
 
-5. FORMATTING & PRESENTATION:
-   - Use proper markdown formatting for excellent readability
-   - Main chapter heading: # ${chapter.heading}
-   - Subsection headings: ${isAbstract ? '(No subsections for abstract)' : `## ${chapterNumber}.1 Subsection Title (with proper spacing)`}
-   - Use **bold** for key terms and important concepts
-   - Use *italics* for emphasis and technical terms
+5. FORMATTING & PRESENTATION (CRITICAL - USE HTML NOT MARKDOWN):
+   - Output in clean HTML format (NOT markdown)
+   - Main chapter heading: <h1>${chapter.heading}</h1>
+   - Subsection headings: ${isAbstract ? '(No subsections for abstract)' : `<h2>${chapterNumber}.1 Subsection Title</h2>`}
+   - Use <strong>text</strong> for key terms and important concepts (NOT **text**)
+   - Use <em>text</em> for emphasis and technical terms (NOT *text*)
+   - Wrap each paragraph in <p> tags
    - Each paragraph should be 4-6 sentences for better flow
-   - Add blank lines between paragraphs for visual clarity
-   - Use bullet points or numbered lists where appropriate for clarity
+   - Use <ul><li> or <ol><li> for bullet/numbered lists (NOT dashes or asterisks)
    - In-text citations: (Author, Year) or (Author1 & Author2, Year)
-   - Ensure proper spacing:
-     * Double line break after headings
-     * Single line break between paragraphs
-     * Proper indentation for nested content
+   - Ensure proper HTML structure:
+     * Properly closed tags
+     * No markdown syntax (no #, *, **, --, etc.)
+     * Clean, semantic HTML
 
 6. WRITING STYLE:
    - Write in clear, professional academic prose
@@ -202,9 +205,9 @@ WRITING REQUIREMENTS:
 
 CRITICAL: Write ONLY this chapter (${
     chapter.heading
-  }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing for THIS chapter only.
+  }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing in HTML format (NOT markdown) for THIS chapter only.
 
-Begin writing now:`;
+Begin writing now in HTML format:`;
 
   return prompt;
 }

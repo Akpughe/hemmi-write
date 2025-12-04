@@ -11,6 +11,7 @@ import {
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 
 interface GenerateReportSectionRequest {
   documentType: DocumentType;
@@ -75,12 +76,12 @@ EXECUTIVE SUMMARY REQUIREMENTS:
 - NO citations needed in the executive summary
 - Write in a clear, professional business tone (Active Voice)
 
-STRUCTURE:
+STRUCTURE (USE HTML FORMAT):
 1. Brief context/background
 2. Main findings/analysis summary
 3. Key recommendations/action items
 
-Write the executive summary as a cohesive narrative that allows a busy executive to understand the entire report in minutes.`;
+Write the executive summary as a cohesive narrative in HTML format (<p> tags, <strong> for emphasis) that allows a busy executive to understand the entire report in minutes.`;
     } else {
       prompt = `You are writing Section ${
         sectionIndex + 1
@@ -108,11 +109,14 @@ ${sourcesText}
 PREVIOUS CONTEXT:
 ${previousSectionsText ? previousSectionsText.slice(-1000) : "None"}
 
+${getHumanizationPrompt(DocumentType.REPORT, academicLevel, true)}
+
 WRITING REQUIREMENTS (BUSINESS MODE):
-1. STRUCTURE:
-   - Use clear headings and subheadings
-   - Use **bold** for key terms and metrics
-   - Use bullet points liberally for lists, data, or steps
+1. STRUCTURE (USE HTML NOT MARKDOWN):
+   - Use HTML heading tags: <h2>, <h3> for section/subsections
+   - Use <strong>text</strong> for key terms and metrics (NOT **bold**)
+   - Use <ul><li> or <ol><li> for lists (NOT bullet points with - or *)
+   - Wrap paragraphs in <p> tags
    - Keep paragraphs concise (3-5 sentences)
 
 2. TONE:
@@ -125,7 +129,7 @@ WRITING REQUIREMENTS (BUSINESS MODE):
    - Minimal, non-intrusive (e.g., "According to [Source]...")
    - Focus on the insight, not the source
 
-CRITICAL: Write ONLY this section. Focus on clarity and impact.`;
+CRITICAL: Write ONLY this section in HTML format (NOT markdown). Focus on clarity and impact.`;
     }
   } else {
     // --- ACADEMIC REPORT MODE ---
@@ -146,8 +150,8 @@ ABSTRACT REQUIREMENTS:
 - NO citations in abstract
 - Passive voice where appropriate for objectivity
 
-STRUCTURE:
-Single paragraph summarizing the entire report.`;
+STRUCTURE (USE HTML FORMAT):
+Single paragraph wrapped in <p> tags summarizing the entire report.`;
     } else {
       prompt = `You are writing Section ${
         sectionIndex + 1
@@ -174,10 +178,13 @@ ${sourcesText}
 PREVIOUS CONTEXT:
 ${previousSectionsText ? previousSectionsText.slice(-1000) : "None"}
 
-WRITING REQUIREMENTS (ACADEMIC MODE):
+${getHumanizationPrompt(DocumentType.REPORT, academicLevel, true)}
+
+WRITING REQUIREMENTS (ACADEMIC MODE - USE HTML NOT MARKDOWN):
 1. STRUCTURE:
-   - Use numbered subheadings (e.g., ${sectionIndex + 1}.1)
-   - Well-developed paragraphs with topic sentences
+   - Use HTML heading tags with numbered subheadings: <h2>${sectionIndex + 1}.1 Title</h2>
+   - Wrap paragraphs in <p> tags with topic sentences
+   - Use <strong> and <em> for emphasis (NOT ** or *)
    - Formal transitions
 
 2. TONE:
@@ -190,11 +197,11 @@ WRITING REQUIREMENTS (ACADEMIC MODE):
    - Cite sources for all claims and data
    - ${levelConfig.citationsPerSection} citations per major point
 
-CRITICAL: Write ONLY this section. Maintain high academic rigor.`;
+CRITICAL: Write ONLY this section in HTML format (NOT markdown). Maintain high academic rigor.`;
     }
   }
 
-  prompt += `\n\nBegin writing now:`;
+  prompt += `\n\nBegin writing now in HTML format (use HTML tags, not markdown):`;
   return prompt;
 }
 
