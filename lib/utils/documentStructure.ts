@@ -6,6 +6,7 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
+import { getCompactHumanizationGuidance } from "@/lib/config/humanizationGuidelines";
 
 // Get the structure outline for a specific document type
 export function getDocumentStructure(documentType: DocumentType): string[] {
@@ -348,6 +349,8 @@ Structure your document according to standard ${config.label.toLowerCase()} form
       ", "
     )}.`;
   }
+
+  baseMessage += `\n\n${getCompactHumanizationGuidance(academicLevel || AcademicLevel.UNDERGRADUATE)}`;
 
   return baseMessage;
 }
