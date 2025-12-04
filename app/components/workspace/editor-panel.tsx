@@ -241,14 +241,12 @@ export function EditorPanel({
           };
           const citationStyle = citationStyleMap[brief.citationStyle || "APA"];
 
-          // Generate references markdown
-          const referencesMarkdown = generateReferenceList(
+          // Generate references HTML (no markdown parsing needed)
+          const htmlContent = generateReferenceList(
             apiSources,
             citationStyle
           );
 
-          // Convert to HTML
-          const htmlContent = await marked.parse(referencesMarkdown);
           setCurrentChapterContent(htmlContent);
 
           // Update editor with approved + references
@@ -361,8 +359,8 @@ export function EditorPanel({
           }
         }
 
-        // Chapter generation complete - convert markdown to HTML and display
-        const htmlContent = await marked.parse(accumulated);
+        // Chapter generation complete - AI outputs HTML directly now
+        const htmlContent = accumulated; // No markdown parsing needed
         setCurrentChapterContent(htmlContent);
 
         // If this is the first chapter (Abstract), prepend the Table of Contents
