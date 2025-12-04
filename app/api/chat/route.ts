@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
+import { getCompactHumanizationGuidance } from "@/lib/config/humanizationGuidelines";
+import { AcademicLevel } from "@/lib/types/document";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -27,6 +29,8 @@ export async function POST(req: NextRequest) {
     - Keep responses concise and helpful.
     - You can help with research, planning, and writing.
     - If asked to write a section, use the specified writing style.
+
+    ${getCompactHumanizationGuidance(brief.academicLevel || AcademicLevel.UNDERGRADUATE)}
     `;
 
     const result = await generateText({

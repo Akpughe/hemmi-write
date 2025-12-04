@@ -7,6 +7,8 @@ import {
 } from "@/lib/utils/documentStructure";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
+import { AcademicLevel } from "@/lib/types/document";
 
 export async function POST(request: NextRequest) {
   try {
@@ -83,6 +85,8 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
       ) +
       "\n\n" +
       structureText +
+      "\n\n" +
+      getHumanizationPrompt(documentType, academicLevel || AcademicLevel.UNDERGRADUATE, true) +
       "\n\nIMPORTANT: Follow the approved structure above exactly. Write each section with the specified key points. Maintain the approved tone and approach throughout.";
 
     // Create a ReadableStream for Server-Sent Events
