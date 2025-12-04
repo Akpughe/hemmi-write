@@ -10,6 +10,7 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
+import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -321,13 +322,7 @@ export async function POST(req: NextRequest) {
           : "No specific sources provided. Use general knowledge."
       }
       
-      HUMANIZATION INSTRUCTIONS (CRITICAL):
-      - Write in a clear, simple, and spartan style.
-      - Use active voice and impactful sentences.
-      - Focus on actionable insights, data, and examples.
-      - Address the reader directly ("you", "your").
-      - AVOID: Glassmorphism, complex metaphors, generalizations, setup language, warnings, unnecessary adjectives/adverbs, hashtags, semicolons, asterisks.
-      - AVOID WORDS: "delve", "landscape", "tapestry", "comprehensive", "insightful", "nuanced", "pivotal", "crucial".
+      ${getHumanizationPrompt(documentType as DocumentType, academicLevel || AcademicLevel.UNDERGRADUATE, false)}
       
       STRUCTURE REQUIREMENTS:
       - Title: A catchy and relevant title.
