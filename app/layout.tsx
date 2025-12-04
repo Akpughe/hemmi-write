@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { EditorProvider } from "@/lib/contexts/EditorContext";
 import { ThemeProvider } from "@/app/components/theme-provider";
 import SupabaseProvider from "@/lib/context/SupabaseContext";
