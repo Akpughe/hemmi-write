@@ -78,8 +78,6 @@ export function EditorPanel({
   marked.use({
     breaks: true, // Convert \n to <br>
     gfm: true, // GitHub Flavored Markdown
-    headerIds: false, // Don't add IDs to headings
-    mangle: false, // Don't escape emails
   });
 
   // Custom renderer to add proper spacing classes to AI-generated content
