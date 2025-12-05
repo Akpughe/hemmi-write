@@ -2,6 +2,7 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { marked } from "marked";
 import Placeholder from "@tiptap/extension-placeholder";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -38,6 +39,10 @@ interface TiptapEditorProps {
   onChange: (content: string) => void;
   editable?: boolean;
   onAskAI?: (text: string) => void;
+  brief?: any; // Using any to avoid circular deps or complex imports for now, ideally WritingBrief
+  sources?: any[];
+  insertRequest?: string | null;
+  onInsertComplete?: () => void;
 }
 
 export function TiptapEditor({
@@ -45,6 +50,10 @@ export function TiptapEditor({
   onChange,
   editable = true,
   onAskAI,
+  brief,
+  sources = [],
+  insertRequest,
+  onInsertComplete,
 }: TiptapEditorProps) {
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
@@ -149,6 +158,30 @@ export function TiptapEditor({
     }
   }, [content, editor]);
 
+  // Helper to clean AI response (remove markdown code blocks)
+  const cleanAIResponse = (text: string) => {
+    let cleaned = text.trim();
+    // Remove wrapping markdown code blocks if present
+    const codeBlockRegex = /^```(?:markdown)?\s*([\s\S]*?)\s*```$/i;
+    const match = cleaned.match(codeBlockRegex);
+    if (match) {
+      cleaned = match[1].trim();
+    }
+    return cleaned;
+  };
+
+  // Handle external insert requests (e.g. from Chat)
+  useEffect(() => {
+    if (editor && insertRequest && onInsertComplete) {
+      const cleanedContent = cleanAIResponse(insertRequest);
+      // Parse markdown
+      const htmlContent = marked.parse(cleanedContent) as string;
+
+      editor.chain().focus().insertContent(htmlContent).run();
+      onInsertComplete();
+    }
+  }, [insertRequest, editor, onInsertComplete]);
+
   const handleImprove = () => {
     if (!editor || !selectedText) return;
 
@@ -189,16 +222,29 @@ export function TiptapEditor({
       }
     }, 100);
 
-    // Simulate API call
-    setTimeout(() => {
-      setBottomToolbarContent(
-        `Here is an improved version of "${selectedText.substring(
-          0,
-          20
-        )}...":\n\n${selectedText} [Improved for clarity and flow]`
-      );
-      setIsGenerating(false);
-    }, 1500);
+    // Call API
+    fetch("/api/write/improve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: selectedText,
+        brief: brief,
+        fullContent: editor.getHTML(),
+        sources: sources,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setBottomToolbarContent(data.content);
+      })
+      .catch((err) => {
+        console.error("Improve error:", err);
+        setBottomToolbarContent("Failed to improve text. Please try again.");
+      })
+      .finally(() => {
+        setIsGenerating(false);
+      });
   };
 
   const handleAskAI = () => {
@@ -248,22 +294,50 @@ export function TiptapEditor({
       }
     }, 100);
 
-    // Simulate API call
-    setTimeout(() => {
-      setBottomToolbarContent(
-        `Explanation for "${selectedText}":\n\nThis concept refers to... [Detailed explanation would go here]. It is often used in the context of...`
-      );
-      setIsGenerating(false);
-    }, 1500);
+    // Call API
+    fetch("/api/write/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: selectedText,
+        // We could pass more context here if available (e.g. surrounding paragraphs)
+        fullContent: editor.getHTML(),
+        sources: sources,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setBottomToolbarContent(data.content);
+      })
+      .catch((err) => {
+        console.error("Explain error:", err);
+        setBottomToolbarContent(
+          "Failed to generate explanation. Please try again."
+        );
+      })
+      .finally(() => {
+        setIsGenerating(false);
+      });
   };
 
   const handleApproveImprovement = () => {
     if (!editor || !pendingSelection) return;
 
-    // Replace original selection with improved content
-    // Note: In a real app, we'd probably want to return just the text from the API,
-    // but here our content includes the label, so we'll just use it.
-    // We need to be careful about HTML vs Text. For now assuming text.
+    const cleanedContent = cleanAIResponse(bottomToolbarContent);
+
+    // Check if we should use inline parsing or block parsing
+    // If the selection is within a single block and the content doesn't have newlines, try inline
+    const isInline =
+      !cleanedContent.includes("\n") && !cleanedContent.includes("\r");
+
+    let htmlContent: string;
+    if (isInline) {
+      // marked.parseInline returns string without <p> wrapper
+      htmlContent = marked.parseInline(cleanedContent) as string;
+    } else {
+      htmlContent = marked.parse(cleanedContent) as string;
+    }
 
     editor
       .chain()
@@ -273,7 +347,7 @@ export function TiptapEditor({
         to: pendingSelection.to,
       })
       .deleteSelection()
-      .insertContent(bottomToolbarContent)
+      .insertContent(htmlContent)
       .run();
 
     setBottomToolbarMode(null);
@@ -293,9 +367,17 @@ export function TiptapEditor({
     if (!editor) return;
 
     if (isBlock) {
-      editor.chain().focus().insertContent({ type: "blockMath", attrs: { latex } }).run();
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "blockMath", attrs: { latex } })
+        .run();
     } else {
-      editor.chain().focus().insertContent({ type: "inlineMath", attrs: { latex } }).run();
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "inlineMath", attrs: { latex } })
+        .run();
     }
   };
 
@@ -454,7 +536,7 @@ export function TiptapEditor({
 
       {/* Editor content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto relative">
+        <div className="max-w-5xl mx-auto relative">
           <EditorContent editor={editor} />
           <FloatingToolbar
             isVisible={showFloatingToolbar}
