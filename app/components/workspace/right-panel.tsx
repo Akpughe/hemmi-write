@@ -12,8 +12,13 @@ import {
   Plus,
   X,
   Quote,
+  Check,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+import Markdown from "marked-react";
+import { toast } from "sonner";
+
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +27,11 @@ interface RightPanelProps {
   currentStep: WorkflowStep;
   askAIContext?: string | null;
   onClearContext?: () => void;
+  sources?: any[]; // Using any[] for now to match Source type
+  currentContent?: string;
+  onInsert?: (text: string) => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 interface Message {
@@ -50,6 +60,11 @@ export function RightPanel({
   currentStep,
   askAIContext,
   onClearContext,
+  sources = [],
+  currentContent = "",
+  onInsert,
+  isOpen = true,
+  onToggle,
 }: RightPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -62,7 +77,19 @@ export function RightPanel({
   ]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleCopy = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      toast.success("Copied to clipboard");
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -94,132 +121,187 @@ export function RightPanel({
     setIsThinking(true);
 
     try {
-      // Simulate AI response for now - will connect to API later
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+          brief,
+          sources,
+          currentContent: currentContent,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) throw new Error(data.error);
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content:
-          "I'm analyzing your sources to answer that. Based on the documents provided, it seems that...",
+        content: data.content,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error("Chat error:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content:
+          "Sorry, I encountered an error while processing your request. Please try again.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsThinking(false);
     }
   };
 
   return (
-    <aside className="w-80 border-l border-border flex flex-col bg-card h-full">
-      {/* Brief summary */}
-      <div className="shrink-0 p-4 border-b border-border bg-card z-10">
-        <div className="flex items-center gap-2 text-sm font-medium mb-3">
-          <FileText className="w-4 h-4 text-accent" />
-          <span>Your Brief</span>
-        </div>
+    <aside
+      className={cn(
+        "border-l border-border flex flex-col bg-card h-full transition-all duration-300 ease-in-out",
+        isOpen ? "w-[400px]" : "w-12"
+      )}>
+      {/* Toggle button */}
+      <button
+        onClick={onToggle}
+        className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 p-1.5 rounded-full bg-card border border-border shadow-sm hover:bg-muted transition-colors"
+        title={isOpen ? "Collapse panel" : "Expand panel"}>
+        {isOpen ? (
+          <ChevronRight className="w-3 h-3" />
+        ) : (
+          <ChevronLeft className="w-3 h-3" />
+        )}
+      </button>
 
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs">
-              <GraduationCap className="w-3 h-3" />
-              {academicLevelLabels[brief.academicLevel]}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs">
-              <BookOpen className="w-3 h-3" />
-              {documentTypeLabels[brief.documentType]}
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs capitalize">
-              {brief.writingStyle}
-            </span>
-          </div>
-        </div>
-      </div>
+      {isOpen ? (
+        <>
+          {/* Brief summary */}
+          <div className="shrink-0 p-4 border-b border-border bg-card z-10">
+            <div className="flex items-center gap-2 text-sm font-medium mb-3">
+              <FileText className="w-4 h-4 text-accent" />
+              <span>Your Brief</span>
+            </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={cn(
-                "flex flex-col gap-1 max-w-[90%]",
-                msg.role === "user"
-                  ? "ml-auto items-end"
-                  : "mr-auto items-start"
-              )}>
-              <div
-                className={cn(
-                  "p-3 rounded-lg text-sm",
-                  msg.role === "user"
-                    ? "bg-accent text-accent-foreground rounded-br-none"
-                    : "bg-muted text-foreground rounded-bl-none"
-                )}>
-                {msg.content}
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs">
+                  <GraduationCap className="w-3 h-3" />
+                  {academicLevelLabels[brief.academicLevel]}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs">
+                  <BookOpen className="w-3 h-3" />
+                  {documentTypeLabels[brief.documentType]}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted text-xs capitalize">
+                  {brief.writingStyle}
+                </span>
               </div>
-              {msg.role === "assistant" && (
-                <div className="flex items-center gap-2">
+            </div>
+          </div>
+
+          {/* Chat Area */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={cn(
+                    "flex flex-col gap-1 max-w-[90%]",
+                    msg.role === "user"
+                      ? "ml-auto items-end"
+                      : "mr-auto items-start"
+                  )}>
+                  <div
+                    className={cn(
+                      "p-3 rounded-lg text-sm",
+                      msg.role === "user"
+                        ? "bg-accent text-accent-foreground rounded-br-none"
+                        : "bg-muted text-foreground rounded-bl-none"
+                    )}>
+                    <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                      <Markdown>{msg.content}</Markdown>
+                    </div>
+                  </div>
+                  {msg.role === "assistant" && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleCopy(msg.content, msg.id)}
+                        className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                        title="Copy to clipboard">
+                        {copiedId === msg.id ? (
+                          <Check className="w-3 h-3 text-green-500" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                      </button>
+                      {onInsert && (
+                        <button
+                          onClick={() => onInsert(msg.content)}
+                          className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+                          title="Add to document">
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isThinking && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Hemmi is thinking...</span>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Area */}
+            <div className="shrink-0 p-4 border-t border-border bg-card">
+              {askAIContext && (
+                <div className="mb-3 p-3 bg-muted/50 rounded-lg border border-border relative group">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1">
+                    <Quote className="w-3 h-3" />
+                    <span>Selected Context</span>
+                  </div>
+                  <p className="text-sm text-foreground line-clamp-3 italic">
+                    &quot;{askAIContext}&quot;
+                  </p>
                   <button
-                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                    title="Copy to clipboard">
-                    <Copy className="w-3 h-3" />
-                  </button>
-                  <button
-                    className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-                    title="Add to document">
-                    <Plus className="w-3 h-3" />
+                    onClick={onClearContext}
+                    className="absolute -top-2 -right-2 p-1 bg-background border border-border rounded-full shadow-sm hover:bg-muted transition-colors">
+                    <X className="w-3 h-3" />
                   </button>
                 </div>
               )}
+              <form onSubmit={handleSubmit} className="relative">
+                <input
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask Hemmi or type '@' for sources..."
+                  className="w-full pl-4 pr-10 py-3 rounded-lg bg-muted/50 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+                  disabled={isThinking}
+                />
+                <button
+                  type="submit"
+                  disabled={!input.trim() || isThinking}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-accent disabled:opacity-50 transition-colors">
+                  <Send className="w-4 h-4" />
+                </button>
+              </form>
             </div>
-          ))}
-          {isThinking && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground p-2">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Hemmi is thinking...</span>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+          </div>
+        </>
+      ) : (
+        /* Collapsed state - minimal icons */
+        <div className="flex flex-col items-center py-4 gap-4">
+          <FileText className="w-5 h-5 text-muted-foreground" />
+          <MessageSquare className="w-5 h-5 text-muted-foreground" />
         </div>
-
-        {/* Input Area */}
-        <div className="shrink-0 p-4 border-t border-border bg-card">
-          {askAIContext && (
-            <div className="mb-3 p-3 bg-muted/50 rounded-lg border border-border relative group">
-              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1">
-                <Quote className="w-3 h-3" />
-                <span>Selected Context</span>
-              </div>
-              <p className="text-sm text-foreground line-clamp-3 italic">
-                "{askAIContext}"
-              </p>
-              <button
-                onClick={onClearContext}
-                className="absolute -top-2 -right-2 p-1 bg-background border border-border rounded-full shadow-sm hover:bg-muted transition-colors">
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="relative">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Hemmi or type '@' for sources..."
-              className="w-full pl-4 pr-10 py-3 rounded-lg bg-muted/50 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent"
-              disabled={isThinking}
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || isThinking}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-muted-foreground hover:text-accent disabled:opacity-50 transition-colors">
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
-        </div>
-      </div>
+      )}
     </aside>
   );
 }
