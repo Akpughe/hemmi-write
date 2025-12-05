@@ -31,9 +31,15 @@ export function WorkspaceLayout({
     reject: () => void;
   } | null>(null);
   const [askAIContext, setAskAIContext] = useState<string | null>(null);
+  const [insertRequest, setInsertRequest] = useState<string | null>(null);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
 
   const handleAskAI = (text: string) => {
     setAskAIContext(text);
+  };
+
+  const handleInsert = (text: string) => {
+    setInsertRequest(text);
   };
 
   return (
@@ -65,15 +71,24 @@ export function WorkspaceLayout({
           setChapterHandlers={setChapterHandlers}
           onStepChange={onStepChange}
           onAskAI={handleAskAI}
+          insertRequest={insertRequest}
+          onInsertComplete={() => setInsertRequest(null)}
         />
 
         {/* Right Panel - Brief & Chat */}
-        <RightPanel
-          brief={brief}
-          currentStep={currentStep}
-          askAIContext={askAIContext}
-          onClearContext={() => setAskAIContext(null)}
-        />
+        <div className="relative">
+          <RightPanel
+            brief={brief}
+            currentStep={currentStep}
+            askAIContext={askAIContext}
+            onClearContext={() => setAskAIContext(null)}
+            sources={sources}
+            currentContent={editorContent}
+            onInsert={handleInsert}
+            isOpen={isRightPanelOpen}
+            onToggle={() => setIsRightPanelOpen(!isRightPanelOpen)}
+          />
+        </div>
       </div>
     </div>
   );

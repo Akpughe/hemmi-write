@@ -205,7 +205,9 @@ export function getHumanizationPrompt(
   academicLevel: AcademicLevel,
   includeDetailed: boolean = true
 ): string {
-  const levelConfig = HUMANIZATION_BY_ACADEMIC_LEVEL[academicLevel];
+  const levelConfig =
+    HUMANIZATION_BY_ACADEMIC_LEVEL[academicLevel] ||
+    HUMANIZATION_BY_ACADEMIC_LEVEL[AcademicLevel.UNDERGRADUATE];
 
   let prompt = `\n\n--- CRITICAL: WRITE LIKE A HUMAN, NOT AN AI ---\n\n`;
 
@@ -228,7 +230,7 @@ export function getHumanizationPrompt(
   prompt += `- Passive voice as default construction\n`;
   prompt += `- Generic vague descriptions ("significant impact" → "23% increase")\n`;
   prompt += `- Keyword stuffing and repetitive phrasing\n`;
-  prompt += `- Markdown syntax (*, **, #, --) - use HTML tags instead\n\n`;
+  prompt += `- Markdown syntax (*, **, #, --) is preferred over HTML tags\n\n`;
 
   // What to DO
   if (includeDetailed) {
@@ -260,12 +262,11 @@ export function getHumanizationPrompt(
     prompt += `   ${HUMANIZATION_TECHNIQUES.KEYWORD_STUFFING.instruction}\n`;
     prompt += `   Don't repeat "the study shows" five times - vary it.\n\n`;
 
-    prompt += `6. HTML FORMATTING (NOT MARKDOWN):\n`;
-    prompt += `   - Use <strong>bold text</strong> NOT **bold**\n`;
-    prompt += `   - Use <em>italic text</em> NOT *italic*\n`;
-    prompt += `   - Use <h1>, <h2>, <h3> for headings NOT # or ##\n`;
-    prompt += `   - Use proper em-dash HTML entity (&mdash;) or just avoid overusing them\n`;
-    prompt += `   - Paragraphs wrapped in <p> tags with proper line breaks\n\n`;
+    prompt += `6. MARKDOWN FORMATTING:\n`;
+    prompt += `   - Use **bold text** for emphasis\n`;
+    prompt += `   - Use *italic text* for definitions or emphasis\n`;
+    prompt += `   - Use ##, ### for headings\n`;
+    prompt += `   - Use - or * for bullet points\n\n`;
   } else {
     // Compact version
     prompt += `KEY TECHNIQUES:\n`;
@@ -276,7 +277,7 @@ export function getHumanizationPrompt(
       .join('", "')}"\n`;
     prompt += `- Be specific and concrete, not generic\n`;
     prompt += `- Vary vocabulary, avoid keyword stuffing\n`;
-    prompt += `- Use HTML tags (<strong>, <em>, <h1>) NOT markdown (*, **, #)\n\n`;
+    prompt += `- Use Markdown formatting (**bold**, *italic*, ## Heading)\n\n`;
   }
 
   // Level-specific allowances
@@ -301,7 +302,9 @@ export function getHumanizationPrompt(
 export function getCompactHumanizationGuidance(
   academicLevel: AcademicLevel
 ): string {
-  const levelConfig = HUMANIZATION_BY_ACADEMIC_LEVEL[academicLevel];
+  const levelConfig =
+    HUMANIZATION_BY_ACADEMIC_LEVEL[academicLevel] ||
+    HUMANIZATION_BY_ACADEMIC_LEVEL[AcademicLevel.UNDERGRADUATE];
 
   return `
 HUMANIZATION REQUIREMENTS (Avoid AI Detection):
@@ -325,7 +328,7 @@ Write naturally:
 - Natural transitions ("This suggests", "Notably"), not "Furthermore"/"Moreover"
 - Be specific and concrete ("23% reduction"), not generic ("significant decrease")
 - Show critical thinking voice, not just information assembly
-- Use HTML formatting (<strong>, <em>, <h1>) NOT markdown (*, **, #)
+- Use Markdown formatting (**bold**, *italic*, ## Heading)
 ${
   levelConfig.personalElements
     ? '- Use personal academic voice: "we", "our research", "this study"'
