@@ -47,6 +47,8 @@ interface EditorPanelProps {
   }) => void;
   onStepChange: (step: WorkflowStep) => void;
   onAskAI?: (text: string) => void;
+  insertRequest?: string | null;
+  onInsertComplete?: () => void;
 }
 
 export function EditorPanel({
@@ -60,6 +62,8 @@ export function EditorPanel({
   setChapterHandlers,
   onStepChange,
   onAskAI,
+  insertRequest,
+  onInsertComplete,
 }: EditorPanelProps) {
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -79,51 +83,6 @@ export function EditorPanel({
     breaks: true, // Convert \n to <br>
     gfm: true, // GitHub Flavored Markdown
   });
-
-  // Custom renderer to add proper spacing classes to AI-generated content
-  const renderer = new marked.Renderer();
-
-  // Override paragraph rendering
-  renderer.paragraph = (token: any) => {
-    return `<p class="mb-5 leading-relaxed">${token.text}</p>`;
-  };
-
-  // Override heading rendering with proper spacing
-  renderer.heading = (token: any) => {
-    const spacingClasses = {
-      1: "text-4xl leading-tight mb-6 mt-8 font-bold tracking-tight",
-      2: "text-3xl leading-snug mb-5 mt-8 font-bold tracking-tight",
-      3: "text-2xl leading-snug mb-4 mt-6 font-bold tracking-tight",
-      4: "text-xl leading-normal mb-3 mt-5 font-bold tracking-tight",
-      5: "text-lg leading-normal mb-3 mt-4 font-bold tracking-tight",
-      6: "text-base leading-normal mb-2 mt-4 font-semibold tracking-tight",
-    };
-
-    const classes =
-      spacingClasses[token.depth as keyof typeof spacingClasses] ||
-      spacingClasses[1];
-    return `<h${token.depth} class="${classes}">${token.text}</h${token.depth}>`;
-  };
-
-  // Override list rendering
-  renderer.list = (token: any) => {
-    const tag = token.ordered ? "ol" : "ul";
-    const classes = token.ordered ? "mb-5 mt-2" : "mb-5 mt-2 list-disc";
-    return `<${tag} class="${classes}">${token.items}</${tag}>`;
-  };
-
-  // Override list item rendering
-  renderer.listitem = (token: any) => {
-    return `<li class="mb-2 leading-relaxed">${token.text}</li>`;
-  };
-
-  // Override blockquote rendering
-  renderer.blockquote = (token: any) => {
-    return `<blockquote class="border-l-4 border-accent pl-4 pr-4 italic text-muted-foreground my-6">${token.text}</blockquote>`;
-  };
-
-  // Apply custom renderer
-  marked.use({ renderer });
 
   // Helper to check if a section is an abstract
   const isAbstractSection = (sectionTitle: string) => {
@@ -242,10 +201,7 @@ export function EditorPanel({
           const citationStyle = citationStyleMap[brief.citationStyle || "APA"];
 
           // Generate references HTML (no markdown parsing needed)
-          const htmlContent = generateReferenceList(
-            apiSources,
-            citationStyle
-          );
+          const htmlContent = generateReferenceList(apiSources, citationStyle);
 
           setCurrentChapterContent(htmlContent);
 
@@ -610,9 +566,30 @@ export function EditorPanel({
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [currentStep, plan]);
 
-  const handleExport = (format: "docx" | "pdf") => {
-    // Mock export for now
-    alert(`Exporting as ${format.toUpperCase()}...`);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async (format: "docx" | "pdf") => {
+    if (isExporting) return;
+
+    setIsExporting(true);
+    const filename = plan?.title?.replace(/[^a-zA-Z0-9]/g, "_") || "document";
+
+    try {
+      const { exportToDocx, exportToPdfFromHtml } = await import(
+        "@/lib/utils/documentExport"
+      );
+
+      if (format === "docx") {
+        await exportToDocx(content, filename);
+      } else {
+        await exportToPdfFromHtml(content, filename);
+      }
+    } catch (error) {
+      console.error(`${format.toUpperCase()} export error:`, error);
+      alert(`Failed to export as ${format.toUpperCase()}. Please try again.`);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (currentStep === "research") {
@@ -674,12 +651,25 @@ export function EditorPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => handleExport("docx")}>
-            <FileText className="w-4 h-4 mr-2" />
+            onClick={() => handleExport("docx")}
+            disabled={isExporting}>
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="w-4 h-4 mr-2" />
+            )}
             DOCX
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleExport("pdf")}>
-            <Download className="w-4 h-4 mr-2" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleExport("pdf")}
+            disabled={isExporting}>
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
             PDF
           </Button>
 
@@ -718,6 +708,10 @@ export function EditorPanel({
             onChange={setContent}
             editable={!isWriting && !showChapterReview}
             onAskAI={onAskAI}
+            brief={brief}
+            sources={sources}
+            insertRequest={insertRequest}
+            onInsertComplete={onInsertComplete}
           />
         </div>
 
