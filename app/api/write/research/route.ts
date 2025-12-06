@@ -6,13 +6,19 @@ import {
   ResearchSource,
   DocumentType,
 } from "@/lib/types/document";
+import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
 
 const exa = new Exa(process.env.EXA_API_KEY);
 
+// Extended request type to include projectId
+interface ExtendedResearchRequest extends ResearchRequest {
+  projectId?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body: ResearchRequest = await request.json();
-    const { topic, documentType, numSources = 15 } = body;
+    const body: ExtendedResearchRequest = await request.json();
+    const { topic, documentType, numSources = 15, projectId } = body;
 
     if (!topic || !documentType) {
       return NextResponse.json(
@@ -115,8 +121,66 @@ export async function POST(request: NextRequest) {
     // Sort by relevance score (highest first)
     sources.sort((a, b) => (b.score || 0) - (a.score || 0));
 
+    // If projectId provided, save sources to database
+    let savedSources = sources;
+    if (projectId) {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const supabase = await createServerSupabaseClient();
+          
+          // Delete existing sources for this project (replace with new ones)
+          await supabase
+            .from('research_sources')
+            .delete()
+            .eq('project_id', projectId);
+          
+          // Insert new sources
+          const sourcesToInsert = sources.map((source, index) => ({
+            project_id: projectId,
+            title: source.title,
+            url: source.url,
+            author: source.author || null,
+            published_date: source.publishedDate || null,
+            excerpt: source.excerpt,
+            full_content: null, // Could be populated later
+            highlights: null,
+            source_type: 'web' as const,
+            relevance_score: source.score || null,
+            is_selected: source.selected,
+            position: index,
+          }));
+
+          const { data: insertedSources, error: insertError } = await supabase
+            .from('research_sources')
+            .insert(sourcesToInsert)
+            .select();
+
+          if (insertError) {
+            console.error('Failed to save sources to database:', insertError);
+          } else if (insertedSources) {
+            // Map database IDs back to sources
+            savedSources = insertedSources.map((dbSource) => ({
+              id: dbSource.id,
+              title: dbSource.title,
+              url: dbSource.url,
+              author: dbSource.author || undefined,
+              publishedDate: dbSource.published_date || undefined,
+              excerpt: dbSource.excerpt,
+              score: dbSource.relevance_score ? Number(dbSource.relevance_score) : undefined,
+              selected: dbSource.is_selected,
+            }));
+            console.log(`Saved ${savedSources.length} sources to database`);
+          }
+        }
+      } catch (dbError) {
+        console.error('Database operation failed:', dbError);
+        // Continue with in-memory sources if database fails
+      }
+    }
+
     const response: ResearchResponse = {
-      sources,
+      sources: savedSources,
       query: enhancedQuery,
     };
 
