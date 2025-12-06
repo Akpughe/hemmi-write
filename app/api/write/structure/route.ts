@@ -11,6 +11,7 @@ import {
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
 import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
+import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -270,6 +271,7 @@ export async function POST(req: NextRequest) {
       academicLevel,
       writingStyle,
       chapters,
+      projectId,
     } = await req.json();
 
     // Get config for the document type
@@ -441,11 +443,119 @@ export async function POST(req: NextRequest) {
       items: tocItems,
     };
 
+    const structureResult = {
+      ...result.object,
+      tableOfContents,
+    };
+
+    // If projectId provided, save structure to database
+    let savedStructure = structureResult;
+    if (projectId) {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const supabase = await createServerSupabaseClient();
+          
+          // Mark any existing current structure as not current
+          await supabase
+            .from('document_structures')
+            .update({ is_current: false })
+            .eq('project_id', projectId)
+            .eq('is_current', true);
+          
+          // Get current version count for this project
+          const { count } = await supabase
+            .from('document_structures')
+            .select('*', { count: 'exact', head: true })
+            .eq('project_id', projectId);
+          
+          const nextVersion = (count || 0) + 1;
+          
+          // Calculate estimated word count - using wordCount since sections don't have estimatedWordCount by default
+          const estimatedWordCount = wordCount || 0;
+          
+          // Insert new structure
+          const { data: insertedStructure, error: structureError } = await supabase
+            .from('document_structures')
+            .insert({
+              project_id: projectId,
+              version: nextVersion,
+              title: structureResult.title,
+              approach: structureResult.approach,
+              tone: structureResult.tone,
+              table_of_contents: structureResult.tableOfContents,
+              estimated_word_count: estimatedWordCount,
+              is_current: true,
+              is_approved: false,
+            })
+            .select()
+            .single();
+          
+          if (structureError) {
+            console.error('Failed to save structure to database:', structureError);
+          } else if (insertedStructure) {
+            // Insert sections
+            const sectionsToInsert = structureResult.sections.map((section, index: number) => ({
+              structure_id: insertedStructure.id,
+              heading: section.heading,
+              description: '',
+              key_points: { points: section.keyPoints || [] },
+              position: index,
+              estimated_word_count: null,
+              section_number: null,
+            }));
+            
+            const { error: sectionsError } = await supabase
+              .from('document_sections')
+              .insert(sectionsToInsert);
+            
+            if (sectionsError) {
+              console.error('Failed to save sections to database:', sectionsError);
+            }
+            
+            // Create version snapshot
+            const { error: versionError } = await supabase
+              .from('document_versions')
+              .insert({
+                project_id: projectId,
+                version_number: nextVersion,
+                version_name: `Structure v${nextVersion}`,
+                description: 'Initial structure generation',
+                structure_snapshot: JSON.parse(JSON.stringify(structureResult)),
+                sources_snapshot: JSON.parse(JSON.stringify(sources || [])),
+                content_snapshot: null,
+                checkpoint_type: 'initial_structure',
+                word_count: null,
+                created_by: user.id,
+              });
+            
+            if (versionError) {
+              console.error('Failed to create version snapshot:', versionError);
+            }
+            
+            // Update project workflow step
+            await supabase
+              .from('writing_projects')
+              .update({ workflow_step: 'planning' })
+              .eq('id', projectId);
+            
+            // Add database ID to the response
+            savedStructure = {
+              ...structureResult,
+              id: insertedStructure.id,
+            } as typeof structureResult & { id: string };
+            
+            console.log(`Saved structure to database with ID: ${insertedStructure.id}`);
+          }
+        }
+      } catch (dbError) {
+        console.error('Database operation failed:', dbError);
+        // Continue with in-memory structure if database fails
+      }
+    }
+
     return NextResponse.json({
-      structure: {
-        ...result.object,
-        tableOfContents,
-      },
+      structure: savedStructure,
     });
   } catch (error) {
     console.error("Structure generation error:", error);
