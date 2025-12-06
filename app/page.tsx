@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PromptInput } from "@/app/components/landing/prompt-input";
 import { DocumentTypeSelector } from "@/app/components/landing/document-type-selector";
 import { OptionsPanel } from "@/app/components/landing/options-panel";
+import { ProjectsSection } from "@/app/components/landing/projects-section";
 import { ThemeToggle } from "@/app/components/ui/theme-toggle";
 import { Button } from "@/app/components/ui/button";
 import { AuthModal } from "@/app/components/auth/auth-modal";
@@ -72,7 +73,7 @@ export default function HomePage() {
     localStorage.setItem("writingBrief", JSON.stringify(fullBrief));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!topic.trim()) return;
 
     saveBrief();
@@ -81,13 +82,77 @@ export default function HomePage() {
       setAuthNextPath("/workspace");
       setIsAuthModalOpen(true);
     } else {
-      router.push("/workspace");
+      // Create project immediately and navigate with projectId
+      try {
+        const response = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: topic,
+            topic: topic,
+            instructions: instructions || null,
+            documentType: brief.documentType || 'research-paper',
+            academicLevel: brief.academicLevel || 'undergraduate',
+            writingStyle: brief.writingStyle || 'analytical',
+            citationStyle: brief.citationStyle || 'APA',
+            targetWordCount: brief.wordCount || null,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const projectId = data.project.id;
+          // Don't clear localStorage yet - workspace page will clear it after successful load
+          // This provides a fallback if the workspace page project fetch fails
+          router.push(`/workspace?projectId=${projectId}`);
+        } else {
+          // Fallback to old behavior if project creation fails
+          router.push("/workspace");
+        }
+      } catch (error) {
+        console.error('Failed to create project:', error);
+        // Fallback to old behavior
+        router.push("/workspace");
+      }
     }
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
     setIsAuthModalOpen(false);
-    if (authNextPath) {
+    if (authNextPath === "/workspace") {
+      // Create project after authentication before navigating
+      try {
+        const response = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: topic,
+            topic: topic,
+            instructions: instructions || null,
+            documentType: brief.documentType || 'research-paper',
+            academicLevel: brief.academicLevel || 'undergraduate',
+            writingStyle: brief.writingStyle || 'analytical',
+            citationStyle: brief.citationStyle || 'APA',
+            targetWordCount: brief.wordCount || null,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const projectId = data.project.id;
+          // Don't clear localStorage yet - workspace page will clear it after successful load
+          // This provides a fallback if the workspace page project fetch fails
+          router.push(`/workspace?projectId=${projectId}`);
+        } else {
+          // Fallback to old behavior if project creation fails
+          router.push(authNextPath);
+        }
+      } catch (error) {
+        console.error('Failed to create project:', error);
+        // Fallback to old behavior
+        router.push(authNextPath);
+      }
+    } else if (authNextPath) {
       router.push(authNextPath);
     }
   };
@@ -98,9 +163,9 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative">
+    <main className="min-h-screen flex flex-col">
       {/* Logo mark */}
-      <div className="absolute top-6 left-6">
+      <div className="absolute top-6 left-6 z-10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
             <span className="text-accent font-bold text-sm">N</span>
@@ -110,7 +175,7 @@ export default function HomePage() {
       </div>
 
       {/* Header Actions */}
-      <div className="absolute top-6 right-6 flex items-center gap-4">
+      <div className="absolute top-6 right-6 flex items-center gap-4 z-10">
         {session ? (
           <UserMenu session={session} />
         ) : (
@@ -121,40 +186,46 @@ export default function HomePage() {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-2xl flex flex-col items-center gap-8">
-        {/* Hero text */}
-        <div className="text-center space-y-3">
-          <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-balance">
-            What do you want to write?
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Research, plan, and write with AI assistance
-          </p>
-        </div>
+      {/* Hero section */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-2xl flex flex-col items-center gap-8">
+          {/* Hero text */}
+          <div className="text-center space-y-3">
+            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-balance">
+              What do you want to write?
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Research, plan, and write with AI assistance
+            </p>
+          </div>
 
-        {/* Main input area */}
-        <div className="w-full">
-          <PromptInput
-            topic={topic}
-            setTopic={setTopic}
-            instructions={instructions}
-            setInstructions={setInstructions}
-            onSubmit={handleSubmit}
+          {/* Main input area */}
+          <div className="w-full">
+            <PromptInput
+              topic={topic}
+              setTopic={setTopic}
+              instructions={instructions}
+              setInstructions={setInstructions}
+              onSubmit={handleSubmit}
+            />
+          </div>
+
+          {/* Document type pills */}
+          <DocumentTypeSelector
+            selected={brief.documentType || "research-paper"}
+            onSelect={(type) => setBrief({ ...brief, documentType: type })}
+          />
+
+          {/* Additional options */}
+          <OptionsPanel
+            brief={brief}
+            onUpdate={(updates) => setBrief({ ...brief, ...updates })}
           />
         </div>
-
-        {/* Document type pills */}
-        <DocumentTypeSelector
-          selected={brief.documentType || "research-paper"}
-          onSelect={(type) => setBrief({ ...brief, documentType: type })}
-        />
-
-        {/* Additional options */}
-        <OptionsPanel
-          brief={brief}
-          onUpdate={(updates) => setBrief({ ...brief, ...updates })}
-        />
       </div>
+
+      {/* Projects section - only shown when authenticated */}
+      {session && <ProjectsSection />}
 
       <AuthModal
         isOpen={isAuthModalOpen}

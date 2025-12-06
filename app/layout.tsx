@@ -5,6 +5,7 @@ import "katex/dist/katex.min.css";
 import { EditorProvider } from "@/lib/contexts/EditorContext";
 import { ThemeProvider } from "@/app/components/theme-provider";
 import SupabaseProvider from "@/lib/context/SupabaseContext";
+import { ReactQueryProvider } from "@/lib/providers/react-query-provider";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -34,17 +35,19 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${lora.variable} antialiased`}
         style={{ fontFamily: "var(--font-inter)" }}>
-        <SupabaseProvider>
-          <EditorProvider>
-            <ThemeProvider
-              attribute="class"
-              defaultTheme="system"
-              enableSystem
-              disableTransitionOnChange>
-              {children}
-            </ThemeProvider>
-          </EditorProvider>
-        </SupabaseProvider>
+        <ReactQueryProvider>
+          <SupabaseProvider>
+            <EditorProvider>
+              <ThemeProvider
+                attribute="class"
+                defaultTheme="system"
+                enableSystem
+                disableTransitionOnChange>
+                {children}
+              </ThemeProvider>
+            </EditorProvider>
+          </SupabaseProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );
