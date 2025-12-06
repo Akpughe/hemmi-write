@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 type SupabaseContextType = {
   supabase: SupabaseClient;
   session: Session | null;
+  isLoading: boolean;
 };
 
 const SupabaseContext = createContext<SupabaseContextType | undefined>(
@@ -25,9 +26,17 @@ export default function SupabaseProvider({
 }) {
   const [supabase] = useState(() => createClient());
   const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
+    // Fetch initial session immediately
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoading(false);
+    });
+
+    // Then listen for changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
@@ -36,6 +45,7 @@ export default function SupabaseProvider({
           router.refresh();
         }
         setSession(session);
+        setIsLoading(false);
       }
     );
 
@@ -45,7 +55,7 @@ export default function SupabaseProvider({
   }, [router, supabase]);
 
   return (
-    <SupabaseContext.Provider value={{ supabase, session }}>
+    <SupabaseContext.Provider value={{ supabase, session, isLoading }}>
       {children}
     </SupabaseContext.Provider>
   );
