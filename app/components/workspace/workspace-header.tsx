@@ -29,7 +29,7 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/")}
+          onClick={() => router.back()}
           className="h-8 w-8">
           <ArrowLeft className="w-4 h-4" />
           <span className="sr-only">Back</span>
@@ -82,7 +82,7 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
           );
         })}
       </div>
-      <div className="flex items-center">
+      <div className="flex items-center gap-4">
         <ThemeToggle />
       </div>
     </header>

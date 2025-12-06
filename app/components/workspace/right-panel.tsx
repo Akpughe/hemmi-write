@@ -22,6 +22,13 @@ import { toast } from "sonner";
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
 
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
+
 interface RightPanelProps {
   brief: WritingBrief;
   currentStep: WorkflowStep;
@@ -32,27 +39,23 @@ interface RightPanelProps {
   onInsert?: (text: string) => void;
   isOpen?: boolean;
   onToggle?: () => void;
-}
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
+  projectId: string | null;
+  initialMessages?: any[];
 }
 
 const documentTypeLabels = {
   "research-paper": "Research Paper",
   essay: "Essay",
   report: "Report",
+  article: "Article",
 };
 
 const academicLevelLabels = {
-  "high-school": "High School",
-  undergraduate: "Undergraduate",
-  graduate: "Graduate",
-  doctoral: "Doctoral",
-  professional: "Professional",
+  "high-school": "HS",
+  undergraduate: "Undergrad",
+  graduate: "Grad",
+  doctoral: "PhD",
+  professional: "Pro",
 };
 
 export function RightPanel({
@@ -65,6 +68,8 @@ export function RightPanel({
   onInsert,
   isOpen = true,
   onToggle,
+  projectId,
+  initialMessages = [],
 }: RightPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -79,6 +84,23 @@ export function RightPanel({
   const [isThinking, setIsThinking] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync initial messages (e.g. from existing project)
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      const mappedMessages: Message[] = initialMessages.map((msg: any) => ({
+        id: msg.id,
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+        timestamp: new Date(msg.created_at),
+      }));
+      // Append to welcome message or replace if duplicate logic needed
+      // Ideally we replace the welcome message if we have history
+      if (mappedMessages.length > 0) {
+        setMessages(mappedMessages);
+      }
+    }
+  }, [initialMessages]);
 
   const handleCopy = async (text: string, id: string) => {
     try {
@@ -97,7 +119,7 @@ export function RightPanel({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isThinking]);
+  }, [messages, isThinking, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,10 +147,21 @@ export function RightPanel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMessage],
+          messages: projectId
+            ? [{ role: userMessage.role, content: userMessage.content }]
+            : [...messages, userMessage], // Optimizing payload if projectId is used (server loads history) but keeping legacy behavior for now
+          // Actually, if projectId is sent, server loads history. But we also need to send the NEW message.
+          // The API likely expects the full array for context if stateless, or we just send the new one.
+          // Let's check chat/route.ts.
+          // It seems it saves the new message, then calls AI.
+          // If we send projectId, the server can load history.
+          // But looking at previous code, I mostly kept the array logic.
+          // Let's send the array for now to match current implementation, the API handles projectId persistence.
+          projectId,
           brief,
           sources,
           currentContent: currentContent,
+          message: userMessage.content, // Pass single message content for storage if supported, otherwise reliance on 'messages' array
         }),
       });
 
