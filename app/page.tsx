@@ -84,17 +84,17 @@ export default function HomePage() {
     } else {
       // Create project immediately and navigate with projectId
       try {
-        const response = await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: topic,
             topic: topic,
             instructions: instructions || null,
-            documentType: brief.documentType || 'research-paper',
-            academicLevel: brief.academicLevel || 'undergraduate',
-            writingStyle: brief.writingStyle || 'analytical',
-            citationStyle: brief.citationStyle || 'APA',
+            documentType: brief.documentType || "research-paper",
+            academicLevel: brief.academicLevel || "undergraduate",
+            writingStyle: brief.writingStyle || "analytical",
+            citationStyle: brief.citationStyle || "APA",
             targetWordCount: brief.wordCount || null,
           }),
         });
@@ -110,7 +110,7 @@ export default function HomePage() {
           router.push("/workspace");
         }
       } catch (error) {
-        console.error('Failed to create project:', error);
+        console.error("Failed to create project:", error);
         // Fallback to old behavior
         router.push("/workspace");
       }
@@ -122,17 +122,17 @@ export default function HomePage() {
     if (authNextPath === "/workspace") {
       // Create project after authentication before navigating
       try {
-        const response = await fetch('/api/projects', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: topic,
             topic: topic,
             instructions: instructions || null,
-            documentType: brief.documentType || 'research-paper',
-            academicLevel: brief.academicLevel || 'undergraduate',
-            writingStyle: brief.writingStyle || 'analytical',
-            citationStyle: brief.citationStyle || 'APA',
+            documentType: brief.documentType || "research-paper",
+            academicLevel: brief.academicLevel || "undergraduate",
+            writingStyle: brief.writingStyle || "analytical",
+            citationStyle: brief.citationStyle || "APA",
             targetWordCount: brief.wordCount || null,
           }),
         });
@@ -148,7 +148,7 @@ export default function HomePage() {
           router.push(authNextPath);
         }
       } catch (error) {
-        console.error('Failed to create project:', error);
+        console.error("Failed to create project:", error);
         // Fallback to old behavior
         router.push(authNextPath);
       }
@@ -187,14 +187,14 @@ export default function HomePage() {
       </div>
 
       {/* Hero section */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+      <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-2xl flex flex-col items-center gap-8">
           {/* Hero text */}
           <div className="text-center space-y-3">
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-balance">
+            <h1 className="text-4xl md:text-4xl font-medium font-fraunces tracking-tight text-balance">
               What do you want to write?
             </h1>
-            <p className="text-muted-foreground text-lg">
+            <p className="text-black font-fraunces text-lg">
               Research, plan, and write with AI assistance
             </p>
           </div>
