@@ -184,10 +184,10 @@ export async function POST(request: NextRequest) {
             const sectionsToInsert = newStructure.sections.map((section, index) => ({
               structure_id: insertedStructure.id,
               heading: section.heading,
-              description: section.description || '',
+              description: (section as any).description || '',
               key_points: { points: section.keyPoints || [] },
               position: index,
-              estimated_word_count: section.estimatedWordCount || null,
+              estimated_word_count: (section as any).estimatedWordCount || null,
               section_number: null,
             }));
             
