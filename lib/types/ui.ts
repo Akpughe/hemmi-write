@@ -38,6 +38,7 @@ export interface OutlineSection {
   id: string;
   title: string;
   keyPoints: string[];
+  estimatedWordCount?: number;
   status: "pending" | "writing" | "review" | "complete";
 }
 
