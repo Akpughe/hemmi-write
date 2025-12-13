@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { WorkspaceLayout } from "@/app/components/workspace/workspace-layout";
 import {
@@ -15,6 +15,7 @@ import {
   mapEnumAcademicLevelToUI,
   mapEnumWritingStyleToUI,
 } from "@/lib/utils/documentTypeMapper";
+import { useProject } from "@/lib/hooks/use-projects";
 
 // Define locally if not exported from UI types, or if it is a DB type
 interface DocumentStructure {
@@ -32,142 +33,133 @@ function WorkspaceContent() {
   const projectId = searchParams.get("projectId");
   const { session, isLoading: isSessionLoading } = useSupabase();
 
-  const [brief, setBrief] = useState<WritingBrief | null>(null);
-  const [currentStep, setCurrentStep] = useState<WorkflowStep>("research");
-  const [initialData, setInitialData] = useState<{
-    sources: Source[];
-    plan: DocumentPlan | null;
-    content: string;
-    lastSavedAt: string | null;
-    messages: any[];
-  } | null>(null);
-  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  // Use React Query to fetch project data (only when projectId exists and session is ready)
+  const {
+    data: projectData,
+    isLoading: isLoadingProject,
+    isFetching: isFetchingProject,
+    error: projectError,
+  } = useProject(projectId && session ? projectId : null);
 
+  const [localStorageBrief, setLocalStorageBrief] =
+    useState<WritingBrief | null>(null);
+  const [hasCheckedLocalStorage, setHasCheckedLocalStorage] = useState(false);
+
+  // Load localStorage brief (only when no projectId, and only once)
   useEffect(() => {
-    // Wait for session to be initialized before proceeding
-    if (isSessionLoading) {
-      console.log("Waiting for session to initialize...");
+    if (projectId || hasCheckedLocalStorage || isSessionLoading) {
       return;
     }
 
-    async function loadData() {
-      setIsLoadingProject(true);
+    setHasCheckedLocalStorage(true);
+    const stored = localStorage.getItem("writingBrief");
+    if (stored) {
+      console.log("Loaded brief from localStorage");
+      const parsed = JSON.parse(stored);
+      localStorage.removeItem("writingBrief");
+      setLocalStorageBrief(parsed);
+    } else {
+      console.log("No brief found - redirecting to home");
+      router.push("/");
+    }
+  }, [projectId, hasCheckedLocalStorage, isSessionLoading, router]);
 
-      // Scenario 1: Loading existing project by ID with authenticated user
-      if (projectId && session) {
-        console.log("Loading existing project:", projectId);
-        try {
-          const response = await fetch(`/api/projects/${projectId}`);
-          if (!response.ok) throw new Error("Failed to load project");
+  // Transform project data from React Query using useMemo
+  const { brief, initialData } = useMemo(() => {
+    if (!projectData) {
+      return {
+        brief: localStorageBrief,
+        initialData: null,
+      };
+    }
 
-          const data = await response.json();
-          const { project, sources, structure, document, messages } = data;
+    const { project, sources, structure, document, messages } = projectData;
 
-          // Map project to brief
-          // Ensure we map from DB enum values (e.g. RESEARCH_PAPER) back to UI strings (e.g. research-paper)
-          const mappedBrief: WritingBrief = {
-            documentType: mapEnumToUIDocumentType(
-              project.document_type as any
-            ) as any,
-            topic: project.topic,
-            instructions: project.instructions || "",
-            academicLevel: mapEnumAcademicLevelToUI(
-              project.academic_level as any
-            ).toLowerCase() as any,
-            writingStyle: mapEnumWritingStyleToUI(
-              project.writing_style as any
-            ).toLowerCase() as any,
-            citationStyle: project.citation_style || "APA",
-            includeSources: true, // Default to true for now
-            chapters: project.chapters || structure?.sections?.length || 0,
-          };
+    // Map project to brief
+    const mappedBrief: WritingBrief = {
+      documentType: mapEnumToUIDocumentType(
+        project.document_type as any
+      ) as any,
+      topic: project.topic,
+      instructions: project.instructions || "",
+      academicLevel: mapEnumAcademicLevelToUI(
+        project.academic_level as any
+      ).toLowerCase() as any,
+      writingStyle: mapEnumWritingStyleToUI(
+        project.writing_style as any
+      ).toLowerCase() as any,
+      citationStyle: project.citation_style || "APA",
+      includeSources: true,
+      chapters: project.chapters || structure?.sections?.length || 0,
+    };
 
-          // Map structure to plan
-          let mappedPlan: DocumentPlan | null = null;
-          if (structure) {
-            mappedPlan = {
-              title: structure.title,
-              approach: structure.approach,
-              tone: structure.tone,
-              tableOfContents: structure.table_of_contents,
-              sections:
-                structure.sections?.map((s: any) => {
-                  const rawKeyPoints = s.key_points || s.keyPoints;
-                  let keyPoints: string[] = [];
+    // Map structure to plan
+    let mappedPlan: DocumentPlan | null = null;
+    if (structure) {
+      mappedPlan = {
+        title: structure.title,
+        approach: structure.approach,
+        tone: structure.tone,
+        tableOfContents: structure.table_of_contents,
+        sections:
+          structure.sections?.map((s: any) => {
+            const rawKeyPoints = s.key_points || s.keyPoints;
+            let keyPoints: string[] = [];
 
-                  if (Array.isArray(rawKeyPoints)) {
-                    keyPoints = rawKeyPoints;
-                  } else if (
-                    rawKeyPoints &&
-                    Array.isArray(rawKeyPoints.points)
-                  ) {
-                    keyPoints = rawKeyPoints.points;
-                  }
+            if (Array.isArray(rawKeyPoints)) {
+              keyPoints = rawKeyPoints;
+            } else if (rawKeyPoints && Array.isArray(rawKeyPoints.points)) {
+              keyPoints = rawKeyPoints.points;
+            }
 
-                  return {
-                    id: s.id,
-                    title: s.heading,
-                    keyPoints: keyPoints,
-                    estimatedWordCount: s.estimated_word_count || undefined,
-                    status: "complete", // Default to complete for loaded projects? Or pending if no content?
-                  };
-                }) || [],
+            return {
+              id: s.id,
+              title: s.heading,
+              keyPoints: keyPoints,
+              estimatedWordCount: s.estimated_word_count || undefined,
+              status: "complete",
             };
-          }
-
-          // Map sources
-          const mappedSources: Source[] = sources.map((s: any) => ({
-            id: s.id,
-            title: s.title,
-            url: s.url,
-            snippet: s.excerpt || "",
-            selected: true, // If saved in DB, it is selected/used
-          }));
-
-          setBrief(mappedBrief);
-          setInitialData({
-            sources: mappedSources,
-            plan: mappedPlan,
-            content: document?.content || "",
-            lastSavedAt: document?.updated_at || null,
-            messages: messages || [],
-          });
-          setCurrentStep((project.workflow_step as WorkflowStep) || "research");
-        } catch (error) {
-          console.error("Error loading project:", error);
-          // On error, try localStorage fallback
-          loadFromLocalStorage();
-        }
-      }
-      // Scenario 2: ProjectId exists but no session - redirect to login
-      else if (projectId && !session) {
-        console.log("Project requires authentication - redirecting to home");
-        router.push("/");
-      }
-      // Scenario 3: No projectId, check localStorage
-      else {
-        console.log("No projectId - checking localStorage");
-        loadFromLocalStorage();
-      }
-
-      setIsLoadingProject(false);
+          }) || [],
+      };
     }
 
-    function loadFromLocalStorage() {
-      const stored = localStorage.getItem("writingBrief");
-      if (stored) {
-        console.log("Loaded brief from localStorage");
-        setBrief(JSON.parse(stored));
-        // Clear localStorage after successful load to prevent reuse
-        localStorage.removeItem("writingBrief");
-      } else if (!projectId) {
-        // No project ID and no localStorage - redirect to home
-        console.log("No brief found - redirecting to home");
-        router.push("/");
-      }
-    }
+    // Map sources
+    const mappedSources: Source[] = sources.map((s: any) => ({
+      id: s.id,
+      title: s.title,
+      url: s.url,
+      snippet: s.excerpt || "",
+      selected: true,
+    }));
 
-    loadData();
+    return {
+      brief: mappedBrief,
+      initialData: {
+        sources: mappedSources,
+        plan: mappedPlan,
+        content: document?.content || "",
+        lastSavedAt: document?.updated_at || null,
+        messages: messages || [],
+      },
+    };
+  }, [projectData, localStorageBrief]);
+
+  // Initialize currentStep - WorkspaceLayout can update it
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>("research");
+
+  // Sync currentStep when projectData loads
+  useEffect(() => {
+    if (projectData?.project?.workflow_step) {
+      setCurrentStep(projectData.project.workflow_step as WorkflowStep);
+    }
+  }, [projectData]);
+
+  // Handle authentication redirect
+  useEffect(() => {
+    if (!isSessionLoading && projectId && !session) {
+      console.log("Project requires authentication - redirecting to home");
+      router.push("/");
+    }
   }, [projectId, session, isSessionLoading, router]);
 
   // Show different loading states
@@ -181,11 +173,50 @@ function WorkspaceContent() {
     );
   }
 
-  if (isLoadingProject || !brief) {
+  // Show loading state when fetching project data
+  if (projectId && (isLoadingProject || (!projectData && !projectError))) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">
           Loading workspace...
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (projectError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-destructive">
+          Error loading project. Please try again.
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state when waiting for localStorage (no projectId case)
+  if (
+    !projectId &&
+    !hasCheckedLocalStorage &&
+    !localStorageBrief &&
+    !isSessionLoading
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">
+          Loading workspace...
+        </div>
+      </div>
+    );
+  }
+
+  // If no brief after all loading attempts, show error
+  if (!brief) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-destructive">
+          Unable to load workspace. Please try again.
         </div>
       </div>
     );
@@ -203,6 +234,7 @@ function WorkspaceContent() {
       initialContent={initialData?.content}
       initialLastSavedAt={initialData?.lastSavedAt}
       initialMessages={initialData?.messages}
+      isFetching={isFetchingProject}
     />
   );
 }

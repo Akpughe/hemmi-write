@@ -24,6 +24,7 @@ interface WorkspaceLayoutProps {
   initialContent?: string;
   initialMessages?: any[];
   initialLastSavedAt?: string | null;
+  isFetching?: boolean;
 }
 
 export function WorkspaceLayout({
@@ -36,6 +37,7 @@ export function WorkspaceLayout({
   initialContent = "",
   initialMessages = [],
   initialLastSavedAt = null,
+  isFetching = false,
 }: WorkspaceLayoutProps) {
   const router = useRouter();
   const createProject = useCreateProject();
@@ -115,7 +117,11 @@ export function WorkspaceLayout({
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <WorkspaceHeader brief={brief} currentStep={currentStep} />
+      <WorkspaceHeader
+        brief={brief}
+        currentStep={currentStep}
+        isFetching={isFetching}
+      />
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left Panel - Research/Outline */}

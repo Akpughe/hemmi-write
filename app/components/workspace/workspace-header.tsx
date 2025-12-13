@@ -4,12 +4,14 @@ import { ArrowLeft, Check, Circle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/button";
 import { ThemeToggle } from "@/app/components/ui/theme-toggle";
+import { Spinner } from "@/app/components/ui/spinner";
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
 
 interface WorkspaceHeaderProps {
   brief: WritingBrief;
   currentStep: WorkflowStep;
+  isFetching?: boolean;
 }
 
 const steps: { id: WorkflowStep; label: string }[] = [
@@ -19,7 +21,11 @@ const steps: { id: WorkflowStep; label: string }[] = [
   { id: "complete", label: "Complete" },
 ];
 
-export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  brief,
+  currentStep,
+  isFetching = false,
+}: WorkspaceHeaderProps) {
   const router = useRouter();
   const currentIndex = steps.findIndex((s) => s.id === currentStep);
 
@@ -83,6 +89,13 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
         })}
       </div>
       <div className="flex items-center gap-4">
+        {isFetching && (
+          <div
+            className="flex items-center gap-2 text-muted-foreground"
+            title="Syncing data...">
+            <Spinner className="w-4 h-4" />
+          </div>
+        )}
         <ThemeToggle />
       </div>
     </header>
