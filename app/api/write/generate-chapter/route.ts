@@ -12,6 +12,7 @@ import {
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 
 interface GenerateChapterRequest {
   documentType: DocumentType;
@@ -88,7 +89,9 @@ STRUCTURE (single paragraph format):
 1-2 sentences: Conclusions and implications
 
 Write the abstract as a SINGLE cohesive paragraph with proper flow between elements.`
-    : `You are writing Chapter ${chapterNumber} of ${totalChapters - 1} for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
+    : `You are writing Chapter ${chapterNumber} of ${
+        totalChapters - 1
+      } for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
 
 DOCUMENT CONTEXT:
 Title: "${documentTitle}"
@@ -113,13 +116,17 @@ Chapter Description: ${chapter.description}
 
 SUBSECTIONS TO COVER:
 ${(chapter.keyPoints ?? [])
-  .map((point, idx) => isAbstract ? point : `${chapterNumber}.${idx + 1}. ${point}`)
+  .map((point, idx) =>
+    isAbstract ? point : `${chapterNumber}.${idx + 1}. ${point}`
+  )
   .join("\n")}
 
 TARGET WORD COUNT: ${targetWordCount} words
 
 AVAILABLE SOURCES:
-${sourcesText}`;
+${sourcesText}
+
+${getHumanizationPrompt(documentType, academicLevel, true)}`;
 
   // Add context from previous chapters if available
   if (previousChaptersText && previousChaptersText.trim()) {
@@ -130,23 +137,39 @@ IMPORTANT: Reference and build upon concepts from previous chapters where approp
 `;
   }
 
-  prompt += `
+  // Abstract has simple requirements, chapters have full requirements
+  if (isAbstract) {
+    prompt += `
+
+FORMATTING REQUIREMENTS:
+- Output in clean HTML format (NOT markdown)
+- Start with heading: <h1>Abstract</h1>
+- Write the abstract as a SINGLE <p> tag containing ONE cohesive paragraph
+- Do NOT use subsection headings
+- Do NOT include citations in the abstract
+- Do NOT use markdown syntax (no #, *, **, etc.)
+- Use <strong>text</strong> for emphasis if needed
+
+IMPORTANT: Write the abstract NOW. Do not ask questions or provide options.
+Output ONLY the HTML content for the abstract. Begin:`;
+  } else {
+    prompt += `
 WRITING REQUIREMENTS:
 
 1. STRUCTURE:
    - Start with the chapter heading: "${chapter.heading}"
    - Include ALL ${
      (chapter.keyPoints ?? []).length
-   } subsections as ${chapterNumber}.1, ${chapterNumber}.2, etc.${chapterNumber > 0 ? '' : ' (Note: Abstract typically has no subsections)'}
+   } subsections as ${chapterNumber}.1, ${chapterNumber}.2, etc.
    - Each subsection should be substantial (${
      (chapter.keyPoints ?? []).length > 0
        ? Math.floor(targetWordCount / (chapter.keyPoints ?? []).length)
        : targetWordCount
    }-${
-    (chapter.keyPoints ?? []).length > 0
-      ? Math.ceil((targetWordCount / (chapter.keyPoints ?? []).length) * 1.3)
-      : targetWordCount
-  } words)
+      (chapter.keyPoints ?? []).length > 0
+        ? Math.ceil((targetWordCount / (chapter.keyPoints ?? []).length) * 1.3)
+        : targetWordCount
+    } words)
 
 2. ACADEMIC RIGOR:
    - Cite ${levelConfig.citationsPerSection} sources per major point
@@ -156,41 +179,55 @@ WRITING REQUIREMENTS:
 
 3. CONTINUITY:
    ${
-      chapterNumber > 1 && !isAbstract
+     chapterNumber > 1
        ? "- Reference concepts from previous chapters where relevant"
        : "- Set the foundation for subsequent chapters"
    }
    ${
-      chapterNumber < (totalChapters - 1) && !isAbstract
+     chapterNumber < totalChapters - 1
        ? "- Foreshadow topics that will be explored in later chapters"
        : "- Synthesize and conclude the entire document"
    }
 
-4. CONTENT DEPTH & WORD COUNT REQUIREMENT:
-   - Write ${targetWordCount} words for this chapter (±10% tolerance acceptable)
-   - Target range: ${Math.floor(targetWordCount * 0.9)}-${Math.ceil(targetWordCount * 1.1)} words
-   - Expand analysis and add substantive evidence-based discussion to reach target
-   - Do NOT pad with fluff - add depth to your analysis
-   - Each subsection should include:
+4. CRITICAL WORD COUNT REQUIREMENT (MANDATORY):
+   === YOU MUST WRITE AT LEAST ${targetWordCount} WORDS ===
+   - MINIMUM: ${targetWordCount} words (this is NON-NEGOTIABLE)
+   - Acceptable range: ${Math.floor(targetWordCount * 0.95)}-${Math.ceil(
+      targetWordCount * 1.15
+    )} words
+   - Required paragraphs: ${Math.max(
+     10,
+     Math.floor(targetWordCount / 100)
+   )}+ paragraphs
+   - Each paragraph: 80-120 words with 4-6 complete sentences
+   
+   IMPORTANT: Do NOT stop early. Write ALL subsections completely.
+   If you feel you are running low on content, expand your analysis with:
+     * More detailed explanations of concepts
+     * Additional examples and case studies
+     * Deeper critical analysis of sources
+     * More thorough exploration of implications
+   
+   Each subsection MUST include:
      * Clear topic sentences
      * Evidence from sources with citations
      * Critical analysis and synthesis
-     * Transitions to next subsection
+     * Smooth transitions to next subsection
 
-5. FORMATTING & PRESENTATION:
-   - Use proper markdown formatting for excellent readability
-   - Main chapter heading: # ${chapter.heading}
-   - Subsection headings: ${isAbstract ? '(No subsections for abstract)' : `## ${chapterNumber}.1 Subsection Title (with proper spacing)`}
-   - Use **bold** for key terms and important concepts
-   - Use *italics* for emphasis and technical terms
+5. FORMATTING & PRESENTATION (CRITICAL - USE HTML NOT MARKDOWN):
+   - Output in clean HTML format (NOT markdown)
+   - Main chapter heading: <h1>${chapter.heading}</h1>
+   - Subsection headings: <h2>${chapterNumber}.1 Subsection Title</h2>
+   - Use <strong>text</strong> for key terms and important concepts (NOT **text**)
+   - Use <em>text</em> for emphasis and technical terms (NOT *text*)
+   - Wrap each paragraph in <p> tags
    - Each paragraph should be 4-6 sentences for better flow
-   - Add blank lines between paragraphs for visual clarity
-   - Use bullet points or numbered lists where appropriate for clarity
+   - Use <ul><li> or <ol><li> for bullet/numbered lists (NOT dashes or asterisks)
    - In-text citations: (Author, Year) or (Author1 & Author2, Year)
-   - Ensure proper spacing:
-     * Double line break after headings
-     * Single line break between paragraphs
-     * Proper indentation for nested content
+   - Ensure proper HTML structure:
+     * Properly closed tags
+     * No markdown syntax (no #, *, **, --, etc.)
+     * Clean, semantic HTML
 
 6. WRITING STYLE:
    - Write in clear, professional academic prose
@@ -201,15 +238,19 @@ WRITING REQUIREMENTS:
    - Avoid overly complex sentences - aim for clarity
 
 CRITICAL: Write ONLY this chapter (${
-    chapter.heading
-  }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing for THIS chapter only.
+      chapter.heading
+    }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing in HTML format (NOT markdown) for THIS chapter only.
 
-Begin writing now:`;
+Begin writing now in HTML format:`;
+  }
 
   return prompt;
 }
 
-function getSystemMessage(academicLevel: AcademicLevel, isAbstract: boolean = false): string {
+function getSystemMessage(
+  academicLevel: AcademicLevel,
+  isAbstract: boolean = false
+): string {
   const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
 
   if (isAbstract) {
@@ -283,13 +324,23 @@ export async function POST(request: NextRequest) {
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
 
-    // Format sources
+    // Calculate word budget for chapter sources
+    const chapterWordCount = chapter.estimatedWordCount || 5000;
+    const sourceWordBudget = Math.floor(chapterWordCount * 0.25);
+
+    // Format sources - use fullContent if available in sources
     const sourcesText = formatSourcesForPrompt(
-      sources.map((s: ResearchSource) => ({
+      sources.map((s: any) => ({
         title: s.title,
         excerpt: s.excerpt,
+        fullContent: s.fullContent || s.full_content, // Support both naming conventions
         author: s.author,
-      }))
+        wordCount: s.wordCount || s.content_word_count,
+      })),
+      {
+        preferFullContent: true,
+        maxWordsPerSource: Math.min(400, Math.floor(sourceWordBudget / 5)),
+      }
     );
 
     // Smart context truncation: Keep only last 3500 words of previous chapters for better consistency
@@ -326,18 +377,51 @@ export async function POST(request: NextRequest) {
     // Calculate dynamic token limit based on target word count
     // Formula: 1.33 tokens/word + 20% buffer for formatting
     const targetWordCount = chapter.estimatedWordCount || 5000;
+    console.log("targetWordCount", targetWordCount);
     const estimatedTokens = Math.ceil(targetWordCount * 1.33 * 1.2);
 
     // Cap at model limits but allow much higher than current 8000
-    const maxTokenLimit = Math.min(estimatedTokens, 16000);
+    // const maxTokenLimit = Math.min(estimatedTokens, 16000);
+    const maxTokenLimit = 16000;
 
-    console.log(`Chapter ${chapterIndex + 1}: Target ${targetWordCount} words, using ${maxTokenLimit} tokens`);
+    console.log(
+      `[Generate Chapter ${
+        chapterIndex + 1
+      }] ========================================`
+    );
+    console.log(
+      `[Generate Chapter ${
+        chapterIndex + 1
+      }] Target: ${targetWordCount} words (~${estimatedTokens} tokens)`
+    );
+    console.log(
+      `[Generate Chapter ${chapterIndex + 1}] Token limit: ${maxTokenLimit}`
+    );
+    console.log(`[Generate Chapter ${chapterIndex + 1}] Provider: ${provider}`);
+    console.log(
+      `[Generate Chapter ${chapterIndex + 1}] Chapter: ${chapter.heading}`
+    );
 
     // Create streaming response
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          let totalWords = 0;
+          let contentBuffer = "";
+
+          // Single generation per chapter (stable approach)
+          console.log(
+            `[Generate Chapter ${
+              chapterIndex + 1
+            }] Starting single-generation mode`
+          );
+          console.log(
+            `[Generate Chapter ${
+              chapterIndex + 1
+            }] Target: ${targetWordCount} words, Token limit: ${maxTokenLimit}`
+          );
+
           // Stream from AI service
           for await (const chunk of aiService.streamChatCompletion(
             provider,
@@ -349,9 +433,72 @@ export async function POST(request: NextRequest) {
             maxTokenLimit
           )) {
             if (chunk.done) {
+              // Check for truncation
+              if (chunk.truncated) {
+                console.error(
+                  `[Generate Chapter ${
+                    chapterIndex + 1
+                  }] ⚠️  TRUNCATION DETECTED!`
+                );
+                console.error(
+                  `[Generate Chapter ${chapterIndex + 1}] Finish reason: ${
+                    chunk.finishReason
+                  }`
+                );
+                console.error(
+                  `[Generate Chapter ${chapterIndex + 1}] Tokens used: ${
+                    chunk.tokensUsed
+                  }/${maxTokenLimit}`
+                );
+                console.error(
+                  `[Generate Chapter ${
+                    chapterIndex + 1
+                  }] Words generated: ${totalWords}/${targetWordCount}`
+                );
+
+                // Send warning to frontend
+                const warningMessage = `data: ${JSON.stringify({
+                  warning: {
+                    type: "truncation",
+                    message: `Chapter was truncated. Generated ${totalWords} words out of ${targetWordCount} target.`,
+                    finishReason: chunk.finishReason,
+                    tokensUsed: chunk.tokensUsed,
+                    tokensRequested: maxTokenLimit,
+                  },
+                })}\n\n`;
+                controller.enqueue(encoder.encode(warningMessage));
+              } else {
+                console.log(
+                  `[Generate Chapter ${
+                    chapterIndex + 1
+                  }] ✓ Completed successfully`
+                );
+                console.log(
+                  `[Generate Chapter ${chapterIndex + 1}] Finish reason: ${
+                    chunk.finishReason
+                  }`
+                );
+                console.log(
+                  `[Generate Chapter ${chapterIndex + 1}] Tokens used: ${
+                    chunk.tokensUsed
+                  }/${maxTokenLimit}`
+                );
+                console.log(
+                  `[Generate Chapter ${
+                    chapterIndex + 1
+                  }] Words generated: ${totalWords}`
+                );
+              }
+
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;
               controller.enqueue(encoder.encode(doneMessage));
             } else if (chunk.content) {
+              // Track word count
+              contentBuffer += chunk.content;
+              totalWords = contentBuffer
+                .split(/\s+/)
+                .filter((w) => w.length > 0).length;
+
               const sseData = `data: ${JSON.stringify({
                 content: chunk.content,
               })}\n\n`;
@@ -361,7 +508,7 @@ export async function POST(request: NextRequest) {
 
           controller.close();
         } catch (error: any) {
-          console.error("Chapter generation error:", error);
+          console.error(`[Generate Chapter ${chapterIndex + 1}] ERROR:`, error);
           const errorMessage = `data: ${JSON.stringify({
             error: error.message || "Generation failed",
           })}\n\n`;

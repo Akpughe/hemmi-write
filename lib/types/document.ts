@@ -6,6 +6,11 @@ export enum DocumentType {
   ESSAY = "ESSAY",
 }
 
+export enum SearchProvider {
+  EXA = "EXA",
+  PERPLEXITY = "PERPLEXITY",
+}
+
 export enum CitationStyle {
   APA = "APA",
   MLA = "MLA",
@@ -67,12 +72,18 @@ export interface ResearchSource {
   excerpt: string;
   score?: number;
   selected: boolean;
+  provider?: SearchProvider;
+  domain?: string;
 }
 
 export interface ResearchRequest {
   topic: string;
   documentType: DocumentType;
+  instructions?: string;
   numSources?: number;
+  excludeUrls?: string[];
+  excludeTitles?: string[];
+  mode?: "replace" | "append";
 }
 
 export interface ResearchResponse {

@@ -10,6 +10,9 @@ import {
  * API uses uppercase snake-case (e.g., "RESEARCH_PAPER")
  */
 export function mapUIDocumentTypeToEnum(uiType: string): DocumentType {
+  // Normalize input: lowercase and replace underscores with dashes
+  const normalizedType = uiType.toLowerCase().replace(/_/g, "-");
+
   const mapping: Record<string, DocumentType> = {
     "research-paper": DocumentType.RESEARCH_PAPER,
     essay: DocumentType.ESSAY,
@@ -17,9 +20,18 @@ export function mapUIDocumentTypeToEnum(uiType: string): DocumentType {
     thesis: DocumentType.RESEARCH_PAPER, // Map thesis to RESEARCH_PAPER
   };
 
-  const mapped = mapping[uiType.toLowerCase()];
+  const mapped = mapping[normalizedType];
 
   if (!mapped) {
+    // Try to find a match by comparing with DocumentType values
+    const enumMatch = Object.values(DocumentType).find(
+      (val) => val === uiType || val === uiType.toUpperCase()
+    );
+
+    if (enumMatch) {
+      return enumMatch as DocumentType;
+    }
+
     throw new Error(
       `Invalid document type: "${uiType}". Valid types are: ${Object.keys(
         mapping

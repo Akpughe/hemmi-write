@@ -10,6 +10,7 @@ import {
   Layers,
   BookOpen,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import type {
@@ -34,9 +35,11 @@ interface LeftPanelProps {
   onStepChange: (step: WorkflowStep) => void;
   brief: WritingBrief;
   chapterHandlers?: {
-    approve: () => void;
-    reject: () => void;
+    approve: (index?: number) => void;
+    reject: (index?: number) => void;
   } | null;
+  projectId: string | null;
+  onEnsureProject: () => Promise<string | null>;
 }
 
 export function LeftPanel({
@@ -48,13 +51,14 @@ export function LeftPanel({
   onStepChange,
   brief,
   chapterHandlers,
+  projectId,
+  onEnsureProject,
 }: LeftPanelProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sections" | "sources">(
-    "sections"
-  );
+  const [activeTab, setActiveTab] = useState<"sections" | "sources">("sources");
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Helper to check if a section is an abstract
   const isAbstractSection = (sectionTitle: string) => {
@@ -64,13 +68,18 @@ export function LeftPanel({
   const fetchResearch = async () => {
     setIsSearching(true);
     try {
+      // Ensure project exists first
+      const currentProjectId = await onEnsureProject();
+
       const response = await fetch("/api/write/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           topic: brief.topic,
           documentType: mapUIDocumentTypeToEnum(brief.documentType),
+          instructions: brief.instructions,
           numSources: brief.sourceCount || 5,
+          projectId: currentProjectId, // Pass projectId
         }),
       });
 
@@ -98,18 +107,33 @@ export function LeftPanel({
 
   // Trigger research on mount if needed
   useEffect(() => {
+    console.log("Research effect check:", {
+      currentStep,
+      sourcesLength: sources.length,
+      includeSources: brief.includeSources,
+      projectId,
+      shouldAutoFetch:
+        currentStep === "research" &&
+        sources.length === 0 &&
+        brief.includeSources,
+    });
+
     if (
       currentStep === "research" &&
       sources.length === 0 &&
       brief.includeSources
     ) {
+      console.log(
+        "✓ Auto-triggering research (projectId will be created if needed)"
+      );
       fetchResearch();
     } else if (currentStep === "research" && !brief.includeSources) {
       // Skip research if sources are disabled
+      console.log("Skipping research - sources disabled");
       onStepChange("planning");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep]);
+  }, [currentStep, brief.includeSources]);
 
   const toggleSource = (id: string) => {
     setSources(
@@ -146,11 +170,64 @@ export function LeftPanel({
     }
   };
 
+  const handleLoadMore = async () => {
+    setIsLoadingMore(true);
+    try {
+      // Ensure project exists first
+      const currentProjectId = await onEnsureProject();
+      const existingUrls = sources.map((s) => s.url);
+      const existingTitles = sources.map((s) => s.title);
+
+      const response = await fetch("/api/write/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: brief.topic,
+          documentType: mapUIDocumentTypeToEnum(brief.documentType),
+          instructions: brief.instructions,
+          numSources: 5, // Load 5 more sources
+          projectId: currentProjectId,
+          excludeUrls: existingUrls,
+          excludeTitles: existingTitles,
+          mode: "append",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch more sources");
+
+      const data = await response.json();
+
+      if (data.sources.length === 0) {
+        // Could show a toast here "No more sources found"
+        return;
+      }
+
+      // Map API sources to UI sources
+      const mappedSources: Source[] = data.sources.map((s: any) => ({
+        id: s.id || Math.random().toString(36).substr(2, 9),
+        title: s.title,
+        url: s.url,
+        snippet: s.snippet || s.content?.substring(0, 150) + "...",
+        author: s.author,
+        publishedDate: s.publishedDate,
+        selected: true,
+      }));
+
+      setSources([...sources, ...mappedSources]);
+    } catch (error) {
+      console.error("Load more error:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   const handleApproveResearch = async () => {
     onStepChange("planning");
     setIsPlanning(true);
 
     try {
+      // Ensure project exists
+      const currentProjectId = await onEnsureProject();
       const selectedSources = sources.filter((s) => s.selected);
 
       const response = await fetch("/api/write/structure", {
@@ -165,6 +242,7 @@ export function LeftPanel({
           academicLevel: mapUIAcademicLevelToEnum(brief.academicLevel),
           writingStyle: mapUIWritingStyleToEnum(brief.writingStyle),
           chapters: brief.chapters, // Pass chapters count
+          projectId: currentProjectId, // Pass projectId
         }),
       });
 
@@ -190,6 +268,8 @@ export function LeftPanel({
       console.log("mappedPlan", mappedPlan);
 
       setPlan(mappedPlan);
+      // Auto-switch to sections tab after structure is generated
+      setActiveTab("sections");
     } catch (error) {
       console.error("Planning error:", error);
     } finally {
@@ -335,14 +415,14 @@ export function LeftPanel({
                         chapterHandlers && (
                           <div className="mt-2 flex items-center justify-end gap-2">
                             <button
-                              onClick={chapterHandlers.reject}
+                              onClick={() => chapterHandlers.reject(index)}
                               className="p-1 rounded hover:bg-red-100 text-red-500 transition-colors"
                               title="Regenerate">
                               <RefreshCw className="w-3 h-3" />
                             </button>
                             {section.status === "review" && (
                               <button
-                                onClick={chapterHandlers.approve}
+                                onClick={() => chapterHandlers.approve(index)}
                                 className="px-2 py-1 text-xs font-medium bg-accent hover:bg-accent/90 text-accent-foreground rounded transition-colors">
                                 Accept
                               </button>
@@ -365,18 +445,55 @@ export function LeftPanel({
               <h3 className="text-xs font-medium text-muted-foreground">
                 {sources.length} Sources
               </h3>
-              <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-accent hover:underline">
-                <Upload className="w-3 h-3" />
-                Add PDF
-                <input
-                  type="file"
-                  accept=".pdf"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                  disabled={isUploading}
-                />
-              </label>
+              <div className="flex items-center gap-2">
+                {sources.length > 0 && (
+                  <button
+                    onClick={fetchResearch}
+                    disabled={isSearching}
+                    className="inline-flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh sources">
+                    <RefreshCw
+                      className={cn("w-3 h-3", isSearching && "animate-spin")}
+                    />
+                    Refresh
+                  </button>
+                )}
+                <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                  <Upload className="w-3 h-3" />
+                  Add PDF
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                  />
+                </label>
+              </div>
             </div>
+
+            {isSearching && (
+              <div className="p-6 rounded-lg border border-dashed border-muted-foreground/30 flex flex-col items-center justify-center text-muted-foreground">
+                <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                <span className="text-sm">Finding sources...</span>
+              </div>
+            )}
+
+            {!isSearching && sources.length === 0 && (
+              <div className="p-6 rounded-lg border border-dashed border-muted-foreground/30 flex flex-col items-center justify-center text-center">
+                <BookOpen className="w-8 h-8 text-muted-foreground mb-3" />
+                <h4 className="text-sm font-medium text-foreground mb-1">
+                  No Sources Yet
+                </h4>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Find research sources to support your writing
+                </p>
+                <Button onClick={fetchResearch} size="sm" className="gap-2">
+                  <BookOpen className="w-4 h-4" />
+                  Find Sources
+                </Button>
+              </div>
+            )}
 
             {isUploading && (
               <div className="p-3 rounded-lg border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground text-xs">
@@ -385,46 +502,72 @@ export function LeftPanel({
               </div>
             )}
 
-            {sources.map((source, index) => (
-              <div
-                key={`${index}-${source.id}`}
-                className={cn(
-                  "p-3 rounded-lg border transition-all cursor-pointer group",
-                  source.selected
-                    ? "border-accent/50 bg-accent/5"
-                    : "border-border bg-muted/30 opacity-60"
-                )}
-                onClick={() => toggleSource(source.id)}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5 shrink-0">
-                      {source.id.startsWith("pdf-") ? (
-                        <FileText className="w-4 h-4 text-red-400" />
-                      ) : (
-                        <BookOpen className="w-4 h-4 text-blue-400" />
-                      )}
+            {sources.length > 0 &&
+              sources.map((source, index) => (
+                <div
+                  key={`${index}-${source.id}`}
+                  className={cn(
+                    "p-3 rounded-lg border transition-all cursor-pointer group",
+                    source.selected
+                      ? "border-accent/50 bg-accent/5"
+                      : "border-border bg-muted/30 opacity-60"
+                  )}
+                  onClick={() => toggleSource(source.id)}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5 shrink-0">
+                        {source.id.startsWith("pdf-") ? (
+                          <FileText className="w-4 h-4 text-red-400" />
+                        ) : (
+                          <BookOpen className="w-4 h-4 text-blue-400" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-accent transition-colors">
+                          {source.title}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {source.snippet}
+                        </p>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded transition-colors hover:bg-green-100 group shrink-0 self-start cursor-pointer"
+                          title="Open source">
+                          <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-green-600" />
+                        </a>
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-accent transition-colors">
-                        {source.title}
-                      </h4>
-                      <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                        {source.snippet}
-                      </p>
+                    <div
+                      className={cn(
+                        "shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                        source.selected
+                          ? "bg-accent border-accent text-accent-foreground"
+                          : "border-muted-foreground/30"
+                      )}>
+                      {source.selected && <Check className="w-3 h-3" />}
                     </div>
-                  </div>
-                  <div
-                    className={cn(
-                      "shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                      source.selected
-                        ? "bg-accent border-accent text-accent-foreground"
-                        : "border-muted-foreground/30"
-                    )}>
-                    {source.selected && <Check className="w-3 h-3" />}
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+
+            {sources.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="w-full mt-4 gap-2 border-dashed text-muted-foreground hover:text-foreground">
+                {isLoadingMore ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <BookOpen className="w-4 h-4" />
+                )}
+                Load 5 More Sources
+              </Button>
+            )}
           </div>
         )}
       </div>

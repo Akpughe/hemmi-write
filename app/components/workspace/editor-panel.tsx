@@ -6,6 +6,7 @@ import {
   useCallback,
   Dispatch,
   SetStateAction,
+  useRef,
 } from "react";
 import type {
   DocumentPlan,
@@ -14,7 +15,15 @@ import type {
   WritingBrief,
 } from "@/lib/types/ui";
 import { TiptapEditor } from "./tiptap-editor";
-import { Check, X, Loader2, Download, FileText } from "lucide-react";
+import {
+  Check,
+  X,
+  Loader2,
+  Download,
+  FileText,
+  Cloud,
+  CloudOff,
+} from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import {
   mapUIDocumentTypeToEnum,
@@ -22,7 +31,6 @@ import {
   mapUIWritingStyleToEnum,
 } from "@/lib/utils/documentTypeMapper";
 import {
-  DocumentType,
   AcademicLevel,
   WritingStyle,
   CitationStyle,
@@ -42,11 +50,17 @@ interface EditorPanelProps {
   onChapterApprove?: () => void;
   onChapterReject?: () => void;
   setChapterHandlers?: (handlers: {
-    approve: () => void;
-    reject: () => void;
+    approve: (index?: number) => void;
+    reject: (index?: number) => void;
   }) => void;
   onStepChange: (step: WorkflowStep) => void;
   onAskAI?: (text: string) => void;
+  insertRequest?: string | null;
+  onInsertComplete?: () => void;
+  projectId: string | null;
+  onEnsureProject: () => Promise<string | null>;
+  onSave?: (date: Date) => void;
+  lastSavedAt?: Date | null;
 }
 
 export function EditorPanel({
@@ -60,6 +74,12 @@ export function EditorPanel({
   setChapterHandlers,
   onStepChange,
   onAskAI,
+  insertRequest,
+  onInsertComplete,
+  projectId,
+  onEnsureProject,
+  onSave,
+  lastSavedAt,
 }: EditorPanelProps) {
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
@@ -67,6 +87,10 @@ export function EditorPanel({
   const [showChapterReview, setShowChapterReview] = useState(false);
   const [approvedContent, setApprovedContent] = useState("");
   const [wordCount, setWordCount] = useState(0);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">(
+    "saved"
+  );
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update word count whenever content changes
   useEffect(() => {
@@ -74,8 +98,71 @@ export function EditorPanel({
     setWordCount(text.trim().split(/\s+/).length);
   }, [content]);
 
+  // Autosave content to database
+  const saveContent = useCallback(async () => {
+    if (!projectId || !content) return;
+
+    try {
+      setSaveStatus("saving");
+
+      const response = await fetch(`/api/projects/${projectId}/content`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content,
+          wordCount,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save content");
+      }
+
+      const data = await response.json();
+
+      setSaveStatus("saved");
+      if (onSave && data.document?.updated_at) {
+        onSave(new Date(data.document.updated_at));
+      } else if (onSave) {
+        onSave(new Date());
+      }
+    } catch (error) {
+      console.error("Autosave error:", error);
+      setSaveStatus("unsaved");
+    }
+  }, [projectId, content, wordCount, onSave]);
+
+  // Debounced autosave - trigger 2 seconds after content changes
+  useEffect(() => {
+    // Skip autosave if:
+    // 1. No project ID (unsaved project)
+    // 2. Currently writing (being generated)
+    // 3. No content to save
+    if (!projectId || isWriting || !content) return;
+
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Mark as unsaved immediately when content changes
+    setSaveStatus("unsaved");
+
+    // Set new timeout for 2 seconds
+    saveTimeoutRef.current = setTimeout(() => {
+      saveContent();
+    }, 2000);
+
+    // Cleanup on unmount
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [content, projectId, isWriting, saveContent]);
+
   // Configure marked for better formatting
-  marked.setOptions({
+  marked.use({
     breaks: true, // Convert \n to <br>
     gfm: true, // GitHub Flavored Markdown
   });
@@ -143,6 +230,80 @@ export function EditorPanel({
     [setPlan]
   );
 
+  // Helper to find range of a section in the content
+  const getSectionRange = useCallback(
+    (currentContent: string, sectionIndex: number) => {
+      if (!plan || !currentContent)
+        return {
+          start: 0,
+          end: currentContent?.length || 0,
+          prefix: "",
+          suffix: "",
+        };
+
+      // Helper to execute regex and get index
+      const findHeaderIndex = (title: string, startIndex = 0) => {
+        // Look for h1-h6 tags containing the title, case insensitive
+        // We match explicitly on the title text to avoid false positives
+        const escapedTitle = title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(
+          `<h[1-6][^>]*>\\s*${escapedTitle}\\s*<\\/h[1-6]>`,
+          "i"
+        );
+        const match = currentContent.slice(startIndex).match(regex);
+        return match ? startIndex + match.index! : -1;
+      };
+
+      const currentSection = plan.sections[sectionIndex];
+      const nextSection = plan.sections[sectionIndex + 1];
+
+      // Find start of current section
+      let startIndex = 0;
+      if (sectionIndex > 0) {
+        // If not first section, look for its header
+        startIndex = findHeaderIndex(currentSection.title);
+        // If not found (e.g. user deleted header), approximate by end of previous section?
+        // For now, if not found, we might have an issue. Fallback to appending?
+        // Let's assume content flow: Preamble ... Section Header ...
+        if (startIndex === -1) {
+          // Fallback: This is tricky. If we can't find our own header,
+          // we might just append to the very end if it's the last chapter,
+          // or we have lost context.
+          // Let's try to find the previous section's header and guess?
+          // Simpler fallback: If looking for Ch 2 and can't find it, but we can find Ch 3,
+          // then Ch 2 spot is before Ch 3.
+          if (nextSection) {
+            const nextIndex = findHeaderIndex(nextSection.title);
+            if (nextIndex !== -1) startIndex = nextIndex; // Insert before next
+            else startIndex = currentContent.length; // Append
+          } else {
+            startIndex = currentContent.length; // Append
+          }
+        }
+      }
+
+      // Find end of current section (start of next section)
+      let endIndex = currentContent.length;
+      if (nextSection) {
+        const nextHeaderIndex = findHeaderIndex(
+          nextSection.title,
+          startIndex > 0 ? startIndex : 0
+        );
+        if (nextHeaderIndex !== -1) {
+          endIndex = nextHeaderIndex;
+        }
+      }
+
+      return {
+        start: startIndex,
+        end: endIndex,
+        prefix: currentContent.slice(0, startIndex),
+        suffix: currentContent.slice(endIndex),
+      };
+    },
+    [plan]
+  );
+
   // Generate a single chapter
   const generateChapter = useCallback(
     async (chapterIndex: number, startTextOverride?: string) => {
@@ -152,18 +313,6 @@ export function EditorPanel({
       setCurrentChapterContent("");
       setShowChapterReview(false);
       updateSectionStatus(chapterIndex, "writing");
-
-      // Determine the starting text (preamble or previously approved content)
-      // Priority:
-      // 1. Explicit override (passed from handleApproveChapter to avoid stale state)
-      // 2. If first chapter, use current editor content (preamble)
-      // 3. Fallback to approvedContent state
-      const startText =
-        startTextOverride !== undefined
-          ? startTextOverride
-          : chapterIndex === 0
-          ? content
-          : approvedContent;
 
       const section = plan.sections[chapterIndex];
       const isReferencesSection =
@@ -196,20 +345,16 @@ export function EditorPanel({
           };
           const citationStyle = citationStyleMap[brief.citationStyle || "APA"];
 
-          // Generate references markdown
-          const referencesMarkdown = generateReferenceList(
-            apiSources,
-            citationStyle
-          );
+          // Generate references HTML (no markdown parsing needed)
+          const htmlContent = generateReferenceList(apiSources, citationStyle);
 
-          // Convert to HTML
-          const htmlContent = await marked.parse(referencesMarkdown);
           setCurrentChapterContent(htmlContent);
 
+          // Smart replacement
+          const { prefix, suffix } = getSectionRange(content, chapterIndex);
+
           // Update editor with approved + references
-          setContent(
-            startText ? startText + "\n\n" + htmlContent : htmlContent
-          );
+          setContent(prefix + htmlContent + suffix);
 
           // Set status to review
           updateSectionStatus(chapterIndex, "review");
@@ -226,6 +371,9 @@ export function EditorPanel({
 
       // Start async generation for regular chapters
       try {
+        // Ensure project exists
+        const currentProjectId = await onEnsureProject();
+
         const apiSources = sources
           .filter((s) => s.selected)
           .map((s) => ({
@@ -242,15 +390,20 @@ export function EditorPanel({
           heading: section.title,
           description: "",
           keyPoints: section.keyPoints,
-          estimatedWordCount: Math.floor(
-            (brief.wordCount || 5000) / plan.sections.length
-          ),
+          estimatedWordCount: (section as any).estimatedWordCount || 5000, // Use same default as generate-chapter API
         };
 
         const isReport = brief.documentType === "report";
         const endpoint = isReport
           ? "/api/write/generate-report-section"
           : "/api/write/generate-chapter";
+
+        // Determine context for API (what came before)
+        const { prefix, suffix } = getSectionRange(content, chapterIndex);
+
+        // For API context, we prefer the 'prefix' which contains all text before this chapter
+        // If prefix is empty (e.g. first chapter), we fall back to startTextOverride or empty
+        const contextText = prefix || startTextOverride || "";
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -263,7 +416,7 @@ export function EditorPanel({
             chapter: apiSection,
             chapterIndex,
             totalChapters: plan.sections.length,
-            previousChaptersText: startText, // Pass the preamble/previous text
+            previousChaptersText: contextText, // Use calculated prefix
             academicLevel:
               mapUIAcademicLevelToEnum(brief.academicLevel) ||
               AcademicLevel.GRADUATE,
@@ -274,6 +427,7 @@ export function EditorPanel({
             documentApproach: plan.approach,
             documentTone: plan.tone,
             aiProvider: brief.aiProvider,
+            projectId: currentProjectId, // Pass projectId
           }),
         });
 
@@ -309,15 +463,15 @@ export function EditorPanel({
                   setCurrentChapterContent(accumulated);
                   // Don't update editor during streaming - we'll convert and render when complete
                 }
-              } catch (e) {
+              } catch (_e) {
                 console.warn("Failed to parse SSE data:", line);
               }
             }
           }
         }
 
-        // Chapter generation complete - convert markdown to HTML and display
-        const htmlContent = await marked.parse(accumulated);
+        // Chapter generation complete - AI outputs HTML directly now
+        const htmlContent = accumulated; // No markdown parsing needed
         setCurrentChapterContent(htmlContent);
 
         // If this is the first chapter (Abstract), prepend the Table of Contents
@@ -329,11 +483,10 @@ export function EditorPanel({
           }
         }
 
-        // Update editor with approved + current formatted chapter
-        // Use startText (which includes preamble) + new content
-        setContent(
-          startText ? startText + "\n\n" + finalContent : finalContent
-        );
+        // Update editor with prefix + new content + suffix
+        // Ensure newlines/spacing is preserved if prefix exists
+        const separator = prefix && !prefix.endsWith("\n") ? "\n\n" : "";
+        setContent(prefix + separator + finalContent + suffix);
 
         // Set status to review
         updateSectionStatus(chapterIndex, "review");
@@ -348,7 +501,6 @@ export function EditorPanel({
     [
       plan,
       content,
-      approvedContent,
       sources,
       brief,
       updateSectionStatus,
@@ -356,6 +508,8 @@ export function EditorPanel({
       setCurrentChapterContent,
       setShowChapterReview,
       setIsWriting,
+      onEnsureProject,
+      getSectionRange,
       generateTOCHtml,
     ]
   );
@@ -368,37 +522,20 @@ export function EditorPanel({
     updateSectionStatus(currentChapterIndex, "complete");
 
     // Add current chapter to approved content using state callback
-    setApprovedContent((prev) => {
+    setApprovedContent((_prev) => {
       // If this is the first chapter, 'prev' might be empty but we might have a preamble in 'content'
       // However, since we are appending to 'approvedContent', we need to be careful.
-      // Actually, we should just use the current editor content as the new approved content base?
-      // No, 'content' includes the *current chapter* which is what we are approving.
-
-      // If chapterIndex is 0, we need to make sure the preamble is included in the approved content state.
-      // But wait, if we used 'startText' in generateChapter, we just need to make sure we don't lose it.
-
-      // Simplest approach: The editor content IS the source of truth for what is visible.
-      // When we approve, we are saying "Everything currently in the editor is now approved".
-      // So let's just sync approvedContent to the current editor content (which includes preamble + new chapter).
-
-      // But wait, 'content' state in EditorPanel might be HTML. 'approvedContent' seems to be used as 'previousText' for next generation.
-      // If 'content' is HTML, passing it as 'previousChaptersText' to LLM is fine (it can handle it or we strip it).
-      // Let's assume 'content' is the source of truth.
-
-      // However, 'currentChapterContent' is also state.
-      // Let's stick to the existing pattern but fix the base.
-
-      const base =
-        currentChapterIndex === 0 && !prev
-          ? content.replace(currentChapterContent, "").trim()
-          : prev;
-      // Actually, 'content' = startText + \n\n + htmlContent.
-      // So if we just set approvedContent to 'content', we are good for the next round.
+      // Simplify: Editor content is source of truth
       return content;
     });
 
     setShowChapterReview(false);
     setCurrentChapterContent("");
+
+    // Trigger immediate save after chapter approval
+    if (projectId) {
+      saveContent();
+    }
 
     // Check if there are more chapters
     if (currentChapterIndex < plan.sections.length - 1) {
@@ -416,10 +553,11 @@ export function EditorPanel({
     plan,
     currentChapterIndex,
     content,
-    currentChapterContent,
+    projectId,
     updateSectionStatus,
     generateChapter,
     onStepChange,
+    saveContent,
     setApprovedContent,
     setShowChapterReview,
     setCurrentChapterContent,
@@ -428,9 +566,17 @@ export function EditorPanel({
   ]);
 
   // Handle chapter rejection (regenerate)
-  const handleRejectChapter = useCallback(() => {
-    generateChapter(currentChapterIndex);
-  }, [currentChapterIndex, generateChapter]);
+  const handleRejectChapter = useCallback(
+    (index?: number) => {
+      if (typeof index === "number") {
+        setCurrentChapterIndex(index);
+        generateChapter(index);
+      } else {
+        generateChapter(currentChapterIndex);
+      }
+    },
+    [currentChapterIndex, generateChapter]
+  );
 
   const generateDocument = async () => {
     if (!plan) return;
@@ -438,9 +584,11 @@ export function EditorPanel({
 
     // Capture current content (preamble) to append to
     const startContent = content;
-    // setContent(""); // Removed to preserve preamble
 
     try {
+      // Ensure project exists
+      const currentProjectId = await onEnsureProject();
+
       const apiSources = sources
         .filter((s) => s.selected)
         .map((s) => ({
@@ -477,6 +625,7 @@ export function EditorPanel({
           structure: apiStructure,
           academicLevel: mapUIAcademicLevelToEnum(brief.academicLevel),
           writingStyle: mapUIWritingStyleToEnum(brief.writingStyle),
+          projectId: currentProjectId, // Pass projectId
         }),
       });
 
@@ -544,32 +693,54 @@ export function EditorPanel({
   };
 
   // Set up chapter handlers for external control
+  // Use a ref to store the latest handlers so we can pass stable functions to the parent
+  const handlersRef = useRef({
+    approve: handleApproveChapter,
+    reject: handleRejectChapter,
+  });
+
+  // Update the ref whenever handlers change
+  useEffect(() => {
+    handlersRef.current = {
+      approve: handleApproveChapter,
+      reject: handleRejectChapter,
+    };
+  }, [handleApproveChapter, handleRejectChapter]);
+
+  // Set up chapter handlers for external control - ONLY once (or when setChapterHandlers changes)
   useEffect(() => {
     if (setChapterHandlers) {
       setChapterHandlers({
-        approve: handleApproveChapter,
-        reject: handleRejectChapter,
+        approve: (_index?: number) => handlersRef.current.approve(),
+        reject: (index?: number) => handlersRef.current.reject(index),
       });
     }
-  }, [handleApproveChapter, handleRejectChapter, setChapterHandlers]);
+  }, [setChapterHandlers]);
 
-  // Start generation when entering writing step
-  // Auto-generation removed. User must manually start.
-  // useEffect(() => {
-  //   if (currentStep === "writing" && plan && !isWriting && !content) {
-  //     if (shouldUseChapterMode()) {
-  //       setCurrentChapterIndex(0);
-  //       generateChapter(0);
-  //     } else {
-  //       generateDocument();
-  //     }
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [currentStep, plan]);
+  const [isExporting, setIsExporting] = useState(false);
 
-  const handleExport = (format: "docx" | "pdf") => {
-    // Mock export for now
-    alert(`Exporting as ${format.toUpperCase()}...`);
+  const handleExport = async (format: "docx" | "pdf") => {
+    if (isExporting) return;
+
+    setIsExporting(true);
+    const filename = plan?.title?.replace(/[^a-zA-Z0-9]/g, "_") || "document";
+
+    try {
+      const { exportToDocx, exportToPdfFromHtml } = await import(
+        "@/lib/utils/documentExport"
+      );
+
+      if (format === "docx") {
+        await exportToDocx(content, filename);
+      } else {
+        await exportToPdfFromHtml(content, filename);
+      }
+    } catch (error) {
+      console.error(`${format.toUpperCase()} export error:`, error);
+      alert(`Failed to export as ${format.toUpperCase()}. Please try again.`);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (currentStep === "research") {
@@ -594,7 +765,7 @@ export function EditorPanel({
       <main className="flex-1 flex items-center justify-center bg-background p-8">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📋</span>
+            <span className="text-2xl">Clipboard</span>
           </div>
           <h2 className="text-lg font-medium mb-2">Blueprint Ready</h2>
           <p className="text-sm text-muted-foreground">
@@ -616,6 +787,36 @@ export function EditorPanel({
           <span className="text-xs text-muted-foreground">
             {wordCount.toLocaleString()} words
           </span>
+          {projectId && (
+            <>
+              <div className="h-4 w-px bg-border" />
+              <div className="flex items-center gap-1.5 text-xs">
+                {saveStatus === "saving" ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 text-blue-600 animate-spin" />
+                    <span className="text-muted-foreground">Saving...</span>
+                  </>
+                ) : saveStatus === "unsaved" ? (
+                  <>
+                    <CloudOff className="w-3.5 h-3.5 text-orange-600" />
+                    <span className="text-muted-foreground">Unsaved</span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud className="w-3.5 h-3.5 text-green-600" />
+                    <span className="text-muted-foreground">
+                      {lastSavedAt
+                        ? `Saved ${lastSavedAt.toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}`
+                        : "Saved"}
+                    </span>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -631,12 +832,25 @@ export function EditorPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => handleExport("docx")}>
-            <FileText className="w-4 h-4 mr-2" />
+            onClick={() => handleExport("docx")}
+            disabled={isExporting}>
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FileText className="w-4 h-4 mr-2" />
+            )}
             DOCX
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleExport("pdf")}>
-            <Download className="w-4 h-4 mr-2" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleExport("pdf")}
+            disabled={isExporting}>
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
             PDF
           </Button>
 
@@ -675,6 +889,10 @@ export function EditorPanel({
             onChange={setContent}
             editable={!isWriting && !showChapterReview}
             onAskAI={onAskAI}
+            brief={brief}
+            sources={sources}
+            insertRequest={insertRequest}
+            onInsertComplete={onInsertComplete}
           />
         </div>
 
@@ -720,7 +938,7 @@ export function EditorPanel({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleRejectChapter}
+                      onClick={() => handleRejectChapter()}
                       className="gap-2">
                       <X className="w-4 h-4" />
                       Regenerate

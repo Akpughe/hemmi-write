@@ -3,6 +3,7 @@
 import { ArrowLeft, Check, Circle, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/button";
+import { ThemeToggle } from "@/app/components/ui/theme-toggle";
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,7 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/")}
+          onClick={() => router.back()}
           className="h-8 w-8">
           <ArrowLeft className="w-4 h-4" />
           <span className="sr-only">Back</span>
@@ -81,7 +82,9 @@ export function WorkspaceHeader({ brief, currentStep }: WorkspaceHeaderProps) {
           );
         })}
       </div>
-      <div className="w-[120px]" /> {/* Spacer for balance */}
+      <div className="flex items-center gap-4">
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

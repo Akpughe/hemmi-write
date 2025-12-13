@@ -12,6 +12,9 @@ interface ChatMessage {
 interface StreamChunk {
   content: string;
   done: boolean;
+  finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter' | null;
+  truncated?: boolean;
+  tokensUsed?: number;
 }
 
 export class AIService {
@@ -69,6 +72,8 @@ export class AIService {
       content: msg.content,
     }));
 
+    console.log(`[Groq] Starting generation with model: ${AI_MODELS[AIProvider.GROQ].model}, max_tokens: ${maxTokens}`);
+
     const stream = await this.groq.chat.completions.create({
       messages: groqMessages as any,
       model: AI_MODELS[AIProvider.GROQ].model,
@@ -77,14 +82,47 @@ export class AIService {
       stream: true,
     });
 
+    let lastFinishReason: 'stop' | 'length' | 'tool_calls' | 'function_call' | null = null;
+    let outputTokens = 0;
+
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
+      const choice = chunk.choices[0];
+      const content = choice?.delta?.content;
+      const finishReason = choice?.finish_reason;
+
+      // Track finish reason
+      if (finishReason) {
+        lastFinishReason = finishReason;
+        console.log(`[Groq] Stream finished with reason: ${finishReason}`);
+      }
+
+      // Track token usage if available (may be in final chunk)
+      if ((chunk as any).usage) {
+        outputTokens = (chunk as any).usage.completion_tokens || 0;
+      }
+
       if (content) {
-        yield { content, done: false };
+        yield { content, done: false, finishReason: null };
       }
     }
 
-    yield { content: '', done: true };
+    // Check if content was truncated
+    const wasTruncated = lastFinishReason === 'length';
+
+    if (wasTruncated) {
+      console.error(`[Groq] ⚠️  WARNING: Content was TRUNCATED due to token limit!`);
+      console.error(`[Groq] Requested: ${maxTokens} tokens, Used: ${outputTokens} tokens`);
+    } else {
+      console.log(`[Groq] ✓ Generation completed naturally. Tokens used: ${outputTokens}/${maxTokens}`);
+    }
+
+    yield {
+      content: '',
+      done: true,
+      finishReason: lastFinishReason as 'stop' | 'length' | 'tool_calls' | 'content_filter' | null,
+      truncated: wasTruncated,
+      tokensUsed: outputTokens
+    };
   }
 
   /**
@@ -98,6 +136,8 @@ export class AIService {
     if (!this.gemini) {
       throw new Error('Gemini API key not configured');
     }
+
+    console.log(`[Gemini] Starting generation with model: ${AI_MODELS[AIProvider.GEMINI].model}, maxOutputTokens: ${maxTokens}`);
 
     const model = this.gemini.getGenerativeModel({
       model: AI_MODELS[AIProvider.GEMINI].model,
@@ -122,14 +162,55 @@ export class AIService {
 
     const result = await model.generateContentStream(combinedPrompt);
 
+    let outputTokens = 0;
+    let finishReason: string | null = null;
+
     for await (const chunk of result.stream) {
       const text = chunk.text();
+
+      // Gemini candidates may have finish reason
+      if (chunk.candidates?.[0]?.finishReason) {
+        finishReason = chunk.candidates[0].finishReason;
+      }
+
       if (text) {
-        yield { content: text, done: false };
+        yield { content: text, done: false, finishReason: null };
       }
     }
 
-    yield { content: '', done: true };
+    // Get final metadata after stream completes
+    try {
+      const response = await result.response;
+      const usageMetadata = response.usageMetadata;
+      if (usageMetadata?.candidatesTokenCount) {
+        outputTokens = usageMetadata.candidatesTokenCount;
+      }
+
+      // Check finish reason from final response
+      if (response.candidates?.[0]?.finishReason) {
+        finishReason = response.candidates[0].finishReason;
+      }
+    } catch (e) {
+      console.warn('[Gemini] Could not retrieve usage metadata:', e);
+    }
+
+    // Gemini uses different finish reasons: STOP, MAX_TOKENS, SAFETY, RECITATION, etc.
+    const wasTruncated = finishReason === 'MAX_TOKENS' || finishReason === 'SAFETY';
+
+    if (wasTruncated) {
+      console.error(`[Gemini] ⚠️  WARNING: Content was TRUNCATED! Finish reason: ${finishReason}`);
+      console.error(`[Gemini] Requested: ${maxTokens} tokens, Used: ${outputTokens} tokens`);
+    } else {
+      console.log(`[Gemini] ✓ Generation completed. Finish reason: ${finishReason}, Tokens used: ${outputTokens}/${maxTokens}`);
+    }
+
+    yield {
+      content: '',
+      done: true,
+      finishReason: finishReason as any,
+      truncated: wasTruncated,
+      tokensUsed: outputTokens
+    };
   }
 
   /**

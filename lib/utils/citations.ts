@@ -55,11 +55,11 @@ export function formatReference(source: ResearchSource, style: CitationStyle): s
   }
 }
 
-// Generate the full reference list/bibliography section
+// Generate the full reference list/bibliography section in HTML format
 export function generateReferenceList(sources: ResearchSource[], style: CitationStyle): string {
   if (sources.length === 0) {
     console.warn('No sources provided for reference list');
-    return '\n\n## References\n\n*No sources were provided for this document.*';
+    return '\n\n<h1>References</h1>\n\n<p><em>No sources were provided for this document.</em></p>';
   }
 
   console.log(`Generating reference list with ${sources.length} sources in ${style} format`);
@@ -77,8 +77,10 @@ export function generateReferenceList(sources: ResearchSource[], style: Citation
   // Format each reference
   const references = sortedSources.map(source => formatReference(source, style));
 
-  // Build the reference list with proper formatting
-  return `\n\n## ${heading}\n\n${references.map(ref => `- ${ref}`).join('\n\n')}`;
+  // Build the reference list with proper HTML formatting
+  const referenceListItems = references.map(ref => `<li>${ref}</li>`).join('\n');
+
+  return `\n\n<h1>${heading}</h1>\n\n<ul>\n${referenceListItems}\n</ul>`;
 }
 
 // Get the appropriate heading for the reference list based on citation style
@@ -114,23 +116,25 @@ export function processCitations(content: string, sources: ResearchSource[], sty
 
 // Remove AI-generated references sections to prevent duplication
 function removeAIGeneratedReferences(content: string): string {
-  // Match reference section headers with various levels (#, ##, ###) and spacing
-  // Matches:
-  // - Newline or start of string
-  // - One or more # characters
-  // - Optional whitespace
-  // - "References", "Works Cited", etc. (case insensitive)
-  // - Optional whitespace
-  // - Newline or end of string
-  const pattern = /(\n|^)#+\s*(References?|Works?\s+Cited|Bibliography|Reference\s+List)\s*(\n|$)/i;
+  // Match reference section headers in both markdown (#, ##, ###) and HTML (<h1>, <h2>, etc.)
+  // Markdown pattern: one or more # characters + "References", "Works Cited", etc.
+  const markdownPattern = /(\n|^)#+\s*(References?|Works?\s+Cited|Bibliography|Reference\s+List)\s*(\n|$)/i;
 
-  const match = content.match(pattern);
+  // HTML pattern: <h1-6> tags containing "References", "Works Cited", etc.
+  const htmlPattern = /(\n|^)<h[1-6][^>]*>\s*(References?|Works?\s+Cited|Bibliography|Reference\s+List)\s*<\/h[1-6]>\s*(\n|$)/i;
+
+  // Try markdown pattern first
+  let match = content.match(markdownPattern);
   if (match && match.index !== undefined) {
-    // Return content up to the start of the match
-    // If the match starts with a newline, keep it to preserve spacing of previous section
     return content.substring(0, match.index + (match[0].startsWith('\n') ? 1 : 0));
   }
-  
+
+  // Try HTML pattern
+  match = content.match(htmlPattern);
+  if (match && match.index !== undefined) {
+    return content.substring(0, match.index + (match[0].startsWith('\n') ? 1 : 0));
+  }
+
   return content;
 }
 

@@ -11,14 +11,20 @@ import {
 import { analyzeFeedback } from '@/lib/utils/feedbackAnalysis';
 import { conductTargetedResearch } from '@/lib/utils/targetedResearch';
 import { formatSourcesForPrompt } from '@/lib/utils/documentStructure';
+import { createServerSupabaseClient, getCurrentUser } from '@/lib/supabase/server';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+// Extended request type to include projectId
+interface ExtendedDeepRegenerateRequest extends DeepRegenerateRequest {
+  projectId?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const body: DeepRegenerateRequest = await request.json();
+    const body: ExtendedDeepRegenerateRequest = await request.json();
     const {
       documentType,
       topic,
@@ -27,6 +33,7 @@ export async function POST(request: NextRequest) {
       currentStructure,
       existingSources,
       userFeedback,
+      projectId,
     } = body;
 
     if (!documentType || !topic || !userFeedback || !currentStructure) {
@@ -99,22 +106,131 @@ export async function POST(request: NextRequest) {
       feedbackAnalysis
     );
 
+    const regenerationReport = {
+      feedbackAnalysis,
+      researchConducted,
+      newSourcesAdded,
+      changesSummary,
+    };
+
+    // PHASE 6: Save to database if projectId provided
+    if (projectId) {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const supabase = await createServerSupabaseClient();
+          
+          // Save new sources if any
+          if (newSourcesAdded.length > 0) {
+            const sourcesToInsert = newSourcesAdded.map((source, index) => ({
+              project_id: projectId,
+              title: source.title,
+              url: source.url,
+              author: source.author || null,
+              published_date: source.publishedDate || null,
+              excerpt: source.excerpt,
+              full_content: null,
+              highlights: null,
+              source_type: 'web' as const,
+              relevance_score: source.score || null,
+              is_selected: true,
+              position: existingSources.length + index,
+            }));
+            
+            await supabase
+              .from('research_sources')
+              .insert(sourcesToInsert);
+            
+            console.log(`Saved ${newSourcesAdded.length} new sources to database`);
+          }
+          
+          // Mark existing current structure as not current
+          await supabase
+            .from('document_structures')
+            .update({ is_current: false })
+            .eq('project_id', projectId)
+            .eq('is_current', true);
+          
+          // Get next version number
+          const { count } = await supabase
+            .from('document_structures')
+            .select('*', { count: 'exact', head: true })
+            .eq('project_id', projectId);
+          
+          const nextVersion = (count || 0) + 1;
+          
+          // Insert new structure with regeneration report
+          const { data: insertedStructure, error: structureError } = await supabase
+            .from('document_structures')
+            .insert({
+              project_id: projectId,
+              version: nextVersion,
+              title: newStructure.title,
+              approach: newStructure.approach,
+              tone: newStructure.tone,
+              table_of_contents: null,
+              estimated_word_count: newStructure.estimatedWordCount || wordCount,
+              is_current: true,
+              is_approved: false,
+              regeneration_report: JSON.parse(JSON.stringify(regenerationReport)),
+            })
+            .select()
+            .single();
+          
+          if (structureError) {
+            console.error('Failed to save structure:', structureError);
+          } else if (insertedStructure) {
+            // Insert sections
+            const sectionsToInsert = newStructure.sections.map((section, index) => ({
+              structure_id: insertedStructure.id,
+              heading: section.heading,
+              description: (section as any).description || '',
+              key_points: { points: section.keyPoints || [] },
+              position: index,
+              estimated_word_count: (section as any).estimatedWordCount || null,
+              section_number: null,
+            }));
+            
+            await supabase
+              .from('document_sections')
+              .insert(sectionsToInsert);
+            
+            // Create version snapshot
+            await supabase
+              .from('document_versions')
+              .insert({
+                project_id: projectId,
+                version_number: nextVersion,
+                version_name: `Regenerated Structure v${nextVersion}`,
+                description: `Regenerated based on feedback: ${userFeedback.substring(0, 100)}...`,
+                structure_snapshot: JSON.parse(JSON.stringify(newStructure)),
+                sources_snapshot: JSON.parse(JSON.stringify(allSources)),
+                content_snapshot: null,
+                checkpoint_type: 'structure_regeneration',
+                word_count: null,
+                created_by: user.id,
+              });
+            
+            console.log(`Saved regenerated structure with ID: ${insertedStructure.id}`);
+          }
+        }
+      } catch (dbError) {
+        console.error('Database operation failed:', dbError);
+      }
+    }
+
     const response: DeepRegenerateResponse = {
       structure: newStructure,
-      regenerationReport: {
-        feedbackAnalysis,
-        researchConducted,
-        newSourcesAdded,
-        changesSummary,
-      },
+      regenerationReport,
     };
 
     return NextResponse.json(response);
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Deep regeneration error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate structure';
     return NextResponse.json(
-      { error: error.message || 'Failed to regenerate structure' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
