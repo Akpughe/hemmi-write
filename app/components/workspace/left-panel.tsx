@@ -10,6 +10,7 @@ import {
   Layers,
   BookOpen,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import type {
@@ -57,6 +58,7 @@ export function LeftPanel({
   const [isPlanning, setIsPlanning] = useState(false);
   const [activeTab, setActiveTab] = useState<"sections" | "sources">("sources");
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   // Helper to check if a section is an abstract
   const isAbstractSection = (sectionTitle: string) => {
@@ -75,6 +77,7 @@ export function LeftPanel({
         body: JSON.stringify({
           topic: brief.topic,
           documentType: mapUIDocumentTypeToEnum(brief.documentType),
+          instructions: brief.instructions,
           numSources: brief.sourceCount || 5,
           projectId: currentProjectId, // Pass projectId
         }),
@@ -164,6 +167,57 @@ export function LeftPanel({
       console.error("Upload failed", error);
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    setIsLoadingMore(true);
+    try {
+      // Ensure project exists first
+      const currentProjectId = await onEnsureProject();
+      const existingUrls = sources.map((s) => s.url);
+      const existingTitles = sources.map((s) => s.title);
+
+      const response = await fetch("/api/write/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: brief.topic,
+          documentType: mapUIDocumentTypeToEnum(brief.documentType),
+          instructions: brief.instructions,
+          numSources: 5, // Load 5 more sources
+          projectId: currentProjectId,
+          excludeUrls: existingUrls,
+          excludeTitles: existingTitles,
+          mode: "append",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch more sources");
+
+      const data = await response.json();
+
+      if (data.sources.length === 0) {
+        // Could show a toast here "No more sources found"
+        return;
+      }
+
+      // Map API sources to UI sources
+      const mappedSources: Source[] = data.sources.map((s: any) => ({
+        id: s.id || Math.random().toString(36).substr(2, 9),
+        title: s.title,
+        url: s.url,
+        snippet: s.snippet || s.content?.substring(0, 150) + "...",
+        author: s.author,
+        publishedDate: s.publishedDate,
+        selected: true,
+      }));
+
+      setSources([...sources, ...mappedSources]);
+    } catch (error) {
+      console.error("Load more error:", error);
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -475,6 +529,15 @@ export function LeftPanel({
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                           {source.snippet}
                         </p>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded transition-colors hover:bg-green-100 group shrink-0 self-start cursor-pointer"
+                          title="Open source">
+                          <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-green-600" />
+                        </a>
                       </div>
                     </div>
                     <div
@@ -489,6 +552,22 @@ export function LeftPanel({
                   </div>
                 </div>
               ))}
+
+            {sources.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="w-full mt-4 gap-2 border-dashed text-muted-foreground hover:text-foreground">
+                {isLoadingMore ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <BookOpen className="w-4 h-4" />
+                )}
+                Load 5 More Sources
+              </Button>
+            )}
           </div>
         )}
       </div>
