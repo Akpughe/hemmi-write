@@ -18,13 +18,13 @@
   --secondary-foreground: oklch(0.1 0 0);
   --muted: oklch(0.96 0 0);
   --muted-foreground: oklch(0.45 0 0);
-  --accent: oklch(0.75 0.15 160);
+  --accent: oklch(0.5 0.05 250);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.98 0 0);
   --border: oklch(0.92 0 0);
   --input: oklch(0.96 0 0);
-  --ring: oklch(0.75 0.15 160);
+  --ring: oklch(0.5 0.05 250);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -38,7 +38,7 @@
   --sidebar-accent: oklch(0.96 0 0);
   --sidebar-accent-foreground: oklch(0.1 0 0);
   --sidebar-border: oklch(0.92 0 0);
-  --sidebar-ring: oklch(0.75 0.15 160);
+  --sidebar-ring: oklch(0.5 0.05 250);
 }
 
 /* Dark theme optimized for Write Nuton - minimal, professional writing tool */
@@ -55,21 +55,21 @@
   --secondary-foreground: oklch(0.95 0 0);
   --muted: oklch(0.18 0 0);
   --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.75 0.15 160);
+  --accent: oklch(0.5 0.05 250);
   --accent-foreground: oklch(0.1 0 0);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
   --border: oklch(0.25 0 0);
   --input: oklch(0.18 0 0);
-  --ring: oklch(0.75 0.15 160);
+  --ring: oklch(0.5 0.05 250);
   --sidebar: oklch(0.12 0 0);
   --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.75 0.15 160);
+  --sidebar-primary: oklch(0.5 0.05 250);
   --sidebar-primary-foreground: oklch(0.95 0 0);
   --sidebar-accent: oklch(0.2 0 0);
   --sidebar-accent-foreground: oklch(0.95 0 0);
   --sidebar-border: oklch(0.25 0 0);
-  --sidebar-ring: oklch(0.75 0.15 160);
+  --sidebar-ring: oklch(0.5 0.05 250);
 }
 
 @theme inline {
