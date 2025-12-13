@@ -108,6 +108,7 @@ function WorkspaceContent() {
                     id: s.id,
                     title: s.heading,
                     keyPoints: keyPoints,
+                    estimatedWordCount: s.estimated_word_count || undefined,
                     status: "complete", // Default to complete for loaded projects? Or pending if no content?
                   };
                 }) || [],
