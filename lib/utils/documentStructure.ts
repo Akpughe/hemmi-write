@@ -218,15 +218,63 @@ Write the document now:`;
 
 // Format sources for inclusion in the prompt
 export function formatSourcesForPrompt(
-  sources: Array<{ title: string; excerpt: string; author?: string }>
+  sources: Array<{
+    title: string;
+    excerpt: string;
+    fullContent?: string;
+    author?: string;
+    wordCount?: number;
+  }>,
+  options?: {
+    preferFullContent?: boolean;
+    maxWordsPerSource?: number;
+  }
 ): string {
+  const opts = {
+    preferFullContent: true,
+    maxWordsPerSource: 400,
+    ...options,
+  };
+
   return sources
     .map((source, index) => {
       const authorInfo = source.author ? ` by ${source.author}` : "";
+
+      // Prioritize full content if available
+      let content: string;
+      let contentLabel: string;
+
+      if (opts.preferFullContent && source.fullContent) {
+        content = truncateToWords(source.fullContent, opts.maxWordsPerSource);
+        contentLabel = `Content (${source.wordCount || 'full'} words)`;
+      } else {
+        content = source.excerpt;
+        contentLabel = "Excerpt";
+      }
+
       return `[${index + 1}] ${source.title}${authorInfo}
-Excerpt: ${source.excerpt}`;
+${contentLabel}: ${content}`;
     })
     .join("\n\n");
+}
+
+// Helper function for smart truncation
+function truncateToWords(text: string, maxWords: number): string {
+  const words = text.split(/\s+/);
+  if (words.length <= maxWords) return text;
+
+  const truncated = words.slice(0, maxWords).join(' ');
+  const lastSentence = Math.max(
+    truncated.lastIndexOf('.'),
+    truncated.lastIndexOf('!'),
+    truncated.lastIndexOf('?')
+  );
+
+  if (lastSentence > truncated.length * 0.8) {
+    return truncated.substring(0, lastSentence + 1);
+  }
+
+  return truncated + '...';
 }
 
 // Get word count recommendations as a string
