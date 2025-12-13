@@ -374,9 +374,12 @@ export async function POST(req: NextRequest) {
         sections: z.array(
           z.object({
             heading: z.string(),
+            description: z.string().optional(),
             keyPoints: z.array(z.string()),
+            estimatedWordCount: z.number().optional(),
           })
         ),
+        estimatedWordCount: z.number().optional(),
       }),
       prompt,
     });
@@ -470,9 +473,9 @@ export async function POST(req: NextRequest) {
             .eq('project_id', projectId);
           
           const nextVersion = (count || 0) + 1;
-          
-          // Calculate estimated word count - using wordCount since sections don't have estimatedWordCount by default
-          const estimatedWordCount = wordCount || 0;
+
+          // Calculate estimated word count from structure or fallback to requested wordCount
+          const estimatedWordCount = (structureResult as any).estimatedWordCount || wordCount || 0;
           
           // Insert new structure
           const { data: insertedStructure, error: structureError } = await supabase
@@ -498,10 +501,10 @@ export async function POST(req: NextRequest) {
             const sectionsToInsert = structureResult.sections.map((section, index: number) => ({
               structure_id: insertedStructure.id,
               heading: section.heading,
-              description: '',
+              description: (section as any).description || '',
               key_points: { points: section.keyPoints || [] },
               position: index,
-              estimated_word_count: null,
+              estimated_word_count: (section as any).estimatedWordCount || null,
               section_number: null,
             }));
             
