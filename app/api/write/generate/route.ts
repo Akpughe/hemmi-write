@@ -52,13 +52,53 @@ export async function POST(request: NextRequest) {
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
 
+    // Fetch sources from database to get full_content
+    let enrichedSources = sources;
+    if (projectId) {
+      try {
+        const supabase = await createServerSupabaseClient();
+        const { data: dbSources } = await supabase
+          .from('research_sources')
+          .select('id, title, url, author, excerpt, full_content')
+          .eq('project_id', projectId)
+          .eq('is_selected', true)
+          .order('relevance_score', { ascending: false });
+
+        if (dbSources) {
+          // Merge full_content into sources
+          enrichedSources = sources.map(s => {
+            const dbSource = dbSources.find((db: any) => db.url === s.url || db.title === s.title);
+            return {
+              ...s,
+              fullContent: dbSource?.full_content || undefined,
+              wordCount: (dbSource as any)?.content_word_count || undefined,
+            };
+          });
+
+          const withFullContent = enrichedSources.filter((s: any) => s.fullContent).length;
+          console.log(`[Generate] Using full content for ${withFullContent}/${sources.length} sources`);
+        }
+      } catch (error) {
+        console.warn('[Generate] Failed to fetch full content, using excerpts:', error);
+      }
+    }
+
+    // Calculate word budget (20% of available tokens for sources)
+    const sourceWordBudget = Math.floor((wordCount || 3000) * 0.3);
+
     // Format sources for the prompt
     const sourcesText = formatSourcesForPrompt(
-      sources.map((s: ResearchSource) => ({
+      enrichedSources.map((s: any) => ({
         title: s.title,
         excerpt: s.excerpt,
+        fullContent: s.fullContent,
         author: s.author,
-      }))
+        wordCount: s.wordCount,
+      })),
+      {
+        preferFullContent: true,
+        maxWordsPerSource: Math.min(400, Math.floor(sourceWordBudget / 5)),
+      }
     );
 
     // Format the structure for the prompt
@@ -103,7 +143,12 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
     // Calculate dynamic token limit based on target word count
     const estimatedTokens = Math.ceil((wordCount ?? 3000) * 1.33 * 1.2);
     const maxTokenLimit = Math.min(estimatedTokens, 16000);
-    console.log(`Traditional mode: Target ${wordCount ?? 3000} words, using ${maxTokenLimit} tokens`);
+
+    console.log(`[Generate Document] ========================================`);
+    console.log(`[Generate Document] Target: ${wordCount ?? 3000} words (~${estimatedTokens} tokens)`);
+    console.log(`[Generate Document] Token limit: ${maxTokenLimit}`);
+    console.log(`[Generate Document] Provider: ${provider}`);
+    console.log(`[Generate Document] Document type: ${documentType}`);
 
     // Accumulate content for database saving
     let accumulatedContent = "";
@@ -123,6 +168,8 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
             }
           }
 
+          let totalWords = 0;
+
           // Stream from AI service
           for await (const chunk of aiService.streamChatCompletion(
             provider,
@@ -134,6 +181,32 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
             maxTokenLimit
           )) {
             if (chunk.done) {
+              // Check for truncation
+              if (chunk.truncated) {
+                console.error(`[Generate Document] ⚠️  TRUNCATION DETECTED!`);
+                console.error(`[Generate Document] Finish reason: ${chunk.finishReason}`);
+                console.error(`[Generate Document] Tokens used: ${chunk.tokensUsed}/${maxTokenLimit}`);
+                console.error(`[Generate Document] Words generated: ${totalWords}/${wordCount ?? 3000}`);
+
+                // Send warning to frontend
+                const warningMessage = `data: ${JSON.stringify({
+                  warning: {
+                    type: 'truncation',
+                    message: `Document was truncated. Generated ${totalWords} words out of ${wordCount ?? 3000} target.`,
+                    finishReason: chunk.finishReason,
+                    tokensUsed: chunk.tokensUsed,
+                    tokensRequested: maxTokenLimit
+                  }
+                })}\n\n`;
+                controller.enqueue(encoder.encode(warningMessage));
+              } else {
+                console.log(`[Generate Document] ✓ Completed successfully`);
+                console.log(`[Generate Document] Finish reason: ${chunk.finishReason}`);
+                console.log(`[Generate Document] Tokens used: ${chunk.tokensUsed}/${maxTokenLimit}`);
+                console.log(`[Generate Document] Words generated: ${totalWords}`);
+              }
+
+
               // Save to database if projectId is provided
               if (projectId && accumulatedContent) {
                 try {
@@ -307,7 +380,10 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
             } else if (chunk.content) {
               // Accumulate content for database saving
               accumulatedContent += chunk.content;
-              
+
+              // Track word count
+              totalWords = accumulatedContent.split(/\s+/).filter(w => w.length > 0).length;
+
               const sseData = `data: ${JSON.stringify({
                 content: chunk.content,
               })}\n\n`;
