@@ -21,12 +21,16 @@ import { toast } from "sonner";
 
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
+import { ChatCitation } from "@/lib/types/chat";
+import { CitedText } from "@/lib/utils/citationParser";
+import { CitationBadge } from "@/app/components/chat/inline-citation";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  citations?: ChatCitation[];
 }
 
 interface RightPanelProps {
@@ -57,6 +61,72 @@ const academicLevelLabels = {
   doctoral: "PhD",
   professional: "Pro",
 };
+
+/**
+ * Custom renderer for message content with inline citations
+ */
+function MessageContent({
+  content,
+  citations,
+}: {
+  content: string;
+  citations?: ChatCitation[];
+}) {
+  // If there are citations, use citation-aware rendering
+  if (citations && citations.length > 0) {
+    // Split content by lines to handle markdown paragraphs
+    const lines = content.split("\n");
+
+    return (
+      <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+        {lines.map((line, lineIndex) => {
+          if (line.trim() === "") {
+            return <br key={lineIndex} />;
+          }
+
+          // Check if line starts with markdown headers
+          const headerMatch = line.match(/^(#{1,6})\s+(.+)$/);
+          if (headerMatch) {
+            const level = headerMatch[1].length;
+            const text = headerMatch[2];
+            // Render headers based on level
+            if (level === 1) return <h1 key={lineIndex}><CitedText text={text} citations={citations} /></h1>;
+            if (level === 2) return <h2 key={lineIndex}><CitedText text={text} citations={citations} /></h2>;
+            if (level === 3) return <h3 key={lineIndex}><CitedText text={text} citations={citations} /></h3>;
+            if (level === 4) return <h4 key={lineIndex}><CitedText text={text} citations={citations} /></h4>;
+            if (level === 5) return <h5 key={lineIndex}><CitedText text={text} citations={citations} /></h5>;
+            return <h6 key={lineIndex}><CitedText text={text} citations={citations} /></h6>;
+          }
+
+          // Check if line is a list item
+          const listMatch = line.match(/^[-*]\s+(.+)$/);
+          if (listMatch) {
+            return (
+              <li key={lineIndex} className="ml-4">
+                <CitedText text={listMatch[1]} citations={citations} />
+              </li>
+            );
+          }
+
+          // Regular paragraph
+          return (
+            <p key={lineIndex}>
+              <CitedText text={line} citations={citations} />
+            </p>
+          );
+        })}
+        <CitationBadge citations={citations} />
+      </div>
+    );
+  }
+
+  // No citations - use regular markdown rendering
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+      <Markdown>{content}</Markdown>
+    </div>
+  );
+}
 
 export function RightPanel({
   brief,
@@ -93,6 +163,7 @@ export function RightPanel({
         role: msg.role as "user" | "assistant",
         content: msg.content,
         timestamp: new Date(msg.created_at),
+        citations: msg.citations,
       }));
       // Append to welcome message or replace if duplicate logic needed
       // Ideally we replace the welcome message if we have history
@@ -149,19 +220,12 @@ export function RightPanel({
         body: JSON.stringify({
           messages: projectId
             ? [{ role: userMessage.role, content: userMessage.content }]
-            : [...messages, userMessage], // Optimizing payload if projectId is used (server loads history) but keeping legacy behavior for now
-          // Actually, if projectId is sent, server loads history. But we also need to send the NEW message.
-          // The API likely expects the full array for context if stateless, or we just send the new one.
-          // Let's check chat/route.ts.
-          // It seems it saves the new message, then calls AI.
-          // If we send projectId, the server can load history.
-          // But looking at previous code, I mostly kept the array logic.
-          // Let's send the array for now to match current implementation, the API handles projectId persistence.
+            : [...messages, userMessage],
           projectId,
           brief,
           sources,
           currentContent: currentContent,
-          message: userMessage.content, // Pass single message content for storage if supported, otherwise reliance on 'messages' array
+          message: userMessage.content,
         }),
       });
 
@@ -174,6 +238,7 @@ export function RightPanel({
         role: "assistant",
         content: data.content,
         timestamp: new Date(),
+        citations: data.citations, // Store citations from API response
       };
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
@@ -254,9 +319,10 @@ export function RightPanel({
                         ? "bg-accent text-accent-foreground rounded-br-none"
                         : "bg-muted text-foreground rounded-bl-none"
                     )}>
-                    <div className="prose prose-sm dark:prose-invert max-w-none break-words">
-                      <Markdown>{msg.content}</Markdown>
-                    </div>
+                    <MessageContent
+                      content={msg.content}
+                      citations={msg.citations}
+                    />
                   </div>
                   {msg.role === "assistant" && (
                     <div className="flex items-center gap-2">
