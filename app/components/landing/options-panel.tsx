@@ -62,7 +62,7 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
           "narrative",
         ].includes(s.id)
       )
-    : writingStyles.filter((s) => !["narrative", "descriptive"].includes(s.id));
+    : writingStyles;
 
   const wordCountOptions = isResearchPaper
     ? [2000, 3000, 5000, 8000, 10000, 15000, 20000, 30000]
@@ -97,53 +97,57 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
         </DropdownMenu>
       )}
 
-      {/* Writing Style */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-auto flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-200 text-sm font-medium bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground">
-            {selectedStyle?.label || "Writing Style"}
-            <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="min-w-[160px]">
-          {availableStyles.map((style) => (
-            <DropdownMenuItem
-              key={style.id}
-              onClick={() => onUpdate({ writingStyle: style.id })}
-              className={brief.writingStyle === style.id ? "bg-accent/10" : ""}>
-              {style.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Writing Style - Only for Essay */}
+      {isEssay && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-auto flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-200 text-sm font-medium bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground">
+              {selectedStyle?.label || "Writing Style"}
+              <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[160px]">
+            {availableStyles.map((style) => (
+              <DropdownMenuItem
+                key={style.id}
+                onClick={() => onUpdate({ writingStyle: style.id })}
+                className={brief.writingStyle === style.id ? "bg-accent/10" : ""}>
+                {style.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
-      {/* Citation Style */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-auto flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-200 text-sm font-medium bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground">
-            {selectedCitation?.label || "Citation Style"}
-            <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="center" className="min-w-[140px]">
-          {citationStyles.map((style) => (
-            <DropdownMenuItem
-              key={style.id}
-              onClick={() => onUpdate({ citationStyle: style.id })}
-              className={
-                brief.citationStyle === style.id ? "bg-accent/10" : ""
-              }>
-              {style.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Citation Style - Only for Research Paper & Report */}
+      {!isEssay && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-auto flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-200 text-sm font-medium bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground">
+              {selectedCitation?.label || "Citation Style"}
+              <ChevronDown className="w-3 h-3 ml-2 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[140px]">
+            {citationStyles.map((style) => (
+              <DropdownMenuItem
+                key={style.id}
+                onClick={() => onUpdate({ citationStyle: style.id })}
+                className={
+                  brief.citationStyle === style.id ? "bg-accent/10" : ""
+                }>
+                {style.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       {/* Chapters - Only for Research Paper */}
       {isResearchPaper && (
