@@ -390,9 +390,7 @@ export function EditorPanel({
           heading: section.title,
           description: "",
           keyPoints: section.keyPoints,
-          estimatedWordCount: Math.floor(
-            (brief.wordCount || 5000) / plan.sections.length
-          ),
+          estimatedWordCount: (section as any).estimatedWordCount || 5000, // Use same default as generate-chapter API
         };
 
         const isReport = brief.documentType === "report";
