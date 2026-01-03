@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -415,57 +410,114 @@ export type Database = {
       research_sources: {
         Row: {
           author: string | null
+          authors_structured: Json | null
+          conference_name: string | null
+          content_char_count: number | null
+          content_fetch_status: string | null
+          content_word_count: number | null
           created_at: string
+          doi: string | null
+          editors: string | null
           excerpt: string
+          fetch_attempted_at: string | null
+          fetch_completed_at: string | null
+          fetch_duration_ms: number | null
+          fetch_error: string | null
           fetched_at: string
           full_content: string | null
           highlights: Json | null
           id: string
           is_selected: boolean
+          isbn: string | null
+          issue: string | null
+          journal_name: string | null
+          pages: string | null
           position: number | null
           project_id: string
+          publication_type: string | null
           published_date: string | null
+          publisher: string | null
           relevance_score: number | null
           source_type: string | null
           title: string
           updated_at: string
           url: string
+          volume: string | null
+          year: number | null
         }
         Insert: {
           author?: string | null
+          authors_structured?: Json | null
+          conference_name?: string | null
+          content_char_count?: number | null
+          content_fetch_status?: string | null
+          content_word_count?: number | null
           created_at?: string
+          doi?: string | null
+          editors?: string | null
           excerpt: string
+          fetch_attempted_at?: string | null
+          fetch_completed_at?: string | null
+          fetch_duration_ms?: number | null
+          fetch_error?: string | null
           fetched_at?: string
           full_content?: string | null
           highlights?: Json | null
           id?: string
           is_selected?: boolean
+          isbn?: string | null
+          issue?: string | null
+          journal_name?: string | null
+          pages?: string | null
           position?: number | null
           project_id: string
+          publication_type?: string | null
           published_date?: string | null
+          publisher?: string | null
           relevance_score?: number | null
           source_type?: string | null
           title: string
           updated_at?: string
           url: string
+          volume?: string | null
+          year?: number | null
         }
         Update: {
           author?: string | null
+          authors_structured?: Json | null
+          conference_name?: string | null
+          content_char_count?: number | null
+          content_fetch_status?: string | null
+          content_word_count?: number | null
           created_at?: string
+          doi?: string | null
+          editors?: string | null
           excerpt?: string
+          fetch_attempted_at?: string | null
+          fetch_completed_at?: string | null
+          fetch_duration_ms?: number | null
+          fetch_error?: string | null
           fetched_at?: string
           full_content?: string | null
           highlights?: Json | null
           id?: string
           is_selected?: boolean
+          isbn?: string | null
+          issue?: string | null
+          journal_name?: string | null
+          pages?: string | null
           position?: number | null
           project_id?: string
+          publication_type?: string | null
           published_date?: string | null
+          publisher?: string | null
           relevance_score?: number | null
           source_type?: string | null
           title?: string
           updated_at?: string
           url?: string
+          volume?: string | null
+          year?: number | null
         }
         Relationships: [
           {
@@ -768,3 +820,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
