@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -26,10 +26,22 @@ import {
   mapUIWritingStyleToEnum,
 } from "@/lib/utils/documentTypeMapper";
 
+const normalizeUrlForComparison = (rawUrl: string) => {
+  if (!rawUrl) return "";
+
+  let normalized = rawUrl.trim().toLowerCase();
+  normalized = normalized.replace(/^https?:\/\//, "");
+  normalized = normalized.replace(/^www\./, "");
+  normalized = normalized.split(/[?#]/)[0];
+  normalized = normalized.replace(/\/$/, "");
+
+  return normalized;
+};
+
 interface LeftPanelProps {
   currentStep: WorkflowStep;
   sources: Source[];
-  setSources: (sources: Source[]) => void;
+  setSources: Dispatch<SetStateAction<Source[]>>;
   plan: DocumentPlan | null;
   setPlan: (plan: DocumentPlan | null) => void;
   onStepChange: (step: WorkflowStep) => void;
@@ -40,6 +52,22 @@ interface LeftPanelProps {
   } | null;
   projectId: string | null;
   onEnsureProject: () => Promise<string | null>;
+  onSourceAdded?: (data: {
+    sourceId: string;
+    title: string;
+    workflowStep: WorkflowStep;
+  }) => void;
+  onResearchStatusChange?: (status: {
+    phase: "idle" | "loading" | "done" | "error";
+    error?: string | null;
+    completedAt?: string | null;
+  }) => void;
+  onStructureStatusChange?: (status: {
+    phase: "idle" | "loading" | "done" | "error";
+    error?: string | null;
+    completedAt?: string | null;
+  }) => void;
+  onRegisterGenerateStructure?: (handler: (() => void) | null) => void;
 }
 
 export function LeftPanel({
@@ -53,12 +81,20 @@ export function LeftPanel({
   chapterHandlers,
   projectId,
   onEnsureProject,
+  onSourceAdded,
+  onResearchStatusChange,
+  onStructureStatusChange,
+  onRegisterGenerateStructure,
 }: LeftPanelProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [activeTab, setActiveTab] = useState<"sections" | "sources">("sources");
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState("");
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [scrapeSuccess, setScrapeSuccess] = useState<string | null>(null);
 
   // Helper to check if a section is an abstract
   const isAbstractSection = (sectionTitle: string) => {
@@ -67,6 +103,7 @@ export function LeftPanel({
 
   const fetchResearch = async () => {
     setIsSearching(true);
+    onResearchStatusChange?.({ phase: "loading", error: null });
     try {
       // Ensure project exists first
       const currentProjectId = await onEnsureProject();
@@ -98,8 +135,29 @@ export function LeftPanel({
       }));
 
       setSources(mappedSources);
+      onResearchStatusChange?.({
+        phase: "done",
+        completedAt: new Date().toISOString(),
+      });
+
+      // Trigger source addition notification (only if not in research step)
+      if (
+        onSourceAdded &&
+        currentStep !== "research" &&
+        mappedSources.length > 0
+      ) {
+        onSourceAdded({
+          sourceId: mappedSources[0].id,
+          title: `${mappedSources.length} new sources`,
+          workflowStep: currentStep,
+        });
+      }
     } catch (error) {
       console.error("Research error:", error);
+      onResearchStatusChange?.({
+        phase: "error",
+        error: error instanceof Error ? error.message : "Research failed",
+      });
     } finally {
       setIsSearching(false);
     }
@@ -146,23 +204,59 @@ export function LeftPanel({
     if (!file) return;
 
     setIsUploading(true);
-    // Mock upload for now - in real app would upload to S3
     try {
-      // Simulate upload delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Get project ID first
+      const currentProjectId = await onEnsureProject();
 
+      // Upload to /api/upload with projectId
+      const formData = new FormData();
+      formData.append("file", file);
+      if (currentProjectId) {
+        formData.append("projectId", currentProjectId);
+      }
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const uploadResult = await response.json();
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || "Upload failed");
+      }
+
+      // Create source object from upload result
       const newSource: Source = {
-        id: `pdf-${Date.now()}`,
+        id: uploadResult.sourceId || `pdf-${Date.now()}`,
         title: file.name,
-        url: URL.createObjectURL(file), // Temporary local URL
+        url: uploadResult.url, // Public S3 URL
         snippet: "Uploaded PDF Document",
         selected: true,
         author: "User Upload",
         publishedDate: new Date().toLocaleDateString(),
       };
 
+      // Log if OCR had errors
+      if (uploadResult.ocrError) {
+        console.warn("PDF OCR encountered an error:", uploadResult.ocrError);
+      }
+
       setSources([...sources, newSource]);
       setActiveTab("sources");
+
+      // Trigger source addition notification (only if not in research step)
+      if (onSourceAdded && currentStep !== "research") {
+        onSourceAdded({
+          sourceId: newSource.id,
+          title: file.name,
+          workflowStep: currentStep,
+        });
+      }
     } catch (error) {
       console.error("Upload failed", error);
     } finally {
@@ -172,11 +266,12 @@ export function LeftPanel({
 
   const handleLoadMore = async () => {
     setIsLoadingMore(true);
+    onResearchStatusChange?.({ phase: "loading", error: null });
     try {
       // Ensure project exists first
       const currentProjectId = await onEnsureProject();
-      const existingUrls = sources.map((s) => s.url);
-      const existingTitles = sources.map((s) => s.title);
+      const existingUrls = Array.from(new Set(sources.map((s) => s.url)));
+      const existingTitles = Array.from(new Set(sources.map((s) => s.title)));
 
       const response = await fetch("/api/write/research", {
         method: "POST",
@@ -213,9 +308,36 @@ export function LeftPanel({
         selected: true,
       }));
 
-      setSources([...sources, ...mappedSources]);
+      setSources((prevSources) => {
+        const normalizedExisting = new Set(
+          prevSources.map((source) => normalizeUrlForComparison(source.url))
+        );
+
+        const uniqueNewSources = mappedSources.filter((source) => {
+          const normalizedUrl = normalizeUrlForComparison(source.url);
+          if (!normalizedUrl || normalizedExisting.has(normalizedUrl)) {
+            return false;
+          }
+          normalizedExisting.add(normalizedUrl);
+          return true;
+        });
+
+        if (uniqueNewSources.length === 0) {
+          return prevSources;
+        }
+
+        return [...prevSources, ...uniqueNewSources];
+      });
+      onResearchStatusChange?.({
+        phase: "done",
+        completedAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error("Load more error:", error);
+      onResearchStatusChange?.({
+        phase: "error",
+        error: error instanceof Error ? error.message : "Load more failed",
+      });
     } finally {
       setIsLoadingMore(false);
     }
@@ -224,6 +346,7 @@ export function LeftPanel({
   const handleApproveResearch = async () => {
     onStepChange("planning");
     setIsPlanning(true);
+    onStructureStatusChange?.({ phase: "loading", error: null });
 
     try {
       // Ensure project exists
@@ -268,29 +391,143 @@ export function LeftPanel({
       console.log("mappedPlan", mappedPlan);
 
       setPlan(mappedPlan);
+      onStructureStatusChange?.({
+        phase: "done",
+        completedAt: new Date().toISOString(),
+      });
       // Auto-switch to sections tab after structure is generated
       setActiveTab("sections");
     } catch (error) {
       console.error("Planning error:", error);
+      onStructureStatusChange?.({
+        phase: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Structure generation failed",
+      });
     } finally {
       setIsPlanning(false);
     }
   };
 
+  // Expose structure generation to sibling panels (e.g., center panel CTA)
+  useEffect(() => {
+    if (!onRegisterGenerateStructure) return;
+    onRegisterGenerateStructure(() => {
+      void handleApproveResearch();
+    });
+    return () => onRegisterGenerateStructure(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    onRegisterGenerateStructure,
+    sources,
+    brief,
+    projectId,
+    currentStep,
+    plan,
+  ]);
+
   const handleApprovePlan = () => {
     onStepChange("writing");
   };
 
-  // Auto-transition to writing step when plan is ready
-  useEffect(() => {
-    if (plan && currentStep === "planning") {
-      // Immediately transition to writing step so editor shows
-      onStepChange("writing");
-    }
-  }, [plan, currentStep, onStepChange]);
+  // NOTE: writing now starts via explicit user CTA (center panel),
+  // so we do not auto-transition to writing when the plan arrives.
 
   const handleStartWritingTask = () => {
     onStepChange("writing");
+  };
+
+  const handleScrapeUrl = async () => {
+    if (!scrapeUrl.trim()) {
+      setScrapeError("Please enter a URL");
+      return;
+    }
+
+    setIsScraping(true);
+    setScrapeError(null);
+    setScrapeSuccess(null);
+
+    try {
+      // Ensure project exists first
+      const currentProjectId = await onEnsureProject();
+
+      if (!currentProjectId) {
+        throw new Error("Failed to create or get project");
+      }
+
+      const response = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: scrapeUrl,
+          projectId: currentProjectId,
+          max_text_length: 10000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Scraping failed");
+      }
+
+      const data = await response.json();
+
+      // Create source object for the main source
+      const newSource: Source = {
+        id: data.mainSourceId,
+        title: data.scrapedData.title || scrapeUrl,
+        url: data.scrapedData.url,
+        snippet: `Scraped content (${data.scrapedData.wordCount} words)`,
+        selected: true,
+        publishedDate: new Date().toLocaleDateString(),
+      };
+
+      // Add PDF sources if any
+      const pdfSources: Source[] = (data.pdfSourceIds || []).map(
+        (id: string, idx: number) => ({
+          id,
+          title: `PDF ${idx + 1} from ${data.scrapedData.title}`,
+          url: scrapeUrl,
+          snippet: "PDF extracted from webpage",
+          selected: true,
+          publishedDate: new Date().toLocaleDateString(),
+        })
+      );
+
+      // Add all sources to the list
+      setSources([...sources, newSource, ...pdfSources]);
+
+      // Show success message
+      let successMsg = `Successfully scraped ${data.scrapedData.title}`;
+      if (data.totalPdfsFound > 0) {
+        successMsg += ` and found ${data.totalPdfsProcessed}/${data.totalPdfsFound} PDFs`;
+      }
+      setScrapeSuccess(successMsg);
+
+      // Clear input
+      setScrapeUrl("");
+
+      // Trigger source addition notification
+      if (onSourceAdded && currentStep !== "research") {
+        onSourceAdded({
+          sourceId: newSource.id,
+          title: newSource.title,
+          workflowStep: currentStep,
+        });
+      }
+
+      // Clear success message after 5 seconds
+      setTimeout(() => setScrapeSuccess(null), 5000);
+    } catch (error) {
+      const errMsg =
+        error instanceof Error ? error.message : "Failed to scrape URL";
+      console.error("Scraping failed:", errMsg);
+      setScrapeError(errMsg);
+    } finally {
+      setIsScraping(false);
+    }
   };
 
   return (
@@ -470,6 +707,54 @@ export function LeftPanel({
                   />
                 </label>
               </div>
+            </div>
+
+            {/* URL Scraping Section */}
+            <div className="mb-3 p-3 rounded-lg border border-border bg-muted/30">
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                Add from URL
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={scrapeUrl}
+                  onChange={(e) => setScrapeUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isScraping) {
+                      handleScrapeUrl();
+                    }
+                  }}
+                  placeholder="https://example.com"
+                  disabled={isScraping}
+                  className="flex-1 px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <Button
+                  onClick={handleScrapeUrl}
+                  disabled={isScraping || !scrapeUrl.trim()}
+                  size="sm"
+                  className="text-xs px-3">
+                  {isScraping ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      Scraping
+                    </>
+                  ) : (
+                    "Scrape"
+                  )}
+                </Button>
+              </div>
+              {scrapeError && (
+                <div className="mt-2 text-xs text-red-500 flex items-start gap-1">
+                  <span className="font-medium">Error:</span>
+                  <span>{scrapeError}</span>
+                </div>
+              )}
+              {scrapeSuccess && (
+                <div className="mt-2 text-xs text-green-600 flex items-start gap-1">
+                  <Check className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span>{scrapeSuccess}</span>
+                </div>
+              )}
             </div>
 
             {isSearching && (
