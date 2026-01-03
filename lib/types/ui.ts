@@ -16,7 +16,7 @@ export interface WritingBrief {
     | "descriptive"
     | "expository"
     | "narrative";
-  citationStyle?: "APA" | "MLA" | "HARVARD" | "CHICAGO";
+  citationStyle?: "APA" | "MLA" | "HARVARD" | "CHICAGO" | "IEEE";
   wordCount?: number;
   sourceCount?: number;
   chapters?: number;
@@ -32,6 +32,21 @@ export interface Source {
   author?: string;
   publishedDate?: string;
   selected: boolean;
+
+  // Academic metadata
+  journalName?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  doi?: string;
+  year?: number;
+  publisher?: string;
+  publicationType?: string;
+  authorsStructured?: Array<{
+    first: string;
+    last: string;
+    middle?: string;
+  }>;
 }
 
 export interface OutlineSection {

@@ -11,7 +11,6 @@ import {
   toResearchSources,
 } from "@/lib/utils/searchResultProcessor";
 import {
-  getAllQueries,
   getAllQueriesWithInstructions,
   enhanceQueryForDocumentType,
 } from "@/lib/utils/queryExpansion";
@@ -246,8 +245,9 @@ export class SearchService {
     console.log(`Max sources per domain: ${maxSourcesPerDomain}`);
 
     // Calculate how many to request from each provider (request MORE to account for deduplication)
-    const exaCount = Math.ceil(numResults * 2.0); // Request 200% to account for deduplication and domain filtering
-    const perplexityCount = Math.ceil(numResults * 2.0);
+    // Increased from 2.0x to 3.0x with minimum of 20 results
+    const exaCount = Math.max(20, Math.ceil(numResults * 3.0));
+    const perplexityCount = Math.max(20, Math.ceil(numResults * 3.0));
 
     console.log(
       `\nRequesting ${exaCount} from Exa, ${perplexityCount} from Perplexity`
@@ -268,8 +268,12 @@ export class SearchService {
     const perplexityResults =
       perplexityResult.status === "fulfilled" ? perplexityResult.value : [];
 
+    // Track which providers failed (explicit errors only)
+    const exaFailed = exaResult.status === "rejected";
+    const perplexityFailed = perplexityResult.status === "rejected";
+
     // Log provider status
-    if (exaResult.status === "rejected") {
+    if (exaFailed) {
       console.warn("❌ Exa search failed:", exaResult.reason);
     } else {
       console.log(`✓ Exa returned ${exaResults.length} results`);
@@ -281,7 +285,7 @@ export class SearchService {
       }
     }
 
-    if (perplexityResult.status === "rejected") {
+    if (perplexityFailed) {
       console.warn("❌ Perplexity search failed:", perplexityResult.reason);
     } else {
       console.log(`✓ Perplexity returned ${perplexityResults.length} results`);
@@ -332,6 +336,104 @@ export class SearchService {
           merged.length
         } results (removed ${beforeTitleFilter - merged.length})`
       );
+    }
+
+    // Fallback compensation logic: if we don't have enough results AND one provider failed
+    const shortfall = numResults - merged.length;
+    const needsCompensation = shortfall > 0 && (exaFailed || perplexityFailed);
+
+    if (needsCompensation) {
+      console.log(
+        `\n⚠️ Shortfall detected: ${shortfall} sources needed (target: ${numResults}, have: ${merged.length})`
+      );
+      console.log(
+        `Provider status - Exa: ${exaFailed ? "FAILED" : "OK"}, Perplexity: ${
+          perplexityFailed ? "FAILED" : "OK"
+        }`
+      );
+
+      // Determine which provider to use for compensation
+      let supplementaryResults: SearchResult[] = [];
+      const compensationCount = Math.ceil(shortfall * 2); // Request 2x buffer for compensation
+
+      if (exaFailed && !perplexityFailed) {
+        // Exa failed, use Perplexity for compensation
+        console.log(
+          `🔄 Compensating with Perplexity: requesting ${compensationCount} more results`
+        );
+        try {
+          supplementaryResults = await this.searchPerplexityMulti(
+            queries,
+            compensationCount
+          );
+          console.log(
+            `✓ Perplexity compensation returned ${supplementaryResults.length} results`
+          );
+        } catch (error: any) {
+          console.warn(`⚠️ Perplexity compensation failed: ${error.message}`);
+        }
+      } else if (perplexityFailed && !exaFailed) {
+        // Perplexity failed, use Exa for compensation
+        console.log(
+          `🔄 Compensating with Exa: requesting ${compensationCount} more results`
+        );
+        try {
+          supplementaryResults = await this.searchExa({
+            query: primaryQuery,
+            numResults: compensationCount,
+            documentType,
+          });
+          console.log(
+            `✓ Exa compensation returned ${supplementaryResults.length} results`
+          );
+        } catch (error: any) {
+          console.warn(`⚠️ Exa compensation failed: ${error.message}`);
+        }
+      }
+
+      // Merge supplementary results with existing results
+      if (supplementaryResults.length > 0) {
+        const beforeCompensation = merged.length;
+
+        // Combine all results: initial + supplementary, separated by provider
+        let combinedExaResults: SearchResult[] = [];
+        let combinedPerplexityResults: SearchResult[] = [];
+
+        if (exaFailed && !perplexityFailed) {
+          // Exa failed, compensating with Perplexity
+          // All supplementary results are from Perplexity
+          combinedExaResults = [];
+          combinedPerplexityResults = [
+            ...perplexityResults,
+            ...supplementaryResults,
+          ];
+        } else if (perplexityFailed && !exaFailed) {
+          // Perplexity failed, compensating with Exa
+          // All supplementary results are from Exa
+          combinedExaResults = [...exaResults, ...supplementaryResults];
+          combinedPerplexityResults = [];
+        }
+
+        // Re-merge with supplementary results
+        merged = mergeResults(combinedExaResults, combinedPerplexityResults, {
+          maxSourcesPerDomain,
+          totalMaxResults: numResults * 2,
+        });
+
+        // Re-apply filters
+        if (excludeUrls.length > 0) {
+          merged = filterExistingUrls(merged, excludeUrls);
+        }
+        if (excludeTitles.length > 0) {
+          merged = filterSimilarTitles(merged, excludeTitles, 0.85);
+        }
+
+        console.log(
+          `✓ After compensation: ${merged.length} sources (added ${
+            merged.length - beforeCompensation
+          })`
+        );
+      }
     }
 
     // Final trim to requested amount - DISABLED to show all relevant results

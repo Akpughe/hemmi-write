@@ -31,6 +31,7 @@ const citationStyles = [
   { id: "MLA", label: "MLA" },
   { id: "HARVARD", label: "Harvard" },
   { id: "CHICAGO", label: "Chicago" },
+  { id: "IEEE", label: "IEEE" },
 ] as const;
 
 interface OptionsPanelProps {

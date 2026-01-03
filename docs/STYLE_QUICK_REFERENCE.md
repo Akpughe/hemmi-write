@@ -1,6 +1,6 @@
 # Style Guide Quick Reference
 
-Quick lookup for common styling patterns in Write Nuton.
+Quick lookup for common styling patterns in Hemmi.
 
 ## Colors
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Check, X, Sparkles, Info } from "lucide-react";
 import Markdown from "marked-react";
@@ -25,6 +26,29 @@ export function BottomToolbar({
   onReject,
   onClose,
 }: BottomToolbarProps) {
+  // Handle ESC key to close the toolbar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && mode) {
+        e.preventDefault();
+        // For explain mode, use onClose; for improve mode, use onReject (discard)
+        if (mode === "explain" && onClose) {
+          onClose();
+        } else if (mode === "improve" && onReject) {
+          onReject();
+        }
+      }
+    };
+
+    if (mode) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mode, onClose, onReject]);
+
   if (!mode) return null;
 
   return (

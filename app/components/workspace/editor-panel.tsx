@@ -25,6 +25,15 @@ import {
   CloudOff,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import { Badge } from "@/app/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/app/components/ui/card";
 import {
   mapUIDocumentTypeToEnum,
   mapUIAcademicLevelToEnum,
@@ -61,6 +70,14 @@ interface EditorPanelProps {
   onEnsureProject: () => Promise<string | null>;
   onSave?: (date: Date) => void;
   lastSavedAt?: Date | null;
+  researchPhase?: "idle" | "loading" | "done" | "error";
+  researchError?: string | null;
+  researchCompletedAt?: Date | null;
+  canGenerateStructure?: boolean;
+  onGenerateStructure?: () => void;
+  structurePhase?: "idle" | "loading" | "done" | "error";
+  structureError?: string | null;
+  structureCompletedAt?: Date | null;
 }
 
 export function EditorPanel({
@@ -80,7 +97,44 @@ export function EditorPanel({
   onEnsureProject,
   onSave,
   lastSavedAt,
+  researchPhase = "idle",
+  researchError = null,
+  researchCompletedAt = null,
+  canGenerateStructure = false,
+  onGenerateStructure,
+  structurePhase = "idle",
+  structureError = null,
+  structureCompletedAt = null,
 }: EditorPanelProps) {
+  const normalizePublicationType = (
+    value?: string
+  ):
+    | "journal"
+    | "conference"
+    | "book"
+    | "book_chapter"
+    | "web"
+    | "thesis"
+    | "report"
+    | "preprint"
+    | undefined => {
+    if (!value) return undefined;
+    const v = value.toLowerCase();
+    switch (v) {
+      case "journal":
+      case "conference":
+      case "book":
+      case "book_chapter":
+      case "web":
+      case "thesis":
+      case "report":
+      case "preprint":
+        return v;
+      default:
+        return undefined;
+    }
+  };
+
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [currentChapterContent, setCurrentChapterContent] = useState("");
@@ -323,7 +377,7 @@ export function EditorPanel({
       // Handle References section specially
       if (isReferencesSection) {
         try {
-          // Convert UI sources to ResearchSource format
+          // Convert UI sources to ResearchSource format with academic metadata
           const apiSources: ResearchSource[] = sources
             .filter((s) => s.selected)
             .map((s) => ({
@@ -334,7 +388,47 @@ export function EditorPanel({
               author: s.author,
               publishedDate: s.publishedDate,
               selected: true, // All filtered sources are selected
+              // Academic metadata
+              journalName: s.journalName,
+              volume: s.volume,
+              issue: s.issue,
+              pages: s.pages,
+              doi: s.doi,
+              year: s.year,
+              publisher: s.publisher,
+              publicationType: normalizePublicationType(s.publicationType),
+              authorsStructured: s.authorsStructured,
             }));
+
+          // #region agent log
+          fetch(
+            "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                location: "editor-panel.tsx:generateReferences",
+                message: "Preparing sources for reference list",
+                data: {
+                  sourceCount: apiSources.length,
+                  sourcesWithAuthor: apiSources.filter((s) => s.author).length,
+                  sourcesWithAuthorsStructured: apiSources.filter(
+                    (s) => s.authorsStructured && s.authorsStructured.length > 0
+                  ).length,
+                  sampleSources: apiSources.slice(0, 3).map((s) => ({
+                    title: s.title?.substring(0, 40),
+                    author: s.author,
+                    hasAuthorsStructured: !!s.authorsStructured,
+                    authorsStructuredSample: s.authorsStructured?.slice?.(0, 1),
+                  })),
+                },
+                timestamp: Date.now(),
+                sessionId: "debug-session",
+                hypothesisId: "D",
+              }),
+            }
+          ).catch(() => {});
+          // #endregion
 
           // Get citation style from brief, default to APA
           const citationStyleMap: Record<string, CitationStyle> = {
@@ -342,6 +436,7 @@ export function EditorPanel({
             MLA: CitationStyle.MLA,
             HARVARD: CitationStyle.HARVARD,
             CHICAGO: CitationStyle.CHICAGO,
+            IEEE: CitationStyle.IEEE,
           };
           const citationStyle = citationStyleMap[brief.citationStyle || "APA"];
 
@@ -384,13 +479,23 @@ export function EditorPanel({
             author: s.author,
             publishedDate: s.publishedDate,
             selected: s.selected,
+            // Academic metadata
+            journalName: s.journalName,
+            volume: s.volume,
+            issue: s.issue,
+            pages: s.pages,
+            doi: s.doi,
+            year: s.year,
+            publisher: s.publisher,
+            publicationType: normalizePublicationType(s.publicationType),
+            authorsStructured: s.authorsStructured,
           }));
 
         const apiSection = {
           heading: section.title,
           description: "",
           keyPoints: section.keyPoints,
-          estimatedWordCount: (section as any).estimatedWordCount || 5000, // Use same default as generate-chapter API
+          estimatedWordCount: section.estimatedWordCount || 5000, // Use same default as generate-chapter API
         };
 
         const isReport = brief.documentType === "report";
@@ -744,35 +849,283 @@ export function EditorPanel({
   };
 
   if (currentStep === "research") {
+    const selectedCount = sources.filter((s) => s.selected).length;
+    const domainCounts = (() => {
+      const counts = new Map<string, number>();
+      for (const s of sources) {
+        try {
+          const hostname = new URL(s.url).hostname.replace(/^www\./, "");
+          counts.set(hostname, (counts.get(hostname) ?? 0) + 1);
+        } catch {
+          counts.set("unknown", (counts.get("unknown") ?? 0) + 1);
+        }
+      }
+      return Array.from(counts.entries())
+        .map(([domain, count]) => ({ domain, count }))
+        .sort((a, b) => b.count - a.count);
+    })();
+
+    const uniqueDomains = domainCounts.length;
+    const isLoading =
+      researchPhase === "loading" ||
+      (brief.includeSources &&
+        sources.length === 0 &&
+        researchPhase !== "error");
+
     return (
       <main className="flex-1 flex items-center justify-center bg-background p-8">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">📚</span>
-          </div>
-          <h2 className="text-lg font-medium mb-2">Gathering Research</h2>
-          <p className="text-sm text-muted-foreground">
-            Review and approve sources in the left panel to continue with
-            document planning.
-          </p>
-        </div>
+        <Card className="w-full max-w-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                  Gathering research
+                </>
+              ) : researchPhase === "error" ? (
+                <>
+                  <X className="w-4 h-4 text-destructive" />
+                  Research failed
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 text-green-600" />
+                  Research ready
+                </>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {isLoading
+                ? "Searching and extracting sources for your topic."
+                : researchPhase === "error"
+                ? researchError ||
+                  "We hit an issue while gathering sources. Try again from the Sources panel."
+                : "Review sources in the left panel, then generate the project structure when ready."}
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            {isLoading ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {brief.sourceCount || 5}
+                  </span>
+                  <span>target references</span>
+                  <span className="text-muted-foreground/60">•</span>
+                  <span>This may take a moment</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 bg-muted/60 rounded w-5/6" />
+                  <div className="h-3 bg-muted/60 rounded w-3/4" />
+                  <div className="h-3 bg-muted/60 rounded w-2/3" />
+                </div>
+              </div>
+            ) : researchPhase === "error" ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                <div className="font-medium text-destructive mb-1">
+                  Something went wrong
+                </div>
+                <div className="text-muted-foreground">
+                  {researchError ||
+                    "Please retry research from the left panel (Sources tab)."}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="text-xs text-muted-foreground">
+                      References gathered
+                    </div>
+                    <div className="text-2xl font-semibold mt-1">
+                      {sources.length}
+                    </div>
+                  </div>
+                  <div className="rounded-lg border bg-muted/20 p-3">
+                    <div className="text-xs text-muted-foreground">
+                      Where they came from
+                    </div>
+                    <div className="text-2xl font-semibold mt-1">
+                      {uniqueDomains}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      unique domains
+                    </div>
+                  </div>
+                </div>
+
+                {domainCounts.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-foreground">
+                      Top sources
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {domainCounts.slice(0, 6).map((d) => (
+                        <Badge key={d.domain} variant="secondary">
+                          {d.domain}
+                          <span className="text-muted-foreground">
+                            ×{d.count}
+                          </span>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                  {researchCompletedAt
+                    ? `Updated ${researchCompletedAt.toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}.`
+                    : null}{" "}
+                  Select/deselect sources in the left panel before generating.
+                </div>
+              </>
+            )}
+          </CardContent>
+
+          {!isLoading && researchPhase !== "error" && (
+            <CardFooter className="justify-between gap-3">
+              <div className="text-xs text-muted-foreground">
+                {selectedCount} selected
+              </div>
+              <Button
+                onClick={onGenerateStructure}
+                disabled={!canGenerateStructure || selectedCount === 0}
+                className="gap-2">
+                Start generating project structure
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
       </main>
     );
   }
 
   if (currentStep === "planning") {
+    const isLoading = structurePhase === "loading";
+
     return (
       <main className="flex-1 flex items-center justify-center bg-background p-8">
-        <div className="text-center max-w-md">
-          <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">Clipboard</span>
-          </div>
-          <h2 className="text-lg font-medium mb-2">Blueprint Ready</h2>
-          <p className="text-sm text-muted-foreground">
-            Review the document structure in the left panel. Approve when ready
-            to begin writing.
-          </p>
-        </div>
+        <Card className="w-full max-w-2xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-accent" />
+                  Generating project structure
+                </>
+              ) : structurePhase === "error" ? (
+                <>
+                  <X className="w-4 h-4 text-destructive" />
+                  Structure generation failed
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 text-green-600" />
+                  Blueprint ready
+                </>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {isLoading
+                ? "Building your outline from the selected sources."
+                : structurePhase === "error"
+                ? structureError ||
+                  "We hit an issue generating the structure. Try again from the Sources panel."
+                : "Review the structure below (or in the left panel) and start writing when ready."}
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            {isLoading ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    {brief.chapters || plan?.sections.length || "—"}
+                  </span>
+                  <span>sections planned</span>
+                  <span className="text-muted-foreground/60">•</span>
+                  <span>This may take a moment</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-3 bg-muted/60 rounded w-5/6" />
+                  <div className="h-3 bg-muted/60 rounded w-3/4" />
+                  <div className="h-3 bg-muted/60 rounded w-2/3" />
+                </div>
+              </div>
+            ) : structurePhase === "error" ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
+                <div className="font-medium text-destructive mb-1">
+                  Something went wrong
+                </div>
+                <div className="text-muted-foreground">
+                  {structureError ||
+                    "Please retry structure generation from the left panel."}
+                </div>
+              </div>
+            ) : plan ? (
+              <>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-xs text-muted-foreground">Title</div>
+                    <div className="text-base font-semibold truncate">
+                      {plan.title}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary">
+                      {plan.sections.length} sections
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <div className="text-xs font-medium text-foreground mb-2">
+                    Structure preview
+                  </div>
+                  <div className="max-h-56 overflow-auto pr-1 space-y-1">
+                    {plan.sections.map((s, idx) => (
+                      <div
+                        key={s.id}
+                        className="text-sm text-muted-foreground flex gap-2">
+                        <span className="tabular-nums text-muted-foreground/70">
+                          {idx + 1}.
+                        </span>
+                        <span className="text-foreground">{s.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  {structureCompletedAt
+                    ? `Updated ${structureCompletedAt.toLocaleTimeString([], {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}. `
+                    : null}
+                  You can still tweak the structure in the left panel before
+                  starting.
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No structure yet. Generate it from the left panel.
+              </div>
+            )}
+          </CardContent>
+
+          {!isLoading && structurePhase !== "error" && plan && (
+            <CardFooter className="justify-end">
+              <Button className="gap-2" onClick={() => onStepChange("writing")}>
+                Start writing
+              </Button>
+            </CardFooter>
+          )}
+        </Card>
       </main>
     );
   }

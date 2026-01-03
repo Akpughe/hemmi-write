@@ -41,7 +41,7 @@
   --sidebar-ring: oklch(0.5 0.05 250);
 }
 
-/* Dark theme optimized for Write Nuton - minimal, professional writing tool */
+/* Dark theme optimized for Hemmi - minimal, professional writing tool */
 .dark {
   --background: oklch(0.1 0 0);
   --foreground: oklch(0.95 0 0);

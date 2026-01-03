@@ -33,6 +33,8 @@ function WorkspaceContent() {
   const projectId = searchParams.get("projectId");
   const { session, isLoading: isSessionLoading } = useSupabase();
 
+  console.log("[WorkspaceContent] Mounted:", { projectId, isSessionLoading, hasSession: !!session });
+
   // Use React Query to fetch project data (only when projectId exists and session is ready)
   const {
     data: projectData,
@@ -123,14 +125,64 @@ function WorkspaceContent() {
       };
     }
 
-    // Map sources
-    const mappedSources: Source[] = sources.map((s: any) => ({
-      id: s.id,
-      title: s.title,
-      url: s.url,
-      snippet: s.excerpt || "",
-      selected: true,
-    }));
+    // Map sources with academic metadata
+    const mappedSources: Source[] = sources.map((s: any) => {
+      let parsedAuthorsStructured: any = undefined;
+      if (s.authors_structured) {
+        try {
+          parsedAuthorsStructured =
+            typeof s.authors_structured === "string"
+              ? JSON.parse(s.authors_structured)
+              : s.authors_structured;
+        } catch (e) {
+          console.error("[Workspace] Failed to parse authors_structured:", e);
+        }
+      }
+      // #region agent log
+      fetch(
+        "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: "workspace/page.tsx:mapSources",
+            message: "Mapping source from DB",
+            data: {
+              id: s.id,
+              title: s.title?.substring(0, 40),
+              author: s.author,
+              hasAuthorsStructuredRaw: !!s.authors_structured,
+              authorsStructuredRawType: typeof s.authors_structured,
+              parsedAuthorsStructured: parsedAuthorsStructured?.slice?.(0, 2),
+              journalName: s.journal_name,
+            },
+            timestamp: Date.now(),
+            sessionId: "debug-session",
+            hypothesisId: "C",
+          }),
+        }
+      ).catch(() => {});
+      // #endregion
+      return {
+        id: s.id,
+        title: s.title,
+        url: s.url,
+        snippet: s.excerpt || "",
+        selected: true,
+        author: s.author,
+        publishedDate: s.published_date,
+        // Academic metadata
+        journalName: s.journal_name,
+        volume: s.volume,
+        issue: s.issue,
+        pages: s.pages,
+        doi: s.doi,
+        year: s.year,
+        publisher: s.publisher,
+        publicationType: s.publication_type,
+        authorsStructured: parsedAuthorsStructured,
+      };
+    });
 
     return {
       brief: mappedBrief,
@@ -156,8 +208,13 @@ function WorkspaceContent() {
 
   // Handle authentication redirect
   useEffect(() => {
+    console.log("[WorkspacePage] Auth check:", {
+      isSessionLoading,
+      projectId,
+      hasSession: !!session,
+    });
     if (!isSessionLoading && projectId && !session) {
-      console.log("Project requires authentication - redirecting to home");
+      console.log("[WorkspacePage] Project requires authentication - redirecting to home");
       router.push("/");
     }
   }, [projectId, session, isSessionLoading, router]);

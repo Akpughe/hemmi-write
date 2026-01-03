@@ -98,9 +98,7 @@ export default function StyleGuidePage() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold font-fraunces">Style Guide</h1>
-            <p className="text-sm text-muted-foreground">
-              Write Nuton Design System
-            </p>
+            <p className="text-sm text-muted-foreground">Hemmi Design System</p>
           </div>
           <ThemeToggle />
         </div>

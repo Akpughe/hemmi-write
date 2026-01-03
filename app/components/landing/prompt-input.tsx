@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState } from "react";
-import { ArrowUp, Plus } from "lucide-react";
+import { ArrowUp, Loader2, Plus } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -23,11 +23,18 @@ export function PromptInput({
   onSubmit,
 }: PromptInputProps) {
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = () => {
+    if (!topic.trim() || isLoading) return;
+    setIsLoading(true);
+    onSubmit();
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSubmit();
+      handleSubmit();
     }
   };
 
@@ -77,11 +84,15 @@ export function PromptInput({
         </div>
 
         <Button
-          onClick={onSubmit}
-          disabled={!topic.trim()}
+          onClick={handleSubmit}
+          disabled={!topic.trim() || isLoading}
           size="icon"
           className="h-10 w-10 rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-30">
-          <ArrowUp className="w-4 h-4" />
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <ArrowUp className="w-4 h-4" />
+          )}
           <span className="sr-only">Submit</span>
         </Button>
       </div>
