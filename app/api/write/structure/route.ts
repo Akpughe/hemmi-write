@@ -14,6 +14,7 @@ import {
   createServerSupabaseClient,
   getCurrentUser,
 } from "@/lib/supabase/server";
+import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -257,7 +258,9 @@ IMPORTANT:`;
 
   basePrompt += `
 - Make sure the structure flows logically
-- Return ONLY valid JSON, no markdown formatting or extra text`;
+- Return ONLY valid JSON, no markdown formatting or extra text
+
+${getMinimalHumanizationHint()}`;
 
   return basePrompt;
 }

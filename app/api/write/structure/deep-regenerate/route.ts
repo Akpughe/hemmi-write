@@ -12,6 +12,7 @@ import {
 import { conductTargetedResearch } from '@/lib/utils/targetedResearch';
 import { formatSourcesForPrompt } from '@/lib/utils/documentStructure';
 import { createServerSupabaseClient, getCurrentUser } from '@/lib/supabase/server';
+import { getMinimalHumanizationHint } from '@/lib/utils/humanizationPrompt';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -310,7 +311,9 @@ IMPORTANT:
 - Change tone/approach if requested
 - Use the new sources to support requested changes
 - Make sure changes are VISIBLE and MEANINGFUL
-- Return ONLY valid JSON, no markdown formatting`;
+- Return ONLY valid JSON, no markdown formatting
+
+${getMinimalHumanizationHint()}`;
 
   const completion = await groq.chat.completions.create({
     messages: [
