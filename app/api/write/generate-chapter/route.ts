@@ -10,6 +10,13 @@ import {
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
+import {
+  buildChapterHumanizationContext,
+  getMinimalHumanizationHint,
+  buildEmDashWarning,
+  getEnhancedWritingTechniques,
+  buildChatGPTFingerprintWarning,
+} from "@/lib/utils/humanizationPrompt";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 
@@ -240,6 +247,12 @@ CRITICAL: Write ONLY this chapter (${
       chapter.heading
     }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing in HTML format (NOT markdown) for THIS chapter only.
 
+${buildChapterHumanizationContext(academicLevel)}
+
+${buildEmDashWarning(targetWordCount)}
+
+${buildChatGPTFingerprintWarning()}
+
 Begin writing now in HTML format:`;
   }
 
@@ -262,7 +275,9 @@ Your task is to write a concise, well-structured abstract that:
 - Does NOT include citations (abstracts are standalone summaries)
 - Maintains the appropriate academic tone and depth for ${levelConfig.label.toLowerCase()}-level work
 
-Write the abstract directly without preamble or meta-commentary. Just provide the abstract content itself.`;
+Write the abstract directly without preamble or meta-commentary. Just provide the abstract content itself.
+
+${getMinimalHumanizationHint()}`;
   }
 
   return `You are an expert academic writer specializing in ${levelConfig.label.toLowerCase()}-level research papers. Your writing demonstrates:
@@ -273,7 +288,9 @@ Write the abstract directly without preamble or meta-commentary. Just provide th
 - Clear, professional academic prose
 - Logical flow and strong argumentation
 
-Write with authority and precision. Every claim should be supported by evidence from the provided sources.`;
+Write with authority and precision. Every claim should be supported by evidence from the provided sources.
+
+${getMinimalHumanizationHint()}`;
 }
 
 export async function POST(request: NextRequest) {
