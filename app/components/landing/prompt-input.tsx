@@ -3,7 +3,7 @@
 import type React from "react";
 
 import { useState } from "react";
-import { ArrowUp, Settings2 } from "lucide-react";
+import { ArrowUp, Loader2, Plus } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -23,11 +23,18 @@ export function PromptInput({
   onSubmit,
 }: PromptInputProps) {
   const [showInstructions, setShowInstructions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = () => {
+    if (!topic.trim() || isLoading) return;
+    setIsLoading(true);
+    onSubmit();
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      onSubmit();
+      handleSubmit();
     }
   };
 
@@ -66,20 +73,26 @@ export function PromptInput({
             size="sm"
             onClick={() => setShowInstructions(!showInstructions)}
             className={cn(
-              "h-8 px-4 py-2 rounded-4xl text-black hover:text-white gap-2 hover:bg-gray-800 transition-colors duration-200 ease-in-out",
-              showInstructions && "text-black"
+              "h-8 px-4 py-2 rounded-4xl gap-2 transition-colors duration-200 ease-in-out",
+              showInstructions
+                ? "bg-foreground text-background hover:bg-foreground/90"
+                : "text-black hover:text-white hover:bg-gray-800"
             )}>
-            <Settings2 className="w-4 h-4" />
-            <span className="text-sm">Instructions</span>
+            <Plus className="w-4 h-4" />
+            <span className="text-sm">Add extra instructions</span>
           </Button>
         </div>
 
         <Button
-          onClick={onSubmit}
-          disabled={!topic.trim()}
+          onClick={handleSubmit}
+          disabled={!topic.trim() || isLoading}
           size="icon"
           className="h-10 w-10 rounded-full bg-foreground text-background hover:bg-foreground/90 disabled:opacity-30">
-          <ArrowUp className="w-4 h-4" />
+          {isLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <ArrowUp className="w-4 h-4" />
+          )}
           <span className="sr-only">Submit</span>
         </Button>
       </div>

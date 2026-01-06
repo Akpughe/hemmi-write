@@ -10,8 +10,10 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
-import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
-import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  getCurrentUser,
+} from "@/lib/supabase/server";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -324,7 +326,6 @@ export async function POST(req: NextRequest) {
           : "No specific sources provided. Use general knowledge."
       }
       
-      ${getHumanizationPrompt(documentType as DocumentType, academicLevel || AcademicLevel.UNDERGRADUATE, false)}
       
       STRUCTURE REQUIREMENTS:
       - Title: A catchy and relevant title.
@@ -383,12 +384,12 @@ export async function POST(req: NextRequest) {
       }),
       prompt,
     });
-      if (isResearchPaper) {
-    result.object.sections.push({
-      heading: "References",
-      keyPoints: [], // Empty keyPoints since References is auto-generated from citations
-    });
-  }
+    if (isResearchPaper) {
+      result.object.sections.push({
+        heading: "References",
+        keyPoints: [], // Empty keyPoints since References is auto-generated from citations
+      });
+    }
 
     // Generate Table of Contents from sections
     const tocItems: any[] = [];
@@ -407,11 +408,16 @@ export async function POST(req: NextRequest) {
       tocItems.push({
         level: 1,
         title: section.heading,
-        sectionNumber: isResearchPaper && !isAbstract ? `${chapterNumber}` : undefined,
+        sectionNumber:
+          isResearchPaper && !isAbstract ? `${chapterNumber}` : undefined,
       });
 
       // Add subsections/keyPoints as level 2 for research papers
-      if (isResearchPaper && section.keyPoints && section.keyPoints.length > 0) {
+      if (
+        isResearchPaper &&
+        section.keyPoints &&
+        section.keyPoints.length > 0
+      ) {
         section.keyPoints.forEach((keyPoint, subIndex) => {
           // Extract or generate subsection number
           let subsectionTitle = keyPoint;
@@ -458,101 +464,114 @@ export async function POST(req: NextRequest) {
         const user = await getCurrentUser();
         if (user) {
           const supabase = await createServerSupabaseClient();
-          
+
           // Mark any existing current structure as not current
           await supabase
-            .from('document_structures')
+            .from("document_structures")
             .update({ is_current: false })
-            .eq('project_id', projectId)
-            .eq('is_current', true);
-          
+            .eq("project_id", projectId)
+            .eq("is_current", true);
+
           // Get current version count for this project
           const { count } = await supabase
-            .from('document_structures')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', projectId);
-          
+            .from("document_structures")
+            .select("*", { count: "exact", head: true })
+            .eq("project_id", projectId);
+
           const nextVersion = (count || 0) + 1;
 
           // Calculate estimated word count from structure or fallback to requested wordCount
-          const estimatedWordCount = (structureResult as any).estimatedWordCount || wordCount || 0;
-          
+          const estimatedWordCount =
+            (structureResult as any).estimatedWordCount || wordCount || 0;
+
           // Insert new structure
-          const { data: insertedStructure, error: structureError } = await supabase
-            .from('document_structures')
-            .insert({
-              project_id: projectId,
-              version: nextVersion,
-              title: structureResult.title,
-              approach: structureResult.approach,
-              tone: structureResult.tone,
-              table_of_contents: structureResult.tableOfContents,
-              estimated_word_count: estimatedWordCount,
-              is_current: true,
-              is_approved: false,
-            })
-            .select()
-            .single();
-          
+          const { data: insertedStructure, error: structureError } =
+            await supabase
+              .from("document_structures")
+              .insert({
+                project_id: projectId,
+                version: nextVersion,
+                title: structureResult.title,
+                approach: structureResult.approach,
+                tone: structureResult.tone,
+                table_of_contents: structureResult.tableOfContents,
+                estimated_word_count: estimatedWordCount,
+                is_current: true,
+                is_approved: false,
+              })
+              .select()
+              .single();
+
           if (structureError) {
-            console.error('Failed to save structure to database:', structureError);
+            console.error(
+              "Failed to save structure to database:",
+              structureError
+            );
           } else if (insertedStructure) {
             // Insert sections
-            const sectionsToInsert = structureResult.sections.map((section, index: number) => ({
-              structure_id: insertedStructure.id,
-              heading: section.heading,
-              description: (section as any).description || '',
-              key_points: { points: section.keyPoints || [] },
-              position: index,
-              estimated_word_count: (section as any).estimatedWordCount || null,
-              section_number: null,
-            }));
-            
+            const sectionsToInsert = structureResult.sections.map(
+              (section, index: number) => ({
+                structure_id: insertedStructure.id,
+                heading: section.heading,
+                description: (section as any).description || "",
+                key_points: { points: section.keyPoints || [] },
+                position: index,
+                estimated_word_count:
+                  (section as any).estimatedWordCount || null,
+                section_number: null,
+              })
+            );
+
             const { error: sectionsError } = await supabase
-              .from('document_sections')
+              .from("document_sections")
               .insert(sectionsToInsert);
-            
+
             if (sectionsError) {
-              console.error('Failed to save sections to database:', sectionsError);
+              console.error(
+                "Failed to save sections to database:",
+                sectionsError
+              );
             }
-            
+
             // Create version snapshot
             const { error: versionError } = await supabase
-              .from('document_versions')
+              .from("document_versions")
               .insert({
                 project_id: projectId,
                 version_number: nextVersion,
                 version_name: `Structure v${nextVersion}`,
-                description: 'Initial structure generation',
+                description: "Initial structure generation",
                 structure_snapshot: JSON.parse(JSON.stringify(structureResult)),
                 sources_snapshot: JSON.parse(JSON.stringify(sources || [])),
                 content_snapshot: null,
-                checkpoint_type: 'initial_structure',
+                checkpoint_type: "initial_structure",
                 word_count: null,
                 created_by: user.id,
               });
-            
+
             if (versionError) {
-              console.error('Failed to create version snapshot:', versionError);
+              console.error("Failed to create version snapshot:", versionError);
             }
-            
+
             // Update project workflow step
             await supabase
-              .from('writing_projects')
-              .update({ workflow_step: 'planning' })
-              .eq('id', projectId);
-            
+              .from("writing_projects")
+              .update({ workflow_step: "planning" })
+              .eq("id", projectId);
+
             // Add database ID to the response
             savedStructure = {
               ...structureResult,
               id: insertedStructure.id,
             } as typeof structureResult & { id: string };
-            
-            console.log(`Saved structure to database with ID: ${insertedStructure.id}`);
+
+            console.log(
+              `Saved structure to database with ID: ${insertedStructure.id}`
+            );
           }
         }
       } catch (dbError) {
-        console.error('Database operation failed:', dbError);
+        console.error("Database operation failed:", dbError);
         // Continue with in-memory structure if database fails
       }
     }

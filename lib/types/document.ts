@@ -16,6 +16,7 @@ export enum CitationStyle {
   MLA = "MLA",
   HARVARD = "HARVARD",
   CHICAGO = "CHICAGO",
+  IEEE = "IEEE",
 }
 
 export enum AcademicLevel {
@@ -70,10 +71,29 @@ export interface ResearchSource {
   author?: string;
   publishedDate?: string;
   excerpt: string;
+  full_content?: string;
   score?: number;
   selected: boolean;
   provider?: SearchProvider;
   domain?: string;
+
+  // Academic metadata fields
+  journalName?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  doi?: string;
+  year?: number;
+  publisher?: string;
+  publicationType?: 'journal' | 'conference' | 'book' | 'book_chapter' | 'web' | 'thesis' | 'report' | 'preprint';
+  isbn?: string;
+  conferenceName?: string;
+  editors?: string;
+  authorsStructured?: Array<{
+    first: string;
+    last: string;
+    middle?: string;
+  }>;
 }
 
 export interface ResearchRequest {

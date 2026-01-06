@@ -16,6 +16,22 @@ export interface FetchResult {
   wordCount?: number;
   error?: string;
   fetchDuration: number;
+
+  // Academic metadata
+  journalName?: string;
+  volume?: string;
+  issue?: string;
+  pages?: string;
+  doi?: string;
+  year?: number;
+  publisher?: string;
+  publicationType?: string;
+  authorsStructured?: Array<{
+    first: string;
+    last: string;
+    middle?: string;
+  }>;
+  author?: string;
 }
 
 export interface FetchOptions extends ExtractionOptions {
@@ -85,6 +101,17 @@ export class ContentFetchingService {
         content: result.content,
         wordCount: result.wordCount,
         fetchDuration: Date.now() - startTime,
+        // Academic metadata
+        journalName: result.journalName,
+        volume: result.volume,
+        issue: result.issue,
+        pages: result.pages,
+        doi: result.doi,
+        year: result.year,
+        publisher: result.publisher,
+        publicationType: result.publicationType,
+        authorsStructured: result.authorsStructured,
+        author: result.author,
       };
     } catch (error: any) {
       console.error(`Failed to fetch ${source.url} after retries:`, error.message);

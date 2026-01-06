@@ -145,24 +145,22 @@ export async function POST(request: NextRequest) {
             }));
             console.log(`Saved ${savedSources.length} sources to database`);
 
-            // NEW: Fetch full content for top sources
+            // NEW: Fetch full content for ALL sources (to extract metadata)
             try {
-              // Select top sources by relevance score (threshold: 0.5)
-              // Fetch full content for all requested sources, not just top 8
-              const topSources = insertedSources
-                .filter((s) => s.relevance_score && s.relevance_score > 0.5)
+              // Fetch metadata for all sources, prioritizing by relevance score if available
+              const sourcesToFetch = [...insertedSources]
                 .sort(
                   (a, b) => (b.relevance_score || 0) - (a.relevance_score || 0)
                 )
                 .slice(0, numSources);
 
               console.log(
-                `[Content Fetch] Starting for ${topSources.length} top sources`
+                `[Content Fetch] Starting for ${sourcesToFetch.length} sources to extract metadata`
               );
 
               // Fetch content in parallel with retry logic
               const fetchResults = await contentFetchingService.fetchMultiple(
-                topSources.map((s) => ({
+                sourcesToFetch.map((s) => ({
                   id: s.id,
                   url: s.url,
                   title: s.title,
@@ -188,6 +186,58 @@ export async function POST(request: NextRequest) {
                   updateData.full_content = result.content;
                   updateData.content_word_count = result.wordCount;
                   updateData.content_char_count = result.content.length;
+
+                  // Store academic metadata if extracted
+                  updateData.journal_name = result.journalName || null;
+                  updateData.volume = result.volume || null;
+                  updateData.issue = result.issue || null;
+                  updateData.pages = result.pages || null;
+                  updateData.doi = result.doi || null;
+                  updateData.year = result.year || null;
+                  updateData.publisher = result.publisher || null;
+                  updateData.publication_type = result.publicationType || "web";
+                  updateData.authors_structured = result.authorsStructured
+                    ? JSON.stringify(result.authorsStructured)
+                    : null;
+                  // #region agent log
+                  fetch(
+                    "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        location: "research/route.ts:updateSource",
+                        message: "Updating source with fetched content",
+                        data: {
+                          sourceId: result.sourceId,
+                          hasAuthor: !!result.author,
+                          author: result.author,
+                          hasAuthorsStructured: !!result.authorsStructured,
+                          authorsStructuredLength:
+                            result.authorsStructured?.length,
+                          journalName: result.journalName,
+                          url: result.url?.substring(0, 80),
+                        },
+                        timestamp: Date.now(),
+                        sessionId: "debug-session",
+                        hypothesisId: "B",
+                      }),
+                    }
+                  ).catch(() => {});
+                  // #endregion
+
+                  // Update author if extraction found one and DB doesn't have it
+                  if (result.author) {
+                    const { data: existingSource } = await supabase
+                      .from("research_sources")
+                      .select("author")
+                      .eq("id", result.sourceId)
+                      .single();
+
+                    if (existingSource && !existingSource.author) {
+                      updateData.author = result.author;
+                    }
+                  }
                 } else {
                   updateData.fetch_error = result.error;
                 }

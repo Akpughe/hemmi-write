@@ -11,7 +11,6 @@ import {
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
-import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 
 interface GenerateReportSectionRequest {
   documentType: DocumentType;
@@ -109,7 +108,6 @@ ${sourcesText}
 PREVIOUS CONTEXT:
 ${previousSectionsText ? previousSectionsText.slice(-1000) : "None"}
 
-${getHumanizationPrompt(DocumentType.REPORT, academicLevel, true)}
 
 WRITING REQUIREMENTS (BUSINESS MODE):
 1. STRUCTURE (USE HTML NOT MARKDOWN):
@@ -178,7 +176,6 @@ ${sourcesText}
 PREVIOUS CONTEXT:
 ${previousSectionsText ? previousSectionsText.slice(-1000) : "None"}
 
-${getHumanizationPrompt(DocumentType.REPORT, academicLevel, true)}
 
 WRITING REQUIREMENTS (ACADEMIC MODE - USE HTML NOT MARKDOWN):
 1. STRUCTURE:

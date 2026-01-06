@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
-import { getCompactHumanizationGuidance } from "@/lib/config/humanizationGuidelines";
 import { AcademicLevel } from "@/lib/types/document";
 
 const groq = createGroq({
@@ -46,7 +45,6 @@ export async function POST(req: NextRequest) {
     - Ensure the improvement fits seamlessly into the surrounding document flow.
     - If the text makes factual claims, verify them against the provided sources if possible.
     
-    ${getCompactHumanizationGuidance(brief?.academicLevel || AcademicLevel.UNDERGRADUATE)}
     `;
 
     const result = await generateText({

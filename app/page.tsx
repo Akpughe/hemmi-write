@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PromptInput } from "@/app/components/landing/prompt-input";
@@ -76,12 +77,18 @@ export default function HomePage() {
   const handleSubmit = async () => {
     if (!topic.trim()) return;
 
+    console.log(
+      "[HomePage] Submit clicked. Session:",
+      session ? "exists" : "null"
+    );
     saveBrief();
 
     if (!session) {
+      console.log("[HomePage] No session - opening auth modal");
       setAuthNextPath("/workspace");
       setIsAuthModalOpen(true);
     } else {
+      console.log("[HomePage] Session exists - creating project");
       // Create project immediately and navigate with projectId
       try {
         const response = await fetch("/api/projects", {
@@ -99,18 +106,23 @@ export default function HomePage() {
           }),
         });
 
+        console.log("[HomePage] Project creation response:", response.status);
+
         if (response.ok) {
           const data = await response.json();
           const projectId = data.project.id;
+          console.log("[HomePage] Project created successfully:", projectId);
           // Don't clear localStorage yet - workspace page will clear it after successful load
           // This provides a fallback if the workspace page project fetch fails
           router.push(`/workspace?projectId=${projectId}`);
         } else {
+          const errorData = await response.json();
+          console.error("[HomePage] Project creation failed:", errorData);
           // Fallback to old behavior if project creation fails
           router.push("/workspace");
         }
       } catch (error) {
-        console.error("Failed to create project:", error);
+        console.error("[HomePage] Failed to create project:", error);
         // Fallback to old behavior
         router.push("/workspace");
       }
@@ -168,14 +180,19 @@ export default function HomePage() {
       <div className="absolute top-6 left-6 z-10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-            <span className="text-accent font-bold text-sm">N</span>
+            <span className="text-accent font-bold text-sm">H</span>
           </div>
-          <span className="text-foreground/80 font-medium">Write Nuton</span>
+          <span className="text-foreground/80 font-medium">Hemmi</span>
         </div>
       </div>
 
       {/* Header Actions */}
       <div className="absolute top-6 right-6 flex items-center gap-4 z-10">
+        <Button variant="ghost" asChild>
+          <Link href="/pricing" className="text-sm font-semibold">
+            Pricing
+          </Link>
+        </Button>
         {session ? (
           <UserMenu session={session} />
         ) : (

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
-import { getCompactHumanizationGuidance } from "@/lib/config/humanizationGuidelines";
 import { AcademicLevel } from "@/lib/types/document";
-import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  getCurrentUser,
+} from "@/lib/supabase/server";
 import {
   needsResearch,
   researchChatQuestion,
@@ -21,16 +23,17 @@ interface ChatSource {
 }
 
 interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: "user" | "assistant" | "system";
   content: string;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, brief, sources, currentContent, projectId } = await req.json();
+    const { messages, brief, sources, currentContent, projectId } =
+      await req.json();
 
     // Get last user message (the one we're responding to)
-    const userMessages = messages.filter((m: ChatMessage) => m.role === 'user');
+    const userMessages = messages.filter((m: ChatMessage) => m.role === "user");
     const lastUserMessage = userMessages[userMessages.length - 1];
     const userQuestion = lastUserMessage?.content || "";
 
@@ -40,17 +43,15 @@ export async function POST(req: NextRequest) {
         const user = await getCurrentUser();
         if (user) {
           const supabase = await createServerSupabaseClient();
-          await supabase
-            .from('chat_messages')
-            .insert({
-              project_id: projectId,
-              role: 'user',
-              content: lastUserMessage.content,
-              context: { brief, hasCurrentContent: !!currentContent },
-            });
+          await supabase.from("chat_messages").insert({
+            project_id: projectId,
+            role: "user",
+            content: lastUserMessage.content,
+            context: { brief, hasCurrentContent: !!currentContent },
+          });
         }
       } catch (dbError) {
-        console.error('Failed to save user message:', dbError);
+        console.error("Failed to save user message:", dbError);
       }
     }
 
@@ -77,15 +78,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Build system prompt with optional research context
-    const citationInstructions = citations.length > 0
-      ? `\n\nCITATION INSTRUCTIONS:
+    const citationInstructions =
+      citations.length > 0
+        ? `\n\nCITATION INSTRUCTIONS:
 - Use inline citations like [1], [2] when referencing information from the research sources.
 - Only cite when you're using specific facts or claims from a source.
 - Place citations immediately after the relevant statement.
 - You don't need to cite every sentence - only when referencing external information.`
-      : "";
+        : "";
 
-    const systemPrompt = `You are Hemmi, an intelligent writing assistant for the Write Nuton platform.
+    const systemPrompt = `You are Hemmi, an intelligent writing assistant for the Hemmi platform.
 
 CONTEXT:
 - Topic: ${brief.topic}
@@ -104,7 +106,6 @@ INSTRUCTIONS:
 - You can help with research, planning, and writing.
 - If asked to write a section, use the specified writing style.
 
-${getCompactHumanizationGuidance(brief.academicLevel || AcademicLevel.UNDERGRADUATE)}
 `;
 
     const result = await generateText({
@@ -119,17 +120,18 @@ ${getCompactHumanizationGuidance(brief.academicLevel || AcademicLevel.UNDERGRADU
         const user = await getCurrentUser();
         if (user) {
           const supabase = await createServerSupabaseClient();
-          await supabase
-            .from('chat_messages')
-            .insert({
-              project_id: projectId,
-              role: 'assistant',
-              content: result.text,
-              context: citations.length > 0 ? { citations: JSON.parse(JSON.stringify(citations)) } : null,
-            });
+          await supabase.from("chat_messages").insert({
+            project_id: projectId,
+            role: "assistant",
+            content: result.text,
+            context:
+              citations.length > 0
+                ? { citations: JSON.parse(JSON.stringify(citations)) }
+                : null,
+          });
         }
       } catch (dbError) {
-        console.error('Failed to save assistant message:', dbError);
+        console.error("Failed to save assistant message:", dbError);
       }
     }
 
@@ -154,35 +156,32 @@ ${getCompactHumanizationGuidance(brief.academicLevel || AcademicLevel.UNDERGRADU
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const projectId = searchParams.get('projectId');
+    const projectId = searchParams.get("projectId");
 
     if (!projectId) {
       return NextResponse.json(
-        { error: 'projectId is required' },
+        { error: "projectId is required" },
         { status: 400 }
       );
     }
 
     const user = await getCurrentUser();
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabase = await createServerSupabaseClient();
 
     const { data: messages, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: true });
+      .from("chat_messages")
+      .select("*")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: true });
 
     if (error) {
-      console.error('Failed to load chat history:', error);
+      console.error("Failed to load chat history:", error);
       return NextResponse.json(
-        { error: 'Failed to load chat history' },
+        { error: "Failed to load chat history" },
         { status: 500 }
       );
     }

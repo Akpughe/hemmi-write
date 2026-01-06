@@ -544,6 +544,7 @@ export function TiptapEditor({
             onImprove={handleImprove}
             onAskAI={handleAskAI}
             onExplain={handleExplain}
+            onClose={() => setShowFloatingToolbar(false)}
           />
 
           <BottomToolbar

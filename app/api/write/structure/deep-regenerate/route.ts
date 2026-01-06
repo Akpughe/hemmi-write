@@ -8,7 +8,7 @@ import {
   TargetedSearchResult,
   DOCUMENT_TYPE_CONFIGS,
 } from '@/lib/types/document';
-import { analyzeFeedback } from '@/lib/utils/feedbackAnalysis';
+// Removed analyzeFeedback import - quality checking functionality disabled
 import { conductTargetedResearch } from '@/lib/utils/targetedResearch';
 import { formatSourcesForPrompt } from '@/lib/utils/documentStructure';
 import { createServerSupabaseClient, getCurrentUser } from '@/lib/supabase/server';
@@ -43,14 +43,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // PHASE 1: Analyze feedback
+    // PHASE 1: Analyze feedback (disabled - quality checking removed)
     console.log('Phase 1: Analyzing feedback...');
-    const feedbackAnalysis = await analyzeFeedback(
-      userFeedback,
-      currentStructure,
-      topic,
-      documentType
-    );
+    const feedbackAnalysis = {
+      intents: [],
+      specificRequests: [userFeedback],
+      knowledgeGaps: [],
+      searchQueries: [],
+      requiresNewSources: false,
+    };
 
     console.log('Feedback analysis:', {
       intents: feedbackAnalysis.intents,

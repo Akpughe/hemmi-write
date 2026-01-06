@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/app/components/ui/button";
 import { Sparkles, MessageSquare, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,6 +11,7 @@ interface FloatingToolbarProps {
   onImprove: () => void;
   onAskAI: () => void;
   onExplain: () => void;
+  onClose: () => void;
 }
 
 export function FloatingToolbar({
@@ -18,7 +20,25 @@ export function FloatingToolbar({
   onImprove,
   onAskAI,
   onExplain,
+  onClose,
 }: FloatingToolbarProps) {
+  // Handle ESC key to close the toolbar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isVisible) {
+        e.preventDefault();
+        onClose();
+      }
+    };
+
+    if (isVisible) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isVisible, onClose]);
   return (
     <div
       className={cn(

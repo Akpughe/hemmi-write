@@ -38,7 +38,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Write Nuton - AI Writing Assistant",
+  title: "HEmmi - AI Writing Assistant",
   description:
     "A powerful writing application with AI assistance and rich text editing",
 };
