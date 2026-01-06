@@ -6,6 +6,7 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
+import { buildHumanizationReminder } from "@/lib/utils/humanizationPrompt";
 
 // Get the structure outline for a specific document type
 export function getDocumentStructure(documentType: DocumentType): string[] {
@@ -117,6 +118,8 @@ CITATION STRATEGY:
 - Use sources to support analysis, not replace it
 
 ${instructions ? `ADDITIONAL INSTRUCTIONS: ${instructions}\n` : ""}
+
+${buildHumanizationReminder(academicLevel)}
 
 Write the complete research paper now with ${
           levelConfig.label
@@ -397,6 +400,12 @@ Structure your document according to standard ${config.label.toLowerCase()} form
     )}.`;
   }
 
+  // HUMANIZATION: Add humanization guidelines if academic level is provided
+  if (academicLevel) {
+    baseMessage += `
+
+${buildHumanizationReminder(academicLevel)}`;
+  }
 
   return baseMessage;
 }
