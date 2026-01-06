@@ -166,6 +166,26 @@ className = "transition-all duration-200";
 className = "disabled:opacity-50 disabled:pointer-events-none";
 ```
 
+## Workspace Automation Patterns
+
+### Autopilot Toggle (Workspace Header / Editor Panel)
+- Use pill-style badges with `rounded-full`, `px-4 py-1.5`, and border tokens (`border-border` or `border-green-500/50` when enabled).
+- Icons should be `w-3 h-3` with `animate-spin` for active states.
+- Stack status copy using `text-[11px] uppercase` for labels and `text-[12px]` helper text.
+
+### Quality Agent Panel (Right Panel `Quality` tab)
+- Section cards: `border border-border rounded-lg p-3 bg-card`.
+- Status chips: `px-2 py-0.5 rounded-full text-[11px] font-semibold`, color-coded (`bg-green-100`, `bg-amber-100`, etc.).
+- Action buttons: `text-[11px] px-2 py-0.5 rounded-md border border-border` for secondary actions and `bg-accent text-accent-foreground` for Apply Fix.
+- Use `prose prose-sm` wrappers for HTML excerpts with `bg-muted/40 rounded-md p-2`.
+
+### AI Shield Panel (Right Panel `AI Shield` tab)
+- Summary cards: `border border-border rounded-lg p-3` with large score typography (`text-3xl font-semibold`).
+- Batch actions: full-width buttons `bg-accent text-accent-foreground` with `Loader2` spinner when running.
+- Span chips: `px-2 py-0.5 rounded-full text-[11px]` using semantic colors (`bg-sky-100`, `bg-amber-100`, `bg-red-100`).
+- Provide contextual helpers in `text-[11px] text-muted-foreground` and display flagged HTML inside `prose prose-sm dark:prose-invert bg-muted/40 rounded-md p-2`.
+- Always include a fallback state for projects without detection access using centered flex columns and iconography (`<Shield className="w-6 h-6" />`).
+
 ## Dark Mode
 
 Colors automatically adapt via CSS variables. Use `dark:` only for specific overrides:

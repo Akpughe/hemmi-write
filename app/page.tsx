@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PromptInput } from "@/app/components/landing/prompt-input";
@@ -187,6 +188,11 @@ export default function HomePage() {
 
       {/* Header Actions */}
       <div className="absolute top-6 right-6 flex items-center gap-4 z-10">
+        <Button variant="ghost" asChild>
+          <Link href="/pricing" className="text-sm font-semibold">
+            Pricing
+          </Link>
+        </Button>
         {session ? (
           <UserMenu session={session} />
         ) : (
