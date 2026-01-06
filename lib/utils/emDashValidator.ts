@@ -220,7 +220,7 @@ export function comprehensiveHumanizationCheck(
   const suggestions: string[] = [];
 
   // Check em-dashes
-  if (!emDashAnalysis.compliant) {
+  if (!emDashAnalysis.isValid) {
     suggestions.push(`Remove ${emDashAnalysis.violation} em-dash${emDashAnalysis.violation === 1 ? "" : "es"}`);
   }
 
@@ -232,10 +232,10 @@ export function comprehensiveHumanizationCheck(
     });
   }
 
-  const overall: "PASS" | "FAIL" = emDashAnalysis.compliant && !fingerprintAnalysis.hasFingerprint ? "PASS" : "FAIL";
+  const overall: "PASS" | "FAIL" = emDashAnalysis.isValid && !fingerprintAnalysis.hasFingerprint ? "PASS" : "FAIL";
 
   return {
-    emDashCompliant: emDashAnalysis.compliant,
+    emDashCompliant: emDashAnalysis.isValid,
     chatGPTFingerprintDetected: fingerprintAnalysis.hasFingerprint,
     bannedPhrasesFound: fingerprintAnalysis.paragraphsWithViolation,
     overall,
