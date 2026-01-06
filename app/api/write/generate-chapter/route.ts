@@ -12,7 +12,6 @@ import {
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
-import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 
 interface GenerateChapterRequest {
   documentType: DocumentType;
@@ -126,7 +125,7 @@ TARGET WORD COUNT: ${targetWordCount} words
 AVAILABLE SOURCES:
 ${sourcesText}
 
-${getHumanizationPrompt(documentType, academicLevel, true)}`;
+`;
 
   // Add context from previous chapters if available
   if (previousChaptersText && previousChaptersText.trim()) {

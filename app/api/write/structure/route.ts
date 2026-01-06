@@ -10,7 +10,6 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
-import { getHumanizationPrompt } from "@/lib/config/humanizationGuidelines";
 import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
 
 const groq = createGroq({
@@ -324,7 +323,6 @@ export async function POST(req: NextRequest) {
           : "No specific sources provided. Use general knowledge."
       }
       
-      ${getHumanizationPrompt(documentType as DocumentType, academicLevel || AcademicLevel.UNDERGRADUATE, false)}
       
       STRUCTURE REQUIREMENTS:
       - Title: A catchy and relevant title.
