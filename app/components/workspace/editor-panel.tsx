@@ -137,6 +137,21 @@ export function EditorPanel({
 
   const [isWriting, setIsWriting] = useState(false);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  const initializedIndexRef = useRef(false);
+
+  // Initialize chapter index to first pending section when plan is loaded
+  useEffect(() => {
+    if (plan && !initializedIndexRef.current && plan.sections.length > 0) {
+      const firstPendingIndex = plan.sections.findIndex(
+        (s) => s.status !== "complete"
+      );
+      if (firstPendingIndex !== -1) {
+        setCurrentChapterIndex(firstPendingIndex);
+      }
+      initializedIndexRef.current = true;
+    }
+  }, [plan]);
+
   const [currentChapterContent, setCurrentChapterContent] = useState("");
   const [showChapterReview, setShowChapterReview] = useState(false);
   const [approvedContent, setApprovedContent] = useState("");
@@ -231,9 +246,9 @@ export function EditorPanel({
     if (!plan?.tableOfContents?.items) return "";
 
     let tocHtml =
-      '<div class="table-of-contents" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem;">';
+      '<div class="table-of-contents" style="margin-bottom: 2rem; padding: 1rem; border: 1px solid var(--border); border-radius: 0.5rem;">';
     tocHtml +=
-      '<h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem;">Table of Contents</h2>';
+      '<h2 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--foreground);">Table of Contents</h2>';
     tocHtml += '<div style="line-height: 1.8;">';
 
     plan.tableOfContents.items.forEach((item) => {
@@ -242,10 +257,10 @@ export function EditorPanel({
         const numberPrefix = item.sectionNumber
           ? `${item.sectionNumber}. `
           : "";
-        tocHtml += `<div style="font-weight: 600; margin-top: 0.75rem;">${numberPrefix}${item.title}</div>`;
+        tocHtml += `<div style="font-weight: 600; margin-top: 0.75rem; color: var(--foreground);">${numberPrefix}${item.title}</div>`;
       } else if (item.level === 2) {
         // Subsection
-        tocHtml += `<div style="margin-left: 1.5rem; color: #6b7280;">${item.title}</div>`;
+        tocHtml += `<div style="margin-left: 1.5rem; color: var(--muted-foreground);">${item.title}</div>`;
       }
     });
 
@@ -637,6 +652,23 @@ export function EditorPanel({
     setShowChapterReview(false);
     setCurrentChapterContent("");
 
+    console.log("plan", plan);
+
+    // Persist section status to database
+    if (projectId && plan.sections[currentChapterIndex]) {
+      const sectionId = plan.sections[currentChapterIndex].id;
+      fetch(`/api/projects/${projectId}/sections/${sectionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "complete",
+          completed_at: new Date().toISOString(),
+        }),
+      }).catch((error) => {
+        console.error("Failed to persist section status:", error);
+      });
+    }
+
     // Trigger immediate save after chapter approval
     if (projectId) {
       saveContent();
@@ -673,6 +705,24 @@ export function EditorPanel({
   // Handle chapter rejection (regenerate)
   const handleRejectChapter = useCallback(
     (index?: number) => {
+      const rejectIndex =
+        typeof index === "number" ? index : currentChapterIndex;
+
+      // Revert section status back to pending when user rejects
+      if (projectId && plan && plan.sections[rejectIndex]) {
+        const sectionId = plan.sections[rejectIndex].id;
+        fetch(`/api/projects/${projectId}/sections/${sectionId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status: "pending",
+            completed_at: null,
+          }),
+        }).catch((error) => {
+          console.error("Failed to revert section status:", error);
+        });
+      }
+
       if (typeof index === "number") {
         setCurrentChapterIndex(index);
         generateChapter(index);
@@ -680,7 +730,7 @@ export function EditorPanel({
         generateChapter(currentChapterIndex);
       }
     },
-    [currentChapterIndex, generateChapter]
+    [currentChapterIndex, generateChapter, projectId, plan]
   );
 
   const generateDocument = async () => {
