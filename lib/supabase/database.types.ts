@@ -128,6 +128,7 @@ export type Database = {
       }
       document_sections: {
         Row: {
+          completed_at: string | null
           created_at: string
           description: string
           estimated_word_count: number | null
@@ -136,10 +137,12 @@ export type Database = {
           key_points: Json
           position: number
           section_number: string | null
+          status: string
           structure_id: string
           updated_at: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           description: string
           estimated_word_count?: number | null
@@ -148,10 +151,12 @@ export type Database = {
           key_points: Json
           position: number
           section_number?: string | null
+          status?: string
           structure_id: string
           updated_at?: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           description?: string
           estimated_word_count?: number | null
@@ -160,6 +165,7 @@ export type Database = {
           key_points?: Json
           position?: number
           section_number?: string | null
+          status?: string
           structure_id?: string
           updated_at?: string
         }
