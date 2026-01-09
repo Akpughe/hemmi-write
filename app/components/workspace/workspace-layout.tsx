@@ -10,7 +10,7 @@ import type {
 import { WorkspaceHeader } from "./workspace-header";
 import { LeftPanel } from "./left-panel";
 import { EditorPanel } from "./editor-panel";
-import { RightPanel } from "./right-panel";
+import { RightPanel, type PersistedMessage } from "./right-panel";
 import { SourceAdditionBanner } from "./source-addition-banner";
 import {
   SourceImpactAnalysis,
@@ -30,7 +30,7 @@ interface WorkspaceLayoutProps {
   initialSources?: Source[];
   initialPlan?: DocumentPlan | null;
   initialContent?: string;
-  initialMessages?: unknown[];
+  initialMessages?: PersistedMessage[];
   initialLastSavedAt?: string | null;
   isFetching?: boolean;
 }
@@ -100,19 +100,22 @@ export function WorkspaceLayout({
   const handleStepChange = async (step: WorkflowStep) => {
     onStepChange(step);
 
-    // If moving to complete, update the project in DB
-    if (step === "complete" && projectId) {
+    // Update workflow step in DB for every transition
+    if (projectId) {
       try {
         await fetch(`/api/projects/${projectId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            workflow_step: "complete",
-            is_complete: true,
+            workflow_step: step,
+            is_complete: step === "complete",
+            ...(step === "complete" && {
+              completed_at: new Date().toISOString(),
+            }),
           }),
         });
       } catch (error) {
-        console.error("Failed to update project status:", error);
+        console.error("Failed to update project workflow step:", error);
       }
     }
   };
@@ -180,7 +183,11 @@ export function WorkspaceLayout({
         throw new Error("Failed to regenerate structure");
       }
 
-      type RegeneratedSection = { heading: string; keyPoints?: string[] };
+      type RegeneratedSection = {
+        heading: string;
+        keyPoints?: string[];
+        id?: string;
+      };
       type RegeneratedSource = {
         id?: string;
         title: string;
@@ -205,7 +212,7 @@ export function WorkspaceLayout({
         approach: result.structure.approach,
         tone: result.structure.tone,
         sections: result.structure.sections.map((s, index: number) => ({
-          id: `section-${index}`,
+          id: s.id || `section-${index}`,
           title: s.heading,
           keyPoints: s.keyPoints || [],
           status: "pending" as const,
