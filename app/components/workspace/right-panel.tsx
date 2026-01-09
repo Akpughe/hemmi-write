@@ -38,7 +38,7 @@ interface Message {
   citations?: ChatCitation[];
 }
 
-interface PersistedMessage {
+export interface PersistedMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
@@ -79,7 +79,7 @@ function MessageContent({
     const lines = content.split("\n");
 
     return (
-      <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+      <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-word">
         {lines.map((line, lineIndex) => {
           if (line.trim() === "") {
             return <br key={lineIndex} />;
@@ -152,7 +152,7 @@ function MessageContent({
 
   // No citations - use regular markdown rendering
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+    <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-word">
       <Markdown>{content}</Markdown>
     </div>
   );
@@ -285,7 +285,7 @@ function ReferencesPreview({
 
   if (researchSources.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-8 text-center bg-gradient-to-b from-background to-muted/40">
+      <div className="flex flex-col items-center justify-center h-full px-8 text-center bg-linear-to-b from-background to-muted/40">
         <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
           <Library className="w-8 h-8 text-muted-foreground" />
         </div>
@@ -299,10 +299,10 @@ function ReferencesPreview({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-gradient-to-b from-background via-background to-muted/30">
+    <div className="flex-1 flex flex-col h-full bg-linear-to-b from-background via-background to-muted/30">
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pb-6">
         <div
-          className="sticky top-0 z-20 border-b border-border/60 bg-gradient-to-b from-background via-background/95 to-background/60 px-6 pb-5 pt-6 backdrop-blur"
+          className="sticky top-0 z-20 border-b border-border/60 bg-linear-to-b from-background via-background/95 to-background/60 px-6 pb-5 pt-6 backdrop-blur"
           style={{ height: headerHeight }}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -429,7 +429,7 @@ function ReferencesPreview({
                       </div>
                     )}
                     <div
-                      className="text-sm leading-relaxed break-words whitespace-pre-wrap prose prose-sm max-w-none"
+                      className="text-sm leading-relaxed wrap-break-word whitespace-pre-wrap prose prose-sm max-w-none"
                       dangerouslySetInnerHTML={{ __html: formattedRef }}
                     />
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -885,7 +885,7 @@ ${input}`
                   <Icon className="h-4 w-4" />
                   {isActive && <span>{label}</span>}
                   {id === "references" && selectedSourceCount > 0 && (
-                    <span className="absolute -right-2 -top-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent/20 text-[11px] font-semibold text-accent">
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent/20 text-[11px] font-semibold text-accent">
                       {selectedSourceCount}
                     </span>
                   )}
