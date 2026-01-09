@@ -8,14 +8,15 @@ import { Skeleton } from "@/app/components/ui/skeleton";
 import { BrowseAllProjectsDialog } from "./browse-all-projects-dialog";
 
 export function ProjectsSection() {
-  const [activeTab, setActiveTab] = useState<"recent" | "my-projects">(
-    "recent"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "recent" | "my-projects" | "archived"
+  >("recent");
   const [isBrowseAllOpen, setIsBrowseAllOpen] = useState(false);
 
   // Fetch projects based on active tab
   const { data, isLoading, error } = useProjects({
     limit: 6,
+    archived: activeTab === "archived",
     // For now, "recent" shows all, "my-projects" could filter in the future
   });
 

@@ -22,13 +22,14 @@ export function BrowseAllProjectsDialog({
   isOpen,
   onClose,
 }: BrowseAllProjectsDialogProps) {
-  const [activeTab, setActiveTab] = useState<"recent" | "my-projects">(
-    "recent"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "recent" | "my-projects" | "archived"
+  >("recent");
 
   // Fetch all projects (no limit or higher limit)
   const { data, isLoading, error } = useProjects({
     limit: 50, // Show up to 50 projects
+    archived: activeTab === "archived",
     // For now, "recent" shows all, "my-projects" could filter in the future
   });
 
@@ -98,18 +99,12 @@ export function BrowseAllProjectsDialog({
 
         <div className="flex flex-col min-h-0 space-y-6 overflow-hidden">
           {/* Tabs */}
-          <ProjectsTabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
+          <ProjectsTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
           {/* Projects grid */}
-          <div className="flex-1 overflow-y-auto pr-2 -mr-2">
-            {content}
-          </div>
+          <div className="flex-1 overflow-y-auto pr-2 -mr-2">{content}</div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-

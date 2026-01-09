@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Clock, FileText, Sparkles } from "lucide-react";
+import { Archive, ArrowUpRight, Clock, FileText, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Project } from "@/lib/hooks/use-projects";
+import { type Project, useArchiveProject } from "@/lib/hooks/use-projects";
 
 interface ProjectCardProps {
   project: Project;
@@ -59,6 +59,22 @@ export function ProjectCard({ project }: Readonly<ProjectCardProps>) {
       className: "bg-muted text-muted-foreground",
     } as const);
 
+  const archiveMutation = useArchiveProject();
+
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      await archiveMutation.mutateAsync({
+        projectId: project.id,
+        archived: !project.is_archived,
+      });
+    } catch (error) {
+      console.error("Failed to archive project:", error);
+    }
+  };
+
   return (
     <Link
       href={`/workspace?projectId=${project.id}`}
@@ -75,8 +91,19 @@ export function ProjectCard({ project }: Readonly<ProjectCardProps>) {
         <FileText className="w-12 h-12 text-muted-foreground/30 transition-transform duration-200 group-hover:scale-[1.03]" />
 
         {/* Hover affordance */}
-        <div className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/70 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur transition-all duration-200 group-hover:opacity-100 group-hover:text-foreground">
-          <ArrowUpRight className="h-4 w-4" />
+        <div className="absolute right-3 top-3 flex gap-2">
+          <button
+            onClick={handleArchive}
+            disabled={archiveMutation.isPending}
+            title={
+              project.is_archived ? "Restore from Archive" : "Archive Project"
+            }
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/70 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur transition-all duration-200 group-hover:opacity-100 hover:text-foreground hover:bg-background disabled:opacity-50">
+            <Archive className="h-4 w-4" />
+          </button>
+          <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/70 text-muted-foreground opacity-0 shadow-sm ring-1 ring-border/60 backdrop-blur transition-all duration-200 group-hover:opacity-100 group-hover:text-foreground">
+            <ArrowUpRight className="h-4 w-4" />
+          </div>
         </div>
 
         {/* Status badge */}
