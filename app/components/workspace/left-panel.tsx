@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, Dispatch, SetStateAction, useRef } from "react";
 import {
   Loader2,
   RefreshCw,
@@ -88,7 +88,18 @@ export function LeftPanel({
 }: LeftPanelProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
-  const [activeTab, setActiveTab] = useState<"sections" | "sources">("sources");
+  const [activeTab, setActiveTab] = useState<"sections" | "sources">(
+    plan ? "sections" : "sources"
+  );
+  const hasAutoSwitchedToSections = useRef(false);
+
+  // Auto-switch to sections tab when plan is loaded
+  useEffect(() => {
+    if (plan && !hasAutoSwitchedToSections.current) {
+      setActiveTab("sections");
+      hasAutoSwitchedToSections.current = true;
+    }
+  }, [plan]);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [scrapeUrl, setScrapeUrl] = useState("");
@@ -176,15 +187,26 @@ export function LeftPanel({
         brief.includeSources,
     });
 
+    // Only auto-run research if we're in research step, have no sources, and sources are enabled
+    // The key difference: if projectId exists, it means we're loading from DB and should NOT auto-run
+    // because the absence of sources would be intentional (user cleared them or hasn't added any yet)
     if (
       currentStep === "research" &&
       sources.length === 0 &&
       brief.includeSources
     ) {
-      console.log(
-        "✓ Auto-triggering research (projectId will be created if needed)"
-      );
-      fetchResearch();
+      // If we have a projectId, this is a reload - skip auto-research to prevent duplicate runs
+      // Users can manually click "Gather research" if they want to re-run
+      if (projectId) {
+        console.log(
+          "Skipping auto-research on reload - please use manual trigger"
+        );
+      } else {
+        console.log(
+          "✓ Auto-triggering research (projectId will be created if needed)"
+        );
+        fetchResearch();
+      }
     } else if (currentStep === "research" && !brief.includeSources) {
       // Skip research if sources are disabled
       console.log("Skipping research - sources disabled");
@@ -381,7 +403,7 @@ export function LeftPanel({
         tableOfContents: apiStructure.tableOfContents,
         tone: apiStructure.tone,
         sections: apiStructure.sections.map((s: any, i: number) => ({
-          id: `section-${i}`,
+          id: s.id || `section-${i}`,
           title: s.heading,
           keyPoints: s.keyPoints || [],
           status: "pending",
