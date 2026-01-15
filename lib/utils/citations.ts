@@ -1,12 +1,18 @@
 import { CitationStyle, ResearchSource } from "@/lib/types/document";
 
 // Format a single in-text citation based on style
+// Returns null if source has no author (to skip the citation)
 export function formatInTextCitation(
   source: ResearchSource,
   style: CitationStyle,
   index: number
-): string {
-  const author = source.author || "Anonymous";
+): string | null {
+  // Skip sources without authors
+  if (!source.author || source.author.trim() === "") {
+    return null;
+  }
+
+  const author = source.author;
   const year = source.publishedDate
     ? new Date(source.publishedDate).getFullYear()
     : "n.d.";
@@ -46,28 +52,6 @@ function hasAcademicMetadata(source: ResearchSource): boolean {
 
 // Helper: Format multiple authors based on citation style
 function formatAuthors(source: ResearchSource, style: CitationStyle): string {
-  // #region agent log
-  fetch("http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "citations.ts:formatAuthors",
-      message: "formatAuthors called",
-      data: {
-        sourceTitle: source.title?.substring(0, 50),
-        hasAuthor: !!source.author,
-        author: source.author,
-        hasAuthorsStructured: !!source.authorsStructured,
-        authorsStructuredLength: source.authorsStructured?.length,
-        authorsStructuredSample: source.authorsStructured?.slice(0, 2),
-        url: source.url?.substring(0, 80),
-      },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      hypothesisId: "E",
-    }),
-  }).catch(() => {});
-  // #endregion
   // Try structured authors first
   if (source.authorsStructured && source.authorsStructured.length > 0) {
     const authors = source.authorsStructured;
@@ -159,7 +143,9 @@ function formatAuthors(source: ResearchSource, style: CitationStyle): string {
         return authors
           .map((a, i) => {
             const firstInitial = a.first ? a.first.charAt(0) + "." : "";
-            const middleInitial = a.middle ? " " + a.middle.charAt(0) + "." : "";
+            const middleInitial = a.middle
+              ? " " + a.middle.charAt(0) + "."
+              : "";
             const formatted = `${firstInitial}${middleInitial} ${a.last}`;
 
             if (authors.length === 1) {
@@ -178,33 +164,23 @@ function formatAuthors(source: ResearchSource, style: CitationStyle): string {
   }
 
   // Fall back to simple author string
-  // #region agent log
-  fetch("http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "citations.ts:formatAuthors-fallback",
-      message: "Using fallback author",
-      data: {
-        sourceTitle: source.title?.substring(0, 50),
-        author: source.author,
-        willBeAnonymous: !source.author,
-      },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      hypothesisId: "E",
-    }),
-  }).catch(() => {});
-  // #endregion
-  return source.author || "Anonymous";
+  // Skip sources without authors instead of using "Anonymous"
+  return source.author || null;
 }
 
 // Format academic references (journal papers, conference papers, etc.)
+// Returns null if source has no author
 function formatAcademicReference(
   source: ResearchSource,
   style: CitationStyle
-): string {
+): string | null {
   const authors = formatAuthors(source, style);
+
+  // Skip sources without authors
+  if (!authors) {
+    return null;
+  }
+
   const title = source.title;
   const year =
     source.year ||
@@ -340,11 +316,18 @@ function formatAcademicReference(
 }
 
 // Format web references (fallback for sources without academic metadata)
+// Returns null if source has no author
 function formatWebReference(
   source: ResearchSource,
   style: CitationStyle
-): string {
+): string | null {
   const authors = formatAuthors(source, style);
+
+  // Skip sources without authors
+  if (!authors) {
+    return null;
+  }
+
   const title = source.title;
   const url = source.url;
   const date = source.publishedDate;
@@ -385,11 +368,17 @@ function formatWebReference(
 }
 
 // Main function: Format a single reference/bibliography entry based on style
+// Returns null if source has no author (to skip the reference)
 export function formatReference(
   source: ResearchSource,
   style: CitationStyle
-): string {
+): string | null {
   try {
+    // Skip sources without authors
+    if (!source.author || source.author.trim() === "") {
+      return null;
+    }
+
     const hasAcademic = hasAcademicMetadata(source);
 
     if (hasAcademic) {
@@ -399,8 +388,12 @@ export function formatReference(
     return formatWebReference(source, style);
   } catch (error) {
     console.error("[Citations] Error formatting reference:", error);
+    // Skip sources without authors even in error case
+    if (!source.author || source.author.trim() === "") {
+      return null;
+    }
     // Ultra-safe fallback
-    const author = source.author || "Anonymous";
+    const author = source.author;
     const title = source.title || "Untitled";
     const url = source.url;
     return `${author}. ${title}. ${url}`;
@@ -412,41 +405,20 @@ export function generateReferenceList(
   sources: ResearchSource[],
   style: CitationStyle
 ): string {
-  // #region agent log
-  fetch("http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: "citations.ts:generateReferenceList",
-      message: "Generating reference list",
-      data: {
-        sourceCount: sources.length,
-        style,
-        sourcesWithAuthor: sources.filter((s) => s.author).length,
-        sourcesWithAuthorsStructured: sources.filter(
-          (s) => s.authorsStructured && s.authorsStructured.length > 0
-        ).length,
-        sampleSources: sources
-          .slice(0, 3)
-          .map((s) => ({
-            title: s.title?.substring(0, 40),
-            author: s.author,
-            hasAuthorsStructured: !!s.authorsStructured,
-          })),
-      },
-      timestamp: Date.now(),
-      sessionId: "debug-session",
-      hypothesisId: "E",
-    }),
-  }).catch(() => {});
-  // #endregion
-  if (sources.length === 0) {
-    console.warn("No sources provided for reference list");
-    return "\n\n<h1>References</h1>\n\n<p><em>No sources were provided for this document.</em></p>";
+  // Filter out sources without authors first
+  const sourcesWithAuthors = sources.filter(
+    (s) => s.author && s.author.trim() !== ""
+  );
+
+  if (sourcesWithAuthors.length === 0) {
+    console.warn("No sources with authors provided for reference list");
+    return "\n\n<h1>References</h1>\n\n<p><em>No sources with authors were provided for this document.</em></p>";
   }
 
   console.log(
-    `Generating reference list with ${sources.length} sources in ${style} format`
+    `Generating reference list with ${sourcesWithAuthors.length} sources (${
+      sources.length - sourcesWithAuthors.length
+    } skipped without authors) in ${style} format`
   );
 
   // Get the appropriate heading based on citation style
@@ -455,17 +427,17 @@ export function generateReferenceList(
   // IEEE uses order of appearance (not sorted); other styles sort alphabetically
   const sortedSources =
     style === CitationStyle.IEEE
-      ? sources
-      : [...sources].sort((a, b) => {
-          const authorA = a.author || "Anonymous";
-          const authorB = b.author || "Anonymous";
+      ? sourcesWithAuthors
+      : [...sourcesWithAuthors].sort((a, b) => {
+          const authorA = a.author!;
+          const authorB = b.author!;
           return authorA.localeCompare(authorB);
         });
 
-  // Format each reference
-  const references = sortedSources.map((source) =>
-    formatReference(source, style)
-  );
+  // Format each reference and filter out nulls
+  const references = sortedSources
+    .map((source) => formatReference(source, style))
+    .filter((ref): ref is string => ref !== null);
 
   // IEEE uses numbered format [1], [2]; other styles use bullet list
   if (style === CitationStyle.IEEE) {
@@ -501,20 +473,61 @@ function getReferenceListHeading(style: CitationStyle): string {
   }
 }
 
+// Remove AI-generated "SourceX, YYYY" citation patterns
+// These are sometimes generated by AI models instead of proper [1], [2] markers
+// Export this function so it can be used in other places that need to clean content
+export function removeSourcePatterns(content: string): string {
+  // Match patterns like "Source9, 2022", "Source4, 2023", etc.
+  // Also handles variations like "Source9,2022" (no space) or "Source 9, 2022" (with space)
+  // Pattern: Source[optional space][number][optional comma][optional space][year]
+
+  // Match parenthesized patterns first (e.g., "(Source9, 2022)")
+  const sourcePatternWithParens = /\(Source\s*\d+\s*,\s*\d{4}\)/g;
+
+  // Match standalone patterns with word boundaries to avoid matching parts of other words
+  // (e.g., "Source9, 2022" but not "SourceCode9, 2022")
+  const sourcePattern = /\bSource\s*\d+\s*,\s*\d{4}\b/g;
+
+  let cleaned = content;
+
+  // Remove parenthesized patterns first (e.g., "(Source9, 2022)")
+  cleaned = cleaned.replaceAll(sourcePatternWithParens, "");
+
+  // Remove standalone patterns (e.g., "Source9, 2022")
+  cleaned = cleaned.replaceAll(sourcePattern, "");
+
+  // Clean up spacing issues left behind (but be more careful)
+  // Only clean up multiple consecutive spaces, not all whitespace
+  cleaned = cleaned.replace(/ {2,}/g, " "); // Multiple spaces to single space
+  cleaned = cleaned.replaceAll(/\s+([.,;:])/g, "$1"); // Space before punctuation
+  cleaned = cleaned.replaceAll(/([.,;:])\s*([.,;:])/g, "$1$2"); // Double punctuation
+  cleaned = cleaned.replaceAll(/\(\s*\)/g, ""); // Empty parentheses
+
+  return cleaned;
+}
+
 // Process content and replace citation markers with formatted citations
 export function processCitations(
   content: string,
   sources: ResearchSource[],
   style: CitationStyle
 ): string {
-  let processedContent = content;
+  // First, remove any "SourceX, YYYY" patterns that AI might have generated
+  let processedContent = removeSourcePatterns(content);
 
   // Replace each citation marker [1], [2], etc. with formatted citation
   sources.forEach((source, index) => {
     const marker = `\\[${index + 1}\\]`;
     const regex = new RegExp(marker, "g");
     const formattedCitation = formatInTextCitation(source, style, index);
-    processedContent = processedContent.replace(regex, formattedCitation);
+
+    // Skip citation if source has no author
+    if (formattedCitation === null) {
+      // Remove the citation marker entirely
+      processedContent = processedContent.replace(regex, "");
+    } else {
+      processedContent = processedContent.replace(regex, formattedCitation);
+    }
   });
 
   return processedContent;
