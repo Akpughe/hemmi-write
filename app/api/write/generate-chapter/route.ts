@@ -14,11 +14,25 @@ import {
   buildChapterHumanizationContext,
   getMinimalHumanizationHint,
   buildEmDashWarning,
-  getEnhancedWritingTechniques,
   buildChatGPTFingerprintWarning,
 } from "@/lib/utils/humanizationPrompt";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+import { perplexityService } from "@/lib/services/perplexityService";
+import { savePerplexityCitations } from "@/lib/utils/perplexityCitationSaver";
+
+/**
+ * Clean em-dashes from text to avoid AI detection fingerprints
+ * Replaces em-dashes with appropriate alternatives
+ */
+function cleanEmDashes(text: string): string {
+  // Replace em-dashes (—, --, etc.) with commas for most cases
+  return text
+    .replace(/\s*—\s*/g, ", ") // Em-dash with spaces
+    .replace(/\s*--\s*/g, ", ") // Double hyphen with spaces
+    .replace(/—/g, ", ") // Any remaining em-dashes
+    .replace(/,\s*,/g, ","); // Clean up double commas
+}
 
 interface GenerateChapterRequest {
   documentType: DocumentType;
@@ -35,6 +49,7 @@ interface GenerateChapterRequest {
   documentApproach: string;
   documentTone: string;
   aiProvider?: string;
+  projectId?: string; // Add projectId to save Perplexity citations
 }
 
 function generateChapterPrompt(
@@ -50,7 +65,8 @@ function generateChapterPrompt(
   writingStyle: WritingStyle,
   documentTitle: string,
   documentApproach: string,
-  documentTone: string
+  documentTone: string,
+  perplexityContent?: string
 ): string {
   const config = DOCUMENT_TYPE_CONFIGS[documentType];
   const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
@@ -132,6 +148,15 @@ TARGET WORD COUNT: ${targetWordCount} words
 AVAILABLE SOURCES:
 ${sourcesText}
 
+${
+  perplexityContent
+    ? `ADDITIONAL FACTUAL INFORMATION (with inline citations):
+${perplexityContent}
+
+Use the information above to enrich your content. The citations [1], [2], etc. in the factual information refer to authoritative sources - integrate this information naturally into your writing.`
+    : ""
+}
+
 `;
 
   // Add context from previous chapters if available
@@ -180,6 +205,7 @@ WRITING REQUIREMENTS:
 2. ACADEMIC RIGOR:
    - Cite ${levelConfig.citationsPerSection} sources per major point
    - Use in-text citations in ${config.citationStyle} format (Author, Year)
+   - Integrate information from BOTH the original research sources AND the additional factual information naturally
    - Provide critical analysis, not just description
    - ${levelConfig.analysisStyle}
 
@@ -311,6 +337,7 @@ export async function POST(request: NextRequest) {
       documentApproach,
       documentTone,
       aiProvider,
+      projectId,
     } = body;
 
     // Validation
@@ -343,6 +370,69 @@ export async function POST(request: NextRequest) {
     // Calculate word budget for chapter sources
     const chapterWordCount = chapter.estimatedWordCount || 5000;
     const sourceWordBudget = Math.floor(chapterWordCount * 0.25);
+
+    // Step 1: Call Perplexity to get factual information about this chapter
+    const isAbstract = chapter.heading.toLowerCase().includes("abstract");
+    let perplexityContent = "";
+
+    if (!isAbstract && perplexityService.isAvailable()) {
+      console.log(
+        `[Generate Chapter ${
+          chapterIndex + 1
+        }] Fetching factual data from Perplexity for: "${chapter.heading}"`
+      );
+
+      const perplexityQuery = `Provide comprehensive factual information about "${
+        chapter.heading
+      }" in the context of ${topic}. Focus on these key points:
+${(chapter.keyPoints ?? []).map((kp, i) => `${i + 1}. ${kp}`).join("\n")}
+
+Include relevant data, statistics, examples, and authoritative information with citations.`;
+
+      const perplexityResponse = await perplexityService.chatCompletion(
+        perplexityQuery
+      );
+
+      if (perplexityResponse.content) {
+        // Clean em-dashes from Perplexity content before using it
+        perplexityContent = cleanEmDashes(perplexityResponse.content);
+        console.log(
+          `[Generate Chapter ${chapterIndex + 1}] Perplexity returned ${
+            perplexityContent.length
+          } chars with ${
+            perplexityResponse.citations.length
+          } citations (em-dashes cleaned)`
+        );
+
+        // Save Perplexity citations to research sources if projectId is provided
+        if (projectId && perplexityResponse.citations.length > 0) {
+          console.log(
+            `[Generate Chapter ${chapterIndex + 1}] Saving ${
+              perplexityResponse.citations.length
+            } Perplexity citations to research sources`
+          );
+          const savedCitations = await savePerplexityCitations({
+            projectId,
+            citations: perplexityResponse.citations,
+            chapterName: chapter.heading,
+            perplexityContent: perplexityContent,
+          });
+          console.log(
+            `[Generate Chapter ${chapterIndex + 1}] Saved ${
+              savedCitations.length
+            } citations (${
+              perplexityResponse.citations.length - savedCitations.length
+            } were duplicates)`
+          );
+        }
+      }
+    } else if (!isAbstract) {
+      console.log(
+        `[Generate Chapter ${
+          chapterIndex + 1
+        }] Perplexity not available, using only original sources`
+      );
+    }
 
     // Format sources - use fullContent if available in sources
     const sourcesText = formatSourcesForPrompt(
@@ -384,10 +474,10 @@ export async function POST(request: NextRequest) {
       writingStyle,
       documentTitle,
       documentApproach,
-      documentTone
+      documentTone,
+      perplexityContent || undefined
     );
 
-    const isAbstract = chapter.heading.toLowerCase().includes("abstract");
     const systemMessage = getSystemMessage(academicLevel, isAbstract);
 
     // Calculate dynamic token limit based on target word count
