@@ -415,35 +415,6 @@ export function EditorPanel({
               authorsStructured: s.authorsStructured,
             }));
 
-          // #region agent log
-          fetch(
-            "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                location: "editor-panel.tsx:generateReferences",
-                message: "Preparing sources for reference list",
-                data: {
-                  sourceCount: apiSources.length,
-                  sourcesWithAuthor: apiSources.filter((s) => s.author).length,
-                  sourcesWithAuthorsStructured: apiSources.filter(
-                    (s) => s.authorsStructured && s.authorsStructured.length > 0
-                  ).length,
-                  sampleSources: apiSources.slice(0, 3).map((s) => ({
-                    title: s.title?.substring(0, 40),
-                    author: s.author,
-                    hasAuthorsStructured: !!s.authorsStructured,
-                    authorsStructuredSample: s.authorsStructured?.slice?.(0, 1),
-                  })),
-                },
-                timestamp: Date.now(),
-                sessionId: "debug-session",
-                hypothesisId: "D",
-              }),
-            }
-          ).catch(() => {});
-          // #endregion
 
           // Get citation style from brief, default to APA
           const citationStyleMap: Record<string, CitationStyle> = {
