@@ -19,6 +19,11 @@ import {
   SearchProvider,
   ResearchSource,
 } from "@/lib/types/document";
+import {
+  getSearchDomainFilter,
+  enhanceQueryForAcademicSearch,
+  getDomainPrestige,
+} from "@/lib/utils/academicSourcePriority";
 
 interface SearchOptions {
   topic: string;
@@ -169,10 +174,12 @@ export class SearchService {
    */
   async searchPerplexity(
     query: string,
-    numResults: number = 10
+    numResults: number = 10,
+    options: { searchDomainFilter?: string[] } = {}
   ): Promise<SearchResult[]> {
     const results = await perplexityService.search(query, {
       maxResults: numResults,
+      searchDomainFilter: options.searchDomainFilter,
     });
 
     return results.map((result) => ({
@@ -190,10 +197,12 @@ export class SearchService {
    */
   async searchPerplexityMulti(
     queries: string[],
-    numResults: number = 10
+    numResults: number = 10,
+    options: { searchDomainFilter?: string[] } = {}
   ): Promise<SearchResult[]> {
     const results = await perplexityService.multiSearch(queries, {
       maxResults: numResults,
+      searchDomainFilter: options.searchDomainFilter,
     });
 
     return results.map((result) => ({
@@ -221,7 +230,7 @@ export class SearchService {
       enableQueryExpansion = true,
     } = options;
 
-    // Generate queries with instruction enhancement
+    // Generate queries with instruction enhancement AND academic context
     let queries: string[];
     if (enableQueryExpansion) {
       queries = getAllQueriesWithInstructions(
@@ -234,15 +243,22 @@ export class SearchService {
       queries = [enhanceQueryForDocumentType(topic, documentType)];
     }
 
-    const primaryQuery = queries[0];
+    // Enhance queries with academic keywords
+    const academicQueries = queries.map(q => enhanceQueryForAcademicSearch(q, true));
+    const primaryQuery = academicQueries[0];
+
+    // Get academic domain filter (Tier 1 + Tier 2, max 20 domains for Perplexity)
+    const academicDomains = getSearchDomainFilter(20, true, true, false);
 
     console.log(`\n=== SEARCH PARALLEL STARTED ===`);
     console.log(`Requested sources: ${numResults}`);
     if (instructions) {
       console.log(`Instructions: ${instructions}`);
     }
-    console.log(`Queries:`, queries);
+    console.log(`Queries:`, academicQueries);
     console.log(`Max sources per domain: ${maxSourcesPerDomain}`);
+    console.log(`Academic domain filter: ${academicDomains.length} domains (Perplexity limit: 20)`);
+    console.log(`  Priority domains: scholar.google.com, pubmed.gov, ieee.org, nature.com, springer.com, +${academicDomains.length - 5} more`);
 
     // Calculate how many to request from each provider (request MORE to account for deduplication)
     // Increased from 2.0x to 3.0x with minimum of 20 results
@@ -250,17 +266,19 @@ export class SearchService {
     const perplexityCount = Math.max(20, Math.ceil(numResults * 3.0));
 
     console.log(
-      `\nRequesting ${exaCount} from Exa, ${perplexityCount} from Perplexity`
+      `\nRequesting ${exaCount} from Exa, ${perplexityCount} from Perplexity (with domain filter)`
     );
 
-    // Execute parallel searches
+    // Execute parallel searches with academic domain filtering
     const [exaResult, perplexityResult] = await Promise.allSettled([
       this.searchExa({
         query: primaryQuery,
         numResults: exaCount,
         documentType,
       }),
-      this.searchPerplexityMulti(queries, perplexityCount),
+      this.searchPerplexityMulti(academicQueries, perplexityCount, {
+        searchDomainFilter: academicDomains,
+      }),
     ]);
 
     // Extract results, handling failures gracefully
@@ -363,8 +381,11 @@ export class SearchService {
         );
         try {
           supplementaryResults = await this.searchPerplexityMulti(
-            queries,
-            compensationCount
+            academicQueries,
+            compensationCount,
+            {
+              searchDomainFilter: academicDomains,
+            }
           );
           console.log(
             `✓ Perplexity compensation returned ${supplementaryResults.length} results`
@@ -439,7 +460,17 @@ export class SearchService {
     // Final trim to requested amount - DISABLED to show all relevant results
     // merged = merged.slice(0, numResults);
 
+    // Calculate academic source statistics
+    const academicSourceCount = merged.filter(r => {
+      const prestige = getDomainPrestige(r.url);
+      return prestige === 'high' || prestige === 'medium';
+    }).length;
+    const academicPercentage = merged.length > 0
+      ? Math.round((academicSourceCount / merged.length) * 100)
+      : 0;
+
     console.log(`\n✓ Final result: ${merged.length} sources`);
+    console.log(`  Academic sources: ${academicSourceCount}/${merged.length} (${academicPercentage}%)`);
     if (merged.length > 0) {
       console.log(
         `  Domains:`,
@@ -462,15 +493,21 @@ export class SearchService {
     maxResults: number = 4
   ): Promise<ResearchSource[]> {
     const enhancedQuery = enhanceQueryForDocumentType(query, documentType);
+    const academicQuery = enhanceQueryForAcademicSearch(enhancedQuery, true);
 
-    // Execute parallel searches for single query
+    // Get academic domain filter (max 20 for Perplexity)
+    const academicDomains = getSearchDomainFilter(20, true, true, false);
+
+    // Execute parallel searches for single query with domain filtering
     const [exaResult, perplexityResult] = await Promise.allSettled([
       this.searchExa({
-        query: enhancedQuery,
+        query: academicQuery,
         numResults: 10,
         documentType,
       }),
-      this.searchPerplexity(enhancedQuery, 10),
+      this.searchPerplexity(academicQuery, 10, {
+        searchDomainFilter: academicDomains,
+      }),
     ]);
 
     const exaResults = exaResult.status === "fulfilled" ? exaResult.value : [];
