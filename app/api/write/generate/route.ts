@@ -51,34 +51,52 @@ export async function POST(request: NextRequest) {
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
 
-    // Fetch sources from database to get full_content
+    // Fetch sources from database to get full_content AND enriched metadata
     let enrichedSources = sources;
     if (projectId) {
       try {
         const supabase = await createServerSupabaseClient();
         const { data: dbSources } = await supabase
           .from('research_sources')
-          .select('id, title, url, author, excerpt, full_content')
+          .select('id, title, url, author, excerpt, full_content, content_word_count, authors_structured, doi, journal_name, volume, issue, pages, year, publisher, publication_type')
           .eq('project_id', projectId)
           .eq('is_selected', true)
           .order('relevance_score', { ascending: false });
 
         if (dbSources) {
-          // Merge full_content into sources
+          // Merge full_content AND enriched metadata into sources
           enrichedSources = sources.map(s => {
             const dbSource = dbSources.find((db: any) => db.url === s.url || db.title === s.title);
             return {
               ...s,
+              // Content
               fullContent: dbSource?.full_content || undefined,
-              wordCount: (dbSource as any)?.content_word_count || undefined,
+              wordCount: dbSource?.content_word_count || undefined,
+              // Enriched metadata from APIs
+              author: dbSource?.author || s.author || undefined,
+              authorsStructured: dbSource?.authors_structured
+                ? (typeof dbSource.authors_structured === 'string'
+                    ? JSON.parse(dbSource.authors_structured)
+                    : dbSource.authors_structured)
+                : undefined,
+              doi: dbSource?.doi || undefined,
+              journalName: dbSource?.journal_name || undefined,
+              volume: dbSource?.volume || undefined,
+              issue: dbSource?.issue || undefined,
+              pages: dbSource?.pages || undefined,
+              year: dbSource?.year || undefined,
+              publisher: dbSource?.publisher || undefined,
+              publicationType: dbSource?.publication_type || undefined,
             };
           });
 
           const withFullContent = enrichedSources.filter((s: any) => s.fullContent).length;
+          const withAuthors = enrichedSources.filter((s: any) => s.author || s.authorsStructured).length;
           console.log(`[Generate] Using full content for ${withFullContent}/${sources.length} sources`);
+          console.log(`[Generate] Sources with authors: ${withAuthors}/${sources.length}`);
         }
       } catch (error) {
-        console.warn('[Generate] Failed to fetch full content, using excerpts:', error);
+        console.warn('[Generate] Failed to fetch enriched sources, using excerpts:', error);
       }
     }
 
@@ -275,7 +293,13 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
                               return null;
                             }
 
-                            const author = source.author || 'Anonymous';
+                            // Skip sources without authors to avoid "Anonymous" citations
+                            if (!source.author || source.author.trim() === '') {
+                              console.warn(`Skipping source without author: ${source.title}`);
+                              return null;
+                            }
+
+                            const author = source.author;
                             const year = source.publishedDate ? new Date(source.publishedDate).getFullYear() : 'n.d.';
 
                             // Format in-text citation based on style
