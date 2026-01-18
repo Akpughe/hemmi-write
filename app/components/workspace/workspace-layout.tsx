@@ -17,6 +17,7 @@ import {
   type ImpactAnalysisResult,
 } from "./source-impact-analysis";
 import { EditWarningModal } from "./edit-warning-modal";
+import { PaywallModal } from "@/app/components/subscription/paywall-modal";
 import { hasManualEdits } from "@/lib/utils/contentTracking";
 import { useCreateProject } from "@/lib/hooks/use-projects";
 import { useRouter } from "next/navigation";
@@ -95,6 +96,15 @@ export function WorkspaceLayout({
   }>({ phase: "idle", error: null, completedAt: null });
   const generateStructureRef = useRef<null | (() => void)>(null);
   const [canGenerateStructure, setCanGenerateStructure] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
+
+  // Handler to open paywall modal
+  const handleUpgradeClick = () => {
+    console.log('🔥 [WorkspaceLayout] Upgrade button clicked');
+    setPaywallReason('insufficient_tokens');
+    setShowPaywall(true);
+  };
 
   // Intercept step change to update project status in DB
   const handleStepChange = async (step: WorkflowStep) => {
@@ -575,6 +585,7 @@ export function WorkspaceLayout({
         brief={brief}
         currentStep={currentStep}
         isFetching={isFetching}
+        onUpgradeClick={handleUpgradeClick}
       />
 
       {/* Source Addition Notification Banner */}
@@ -709,6 +720,13 @@ export function WorkspaceLayout({
           />
         </div>
       </div>
+
+      {/* Paywall Modal - triggered from header or low balance */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
     </div>
   );
 }

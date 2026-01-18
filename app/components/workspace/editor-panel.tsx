@@ -23,6 +23,7 @@ import {
   FileText,
   Cloud,
   CloudOff,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -34,6 +35,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/app/components/ui/card";
+import { PaywallModal } from "@/app/components/subscription/paywall-modal";
 import {
   mapUIDocumentTypeToEnum,
   mapUIAcademicLevelToEnum,
@@ -106,6 +108,30 @@ export function EditorPanel({
   structureError = null,
   structureCompletedAt = null,
 }: EditorPanelProps) {
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
+
+  // Check if error is subscription/token related
+  const isSubscriptionError = (error?: string | null) => {
+    if (!error) return false;
+    const lowerError = error.toLowerCase();
+    return (
+      lowerError.includes('insufficient') ||
+      lowerError.includes('token') ||
+      lowerError.includes('subscription') ||
+      lowerError.includes('payment') ||
+      lowerError.includes('no subscription') ||
+      lowerError.includes('402')
+    );
+  };
+
+  const handlePaywallOpen = (reason: 'insufficient_tokens' | 'no_subscription' = 'insufficient_tokens') => {
+    console.log('🔥 [EditorPanel] handlePaywallOpen called', { reason, currentShowPaywall: showPaywall });
+    setPaywallReason(reason);
+    setShowPaywall(true);
+    console.log('🔥 [EditorPanel] showPaywall set to true');
+  };
+
   const normalizePublicationType = (
     value?: string
   ):
@@ -943,14 +969,29 @@ export function EditorPanel({
                 </div>
               </div>
             ) : researchPhase === "error" ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                <div className="font-medium text-destructive mb-1">
-                  Something went wrong
+              <div className={`rounded-lg border p-4 text-sm ${
+                isSubscriptionError(researchError)
+                  ? 'border-yellow-500/30 bg-yellow-500/5'
+                  : 'border-destructive/30 bg-destructive/5'
+              }`}>
+                <div className={`font-medium mb-2 flex items-center gap-2 ${
+                  isSubscriptionError(researchError) ? 'text-yellow-600' : 'text-destructive'
+                }`}>
+                  <AlertCircle className="w-4 h-4" />
+                  {isSubscriptionError(researchError) ? 'Subscription or tokens required' : 'Something went wrong'}
                 </div>
-                <div className="text-muted-foreground">
+                <div className="text-muted-foreground mb-3">
                   {researchError ||
                     "Please retry research from the left panel (Sources tab)."}
                 </div>
+                {isSubscriptionError(researchError) && (
+                  <button
+                    type="button"
+                    onClick={() => handlePaywallOpen('insufficient_tokens')}
+                    className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background px-4 py-2.5 text-sm font-semibold shadow-sm shadow-foreground/10 transition-all duration-200 hover:bg-foreground/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 mt-3">
+                    Upgrade or top up
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -1021,6 +1062,12 @@ export function EditorPanel({
             </CardFooter>
           )}
         </Card>
+
+        <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
       </main>
     );
   }
@@ -1078,14 +1125,29 @@ export function EditorPanel({
                 </div>
               </div>
             ) : structurePhase === "error" ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                <div className="font-medium text-destructive mb-1">
-                  Something went wrong
+              <div className={`rounded-lg border p-4 text-sm ${
+                isSubscriptionError(structureError)
+                  ? 'border-yellow-500/30 bg-yellow-500/5'
+                  : 'border-destructive/30 bg-destructive/5'
+              }`}>
+                <div className={`font-medium mb-2 flex items-center gap-2 ${
+                  isSubscriptionError(structureError) ? 'text-yellow-600' : 'text-destructive'
+                }`}>
+                  <AlertCircle className="w-4 h-4" />
+                  {isSubscriptionError(structureError) ? 'Subscription or tokens required' : 'Something went wrong'}
                 </div>
-                <div className="text-muted-foreground">
+                <div className="text-muted-foreground mb-3">
                   {structureError ||
                     "Please retry structure generation from the left panel."}
                 </div>
+                {isSubscriptionError(structureError) && (
+                  <button
+                    type="button"
+                    onClick={() => handlePaywallOpen('insufficient_tokens')}
+                    className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background px-4 py-2.5 text-sm font-semibold shadow-sm shadow-foreground/10 transition-all duration-200 hover:bg-foreground/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 mt-3">
+                    Upgrade or top up
+                  </button>
+                )}
               </div>
             ) : plan ? (
               <>
@@ -1147,6 +1209,12 @@ export function EditorPanel({
             </CardFooter>
           )}
         </Card>
+
+        <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
       </main>
     );
   }
@@ -1290,7 +1358,7 @@ export function EditorPanel({
 
         {/* Accept/Reject buttons overlay - Fixed at bottom */}
         {showChapterReview && plan && (
-          <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
+          <div className="sticky bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
             <div className="max-w-3xl mx-auto px-8">
               <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
                 <div className="flex items-center justify-between gap-4">
@@ -1331,6 +1399,19 @@ export function EditorPanel({
           </div>
         )}
       </div>
+
+      {/* <button 
+      onClick={() => handlePaywallOpen('insufficient_tokens')}  
+      className="fixed bottom-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-600">
+      Test Paywall Modal 
+      </button> */}
+
+      {/* Paywall Modal for subscription/token errors */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
     </main>
   );
 }

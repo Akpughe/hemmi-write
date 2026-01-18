@@ -25,6 +25,7 @@ import {
   mapUIAcademicLevelToEnum,
   mapUIWritingStyleToEnum,
 } from "@/lib/utils/documentTypeMapper";
+import { PaywallModal } from "@/app/components/subscription/paywall-modal";
 
 const normalizeUrlForComparison = (rawUrl: string) => {
   if (!rawUrl) return "";
@@ -93,6 +94,11 @@ export function LeftPanel({
   );
   const hasAutoSwitchedToSections = useRef(false);
 
+  // Paywall state
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
+  const [estimatedTokens, setEstimatedTokens] = useState<number | undefined>(undefined);
+
   // Auto-switch to sections tab when plan is loaded
   useEffect(() => {
     if (plan && !hasAutoSwitchedToSections.current) {
@@ -130,6 +136,37 @@ export function LeftPanel({
           projectId: currentProjectId, // Pass projectId
         }),
       });
+
+      // Handle 402 Payment Required - insufficient tokens
+      if (response.status === 402) {
+        const errorData = await response.json();
+        console.log('[Research] Payment required:', errorData);
+
+        setEstimatedTokens(errorData.required);
+        const reason = errorData.code === 'NO_SUBSCRIPTION' ? 'no_subscription' : 'insufficient_tokens';
+        setPaywallReason(reason);
+        console.log('🔥 [LeftPanel] Opening paywall modal', { reason, estimatedTokens: errorData.required });
+        setShowPaywall(true);
+        console.log('🔥 [LeftPanel] showPaywall set to true');
+
+        onResearchStatusChange?.({
+          phase: "error",
+          error: errorData.message || "Insufficient tokens. Please subscribe or top up to continue."
+        });
+
+        setIsSearching(false);
+        return; // Stop execution
+      }
+
+      // Handle 401 Unauthorized
+      if (response.status === 401) {
+        onResearchStatusChange?.({
+          phase: "error",
+          error: "Please log in to continue"
+        });
+        setIsSearching(false);
+        return;
+      }
 
       if (!response.ok) throw new Error("Failed to fetch sources");
 
@@ -569,10 +606,10 @@ export function LeftPanel({
           <button
             onClick={() => setActiveTab("sections")}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium border-b-2 transition-colors",
+              "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold border-b-2 transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]",
               activeTab === "sections"
-                ? "border-accent text-accent"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-foreground/50 hover:text-foreground"
             )}>
             <Layers className="w-3 h-3" />
             SECTIONS
@@ -580,10 +617,10 @@ export function LeftPanel({
           <button
             onClick={() => setActiveTab("sources")}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium border-b-2 transition-colors",
+              "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold border-b-2 transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]",
               activeTab === "sources"
-                ? "border-accent text-accent"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-foreground/50 hover:text-foreground"
             )}>
             <BookOpen className="w-3 h-3" />
             SOURCES
@@ -675,14 +712,14 @@ export function LeftPanel({
                           <div className="mt-2 flex items-center justify-end gap-2">
                             <button
                               onClick={() => chapterHandlers.reject(index)}
-                              className="p-1 rounded hover:bg-red-100 text-red-500 transition-colors"
+                              className="p-1.5 rounded hover:bg-red-500/10 text-red-500 transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]"
                               title="Regenerate">
                               <RefreshCw className="w-3 h-3" />
                             </button>
                             {section.status === "review" && (
                               <button
                                 onClick={() => chapterHandlers.approve(index)}
-                                className="px-2 py-1 text-xs font-medium bg-accent hover:bg-accent/90 text-accent-foreground rounded transition-colors">
+                                className="px-2.5 py-1 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 rounded-lg transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]">
                                 Accept
                               </button>
                             )}
@@ -709,7 +746,7 @@ export function LeftPanel({
                   <button
                     onClick={fetchResearch}
                     disabled={isSearching}
-                    className="inline-flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-foreground/60 hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]"
                     title="Refresh sources">
                     <RefreshCw
                       className={cn("w-3 h-3", isSearching && "animate-spin")}
@@ -717,7 +754,7 @@ export function LeftPanel({
                     Refresh
                   </button>
                 )}
-                <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-accent hover:underline">
+                <label className="cursor-pointer inline-flex items-center gap-1 text-xs font-semibold text-foreground/60 hover:text-foreground transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]">
                   <Upload className="w-3 h-3" />
                   Add PDF
                   <input
@@ -898,6 +935,14 @@ export function LeftPanel({
           </Button>
         )}
       </div>
+
+      {/* Paywall Modal - shown when user has insufficient tokens */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+        estimatedTokens={estimatedTokens}
+      />
     </aside>
   );
 }

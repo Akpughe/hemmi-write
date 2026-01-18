@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/button";
 import { ThemeToggle } from "@/app/components/ui/theme-toggle";
 import { Spinner } from "@/app/components/ui/spinner";
+import { TokenBalance } from "@/app/components/subscription/token-balance";
 import type { WritingBrief, WorkflowStep } from "@/lib/types/ui";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ interface WorkspaceHeaderProps {
   brief: WritingBrief;
   currentStep: WorkflowStep;
   isFetching?: boolean;
+  onUpgradeClick?: () => void;
 }
 
 const steps: { id: WorkflowStep; label: string }[] = [
@@ -25,6 +27,7 @@ export function WorkspaceHeader({
   brief,
   currentStep,
   isFetching = false,
+  onUpgradeClick,
 }: WorkspaceHeaderProps) {
   const router = useRouter();
   const currentIndex = steps.findIndex((s) => s.id === currentStep);
@@ -96,6 +99,9 @@ export function WorkspaceHeader({
             <Spinner className="w-4 h-4" />
           </div>
         )}
+        <div onClick={onUpgradeClick} className="cursor-pointer">
+          <TokenBalance variant="compact" onLowBalance={onUpgradeClick} />
+        </div>
         <ThemeToggle />
       </div>
     </header>

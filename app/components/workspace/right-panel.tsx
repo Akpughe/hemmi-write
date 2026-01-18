@@ -380,7 +380,7 @@ function ReferencesPreview({
             <button
               onClick={handleRefetchMetadata}
               disabled={isRefetching}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-900/40">
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-yellow-500/10 border border-yellow-500/20 px-4 py-2.5 text-xs font-semibold text-yellow-600 dark:text-yellow-400 transition ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-yellow-500/15 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
               <RefreshCw
                 className={cn("w-3 h-3", isRefetching && "animate-spin")}
               />
@@ -509,7 +509,7 @@ function ReferencesPreview({
             navigator.clipboard.writeText(plainText);
             toast.success("References copied to clipboard");
           }}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-lg shadow-accent/30 transition hover:bg-accent/90">
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-foreground text-background px-4 py-3 text-sm font-semibold shadow-lg shadow-foreground/10 transition ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-foreground/90 active:scale-[0.98]">
           <Copy className="w-4 h-4" />
           Copy all references
         </button>
@@ -522,7 +522,7 @@ function ReferencesPreview({
               Use Fact Checker to verify the accuracy of your claims.
             </p>
           </div>
-          <button className="text-accent text-sm font-semibold hover:underline">
+          <button className="text-foreground/60 text-sm font-semibold hover:text-foreground transition ease-[cubic-bezier(0.25,0.1,0.25,1)]">
             Open
           </button>
         </div>
@@ -766,7 +766,7 @@ ${input}`
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <button
                     onClick={() => handleCopy(msg.content, msg.id)}
-                    className="rounded-full p-1.5 transition hover:bg-muted"
+                    className="rounded-lg p-1.5 transition ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted text-foreground/50 hover:text-foreground"
                     title="Copy to clipboard">
                     {copiedId === msg.id ? (
                       <Check className="h-3 w-3 text-green-500" />
@@ -777,7 +777,7 @@ ${input}`
                   {onInsert && (
                     <button
                       onClick={() => onInsert(msg.content)}
-                      className="rounded-full p-1.5 transition hover:bg-muted"
+                      className="rounded-lg p-1.5 transition ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted text-foreground/50 hover:text-foreground"
                       title="Add to document">
                       <Plus className="h-3 w-3" />
                     </button>
@@ -805,7 +805,7 @@ ${input}`
             <p className="italic">&quot;{askAIContext}&quot;</p>
             <button
               onClick={onClearContext}
-              className="absolute -right-2 -top-2 rounded-full border border-border bg-background p-1 text-muted-foreground transition hover:bg-muted">
+              className="absolute -right-2 -top-2 rounded-lg border border-border bg-background p-1.5 text-foreground/50 transition ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground">
               <X className="h-3 w-3" />
             </button>
           </div>
@@ -824,7 +824,7 @@ ${input}`
           <button
             type="submit"
             disabled={!input.trim() || isThinking}
-            className="absolute right-3 top-3 rounded-full p-2 text-muted-foreground transition hover:text-accent disabled:opacity-50">
+            className="absolute right-3 top-3 rounded-lg p-2 text-foreground/50 transition ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed">
             <Send className="h-4 w-4" />
           </button>
         </form>
@@ -876,16 +876,18 @@ ${input}`
                   key={id}
                   onClick={() => setActiveTab(id)}
                   className={cn(
-                    "relative inline-flex items-center rounded-2xl px-3 py-1.5 text-sm font-medium transition",
+                    "relative inline-flex items-center rounded-xl px-3 py-1.5 text-sm font-semibold transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "active:scale-[0.98]",
                     isActive
-                      ? "bg-accent text-accent-foreground shadow-inner gap-2 pr-4"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40 gap-0 justify-center w-12"
+                      ? "bg-foreground text-background shadow-sm shadow-foreground/10 gap-2 pr-4"
+                      : "text-foreground/50 hover:text-foreground hover:bg-muted/50 gap-0 justify-center w-12"
                   )}
                   title={label}>
                   <Icon className="h-4 w-4" />
                   {isActive && <span>{label}</span>}
                   {id === "references" && selectedSourceCount > 0 && (
-                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent/20 text-[11px] font-semibold text-accent">
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground text-background text-[11px] font-semibold">
                       {selectedSourceCount}
                     </span>
                   )}
