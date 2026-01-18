@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
 import Groq from "groq-sdk";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, requireAuth } from "@/lib/supabase/server";
 import { AcademicLevel, WritingStyle, ResearchSource } from "@/lib/types/document";
 import { getMinimalHumanizationHint, getEmDashHint } from "@/lib/utils/humanizationPrompt";
 import { perplexityService } from "@/lib/services/perplexityService";
 import { savePerplexityCitations } from "@/lib/utils/perplexityCitationSaver";
+import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
 
 /**
  * Clean em-dashes from text to avoid AI detection fingerprints
@@ -185,6 +186,9 @@ Return ONLY the HTML content for this section, no additional commentary.`;
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: RegenerateSectionsRequest = await request.json();
     const {
       projectId,
@@ -200,6 +204,25 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ESTIMATE TOKEN USAGE for all sections combined
+    const totalEstimatedWords = sectionIds.length * 500; // Average 500 words per section
+    const estimatedTokens = estimateChapterTokens({
+      targetWordCount: totalEstimatedWords,
+      sourceCount: sourceIds.length,
+      hasContext: true,
+    });
+
+    console.log(`[Regenerate Sections] Estimated tokens: ${estimatedTokens} for ${sectionIds.length} sections`);
+
+    // CHECK TOKEN BALANCE
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    if (tokenCheckError) {
+      console.log(`[Regenerate Sections] ❌ BLOCKED - Insufficient tokens`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Regenerate Sections] ✅ Token check passed`);
 
     // Fetch sources from database
     const supabase = await createServerSupabaseClient();
@@ -240,6 +263,9 @@ export async function POST(request: NextRequest) {
 
     // Set up SSE stream
     const encoder = new TextEncoder();
+    let totalTokensUsed = 0;
+    let totalWordsGenerated = 0;
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
@@ -264,6 +290,10 @@ export async function POST(request: NextRequest) {
               projectId
             );
 
+            // Track words generated
+            const sectionWords = sectionContent.split(/\s+/).filter(w => w.length > 0).length;
+            totalWordsGenerated += sectionWords;
+
             // Stream the section update
             const data = JSON.stringify({
               sectionId,
@@ -272,6 +302,23 @@ export async function POST(request: NextRequest) {
               done: false,
             });
             controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+          }
+
+          // DEDUCT TOKENS after all sections are regenerated
+          // Use actual words generated, fallback to estimate
+          const actualTokens = Math.ceil(totalWordsGenerated * 1.33) || estimatedTokens;
+          const deductSuccess = await deductTokens(user.id, actualTokens, 'chapter', {
+            projectId,
+            sectionCount: sectionIds.length,
+            wordCount: totalWordsGenerated,
+            estimatedTokens,
+            actualTokens,
+          });
+
+          if (!deductSuccess) {
+            console.error(`[Regenerate Sections] ⚠️  Failed to deduct tokens (${actualTokens}), but sections were regenerated`);
+          } else {
+            console.log(`[Regenerate Sections] ✅ Deducted ${actualTokens} tokens`);
           }
 
           // Send completion signal

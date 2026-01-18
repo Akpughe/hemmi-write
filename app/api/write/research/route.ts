@@ -8,6 +8,7 @@ import {
 import {
   createServerSupabaseClient,
   getCurrentUser,
+  requireAuth,
 } from "@/lib/supabase/server";
 import { searchService } from "@/lib/services/searchService";
 import { contentFetchingService } from "@/lib/services/contentFetchingService";
@@ -18,6 +19,11 @@ import {
   getQualityStatistics,
   type ScoredSource,
 } from "@/lib/utils/sourceQualityScorer";
+import {
+  checkTokenBalance,
+  deductTokens,
+  estimateResearchTokens,
+} from "@/lib/middleware/tokenMiddleware";
 
 // Extended request type to include projectId
 interface ExtendedResearchRequest extends ResearchRequest {
@@ -26,6 +32,9 @@ interface ExtendedResearchRequest extends ResearchRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. AUTHENTICATE USER - blocks if not logged in
+    const user = await requireAuth();
+
     const body: ExtendedResearchRequest = await request.json();
     const {
       topic,
@@ -44,6 +53,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 2. ESTIMATE TOKEN USAGE for this research operation
+    const estimatedTokens = estimateResearchTokens({
+      sourceCount: numSources,
+      depth: 'deep', // Comprehensive research with full content fetching
+    });
+
+    console.log(`[Research] User ${user.id.substring(0, 8)}... requesting ${numSources} sources`);
+    console.log(`[Research] Estimated token cost: ${estimatedTokens} tokens`);
+
+    // 3. CHECK TOKEN BALANCE - returns 402 Payment Required if insufficient
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    if (tokenCheckError) {
+      console.log(`[Research] ❌ BLOCKED - Insufficient tokens`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Research] ✅ Token check passed, proceeding with research...`);
 
     console.log(`Starting parallel search for topic: ${topic}`);
     if (instructions) {
@@ -493,6 +520,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 4. DEDUCT TOKENS after successful research
+    // Calculate actual tokens based on sources found and processed
+    const actualTokens = Math.ceil(savedSources.length * 800); // ~800 tokens per source (search + fetch + process)
+
+    await deductTokens(user.id, actualTokens, 'research', {
+      projectId,
+      sourceCount: savedSources.length,
+      numRequested: numSources,
+      documentType,
+      topic,
+    });
+
+    console.log(`[Research] ✅ Success - Deducted ${actualTokens} tokens for ${savedSources.length} sources`);
+
     const response: ResearchResponse = {
       sources: savedSources,
       query: topic,
@@ -500,6 +541,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error: any) {
+    // Handle authentication errors
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      console.log('[Research] ❌ Unauthorized access attempt');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     console.error("Research API error:", error);
     return NextResponse.json(
       {

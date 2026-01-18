@@ -8,7 +8,8 @@ import {
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { AcademicLevel } from "@/lib/types/document";
-import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getCurrentUser, requireAuth } from "@/lib/supabase/server";
+import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
 
 // Extended request type to include projectId and structureId
 interface ExtendedGenerateRequest extends GenerateRequest {
@@ -18,6 +19,9 @@ interface ExtendedGenerateRequest extends GenerateRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: ExtendedGenerateRequest = await request.json();
     const {
       documentType,
@@ -47,6 +51,24 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    // ESTIMATE TOKEN USAGE
+    const estimatedTokens = estimateChapterTokens({
+      targetWordCount: wordCount ?? 3000,
+      sourceCount: sources.length,
+      hasContext: false,
+    });
+
+    console.log(`[Generate Document] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    if (tokenCheckError) {
+      console.log(`[Generate Document] ❌ BLOCKED - Insufficient tokens`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Generate Document] ✅ Token check passed`);
 
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
@@ -157,7 +179,6 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
     // Calculate dynamic token limit based on target word count
-    const estimatedTokens = Math.ceil((wordCount ?? 3000) * 1.33 * 1.2);
     const maxTokenLimit = Math.min(estimatedTokens, 16000);
 
     console.log(`[Generate Document] ========================================`);
@@ -187,6 +208,7 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
           let totalWords = 0;
 
           // Stream from AI service
+          let totalTokensUsed = 0;
           for await (const chunk of aiService.streamChatCompletion(
             provider,
             [
@@ -197,6 +219,9 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
             maxTokenLimit
           )) {
             if (chunk.done) {
+              // Capture actual tokens used
+              totalTokensUsed = chunk.tokensUsed;
+
               // Check for truncation
               if (chunk.truncated) {
                 console.error(`[Generate Document] ⚠️  TRUNCATION DETECTED!`);
@@ -220,6 +245,21 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
                 console.log(`[Generate Document] Finish reason: ${chunk.finishReason}`);
                 console.log(`[Generate Document] Tokens used: ${chunk.tokensUsed}/${maxTokenLimit}`);
                 console.log(`[Generate Document] Words generated: ${totalWords}`);
+              }
+
+              // DEDUCT TOKENS after successful generation
+              const deductSuccess = await deductTokens(user.id, totalTokensUsed, 'generate', {
+                projectId,
+                wordCount: totalWords,
+                documentType,
+                estimatedTokens,
+                actualTokens: totalTokensUsed,
+              });
+
+              if (!deductSuccess) {
+                console.error(`[Generate Document] ⚠️  Failed to deduct tokens (${totalTokensUsed}), but content was generated`);
+              } else {
+                console.log(`[Generate Document] ✅ Deducted ${totalTokensUsed} tokens`);
               }
 
 

@@ -17,6 +17,8 @@ import {
 } from "@/lib/utils/humanizationPrompt";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
+import { requireAuth } from "@/lib/supabase/server";
+import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
 
 interface GenerateReportSectionRequest {
   documentType: DocumentType;
@@ -248,6 +250,9 @@ ${getMinimalHumanizationHint()}`;
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: GenerateReportSectionRequest = await request.json();
     const {
       documentType,
@@ -278,6 +283,25 @@ export async function POST(request: NextRequest) {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+
+    // ESTIMATE TOKEN USAGE
+    const sectionWordCount = chapter.estimatedWordCount || 1000;
+    const estimatedTokens = estimateChapterTokens({
+      targetWordCount: sectionWordCount,
+      sourceCount: sources.length,
+      hasContext: !!previousChaptersText && previousChaptersText.trim().length > 0,
+    });
+
+    console.log(`[Generate Report Section] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    if (tokenCheckError) {
+      console.log(`[Generate Report Section] ❌ BLOCKED - Insufficient tokens`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Generate Report Section] ✅ Token check passed`);
 
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
@@ -320,6 +344,9 @@ export async function POST(request: NextRequest) {
 
     // Create streaming response
     const encoder = new TextEncoder();
+    let totalTokensUsed = 0;
+    let totalWords = 0;
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
@@ -334,9 +361,29 @@ export async function POST(request: NextRequest) {
             8000
           )) {
             if (chunk.done) {
+              // Capture actual tokens used
+              totalTokensUsed = chunk.tokensUsed;
+
+              // DEDUCT TOKENS after successful generation
+              const deductSuccess = await deductTokens(user.id, totalTokensUsed, 'chapter', {
+                operation: 'report_section',
+                sectionTitle: chapter.heading,
+                wordCount: totalWords,
+                academicLevel,
+                estimatedTokens,
+                actualTokens: totalTokensUsed,
+              });
+
+              if (!deductSuccess) {
+                console.error(`[Generate Report Section] ⚠️  Failed to deduct tokens (${totalTokensUsed}), but content was generated`);
+              } else {
+                console.log(`[Generate Report Section] ✅ Deducted ${totalTokensUsed} tokens`);
+              }
+
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;
               controller.enqueue(encoder.encode(doneMessage));
             } else if (chunk.content) {
+              totalWords += chunk.content.split(/\s+/).filter(w => w.length > 0).length;
               const sseData = `data: ${JSON.stringify({
                 content: chunk.content,
               })}\n\n`;

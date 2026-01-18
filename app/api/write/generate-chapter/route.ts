@@ -20,6 +20,8 @@ import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { perplexityService } from "@/lib/services/perplexityService";
 import { savePerplexityCitations } from "@/lib/utils/perplexityCitationSaver";
+import { requireAuth } from "@/lib/supabase/server";
+import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
 
 /**
  * Clean em-dashes from text to avoid AI detection fingerprints
@@ -321,6 +323,9 @@ ${getMinimalHumanizationHint()}`;
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: GenerateChapterRequest = await request.json();
     const {
       documentType,
@@ -364,11 +369,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ESTIMATE TOKEN USAGE
+    const chapterWordCount = chapter.estimatedWordCount || 5000;
+    const estimatedTokens = estimateChapterTokens({
+      targetWordCount: chapterWordCount,
+      sourceCount: sources.length,
+      hasContext: !!previousChaptersText && previousChaptersText.trim().length > 0,
+    });
+
+    console.log(`[Generate Chapter ${chapterIndex + 1}] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    if (tokenCheckError) {
+      console.log(`[Generate Chapter ${chapterIndex + 1}] ❌ BLOCKED - Insufficient tokens`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Generate Chapter ${chapterIndex + 1}] ✅ Token check passed`);
+
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
 
     // Calculate word budget for chapter sources
-    const chapterWordCount = chapter.estimatedWordCount || 5000;
     const sourceWordBudget = Math.floor(chapterWordCount * 0.25);
 
     // Step 1: Call Perplexity to get factual information about this chapter
@@ -484,7 +507,6 @@ Include relevant data, statistics, examples, and authoritative information with 
     // Formula: 1.33 tokens/word + 20% buffer for formatting
     const targetWordCount = chapter.estimatedWordCount || 5000;
     console.log("targetWordCount", targetWordCount);
-    const estimatedTokens = Math.ceil(targetWordCount * 1.33 * 1.2);
 
     // Cap at model limits but allow much higher than current 8000
     // const maxTokenLimit = Math.min(estimatedTokens, 16000);
@@ -515,6 +537,7 @@ Include relevant data, statistics, examples, and authoritative information with 
         try {
           let totalWords = 0;
           let contentBuffer = "";
+          let totalTokensUsed = 0;
 
           // Single generation per chapter (stable approach)
           console.log(
@@ -539,6 +562,9 @@ Include relevant data, statistics, examples, and authoritative information with 
             maxTokenLimit
           )) {
             if (chunk.done) {
+              // Capture actual tokens used
+              totalTokensUsed = chunk.tokensUsed;
+
               // Check for truncation
               if (chunk.truncated) {
                 console.error(
@@ -594,6 +620,22 @@ Include relevant data, statistics, examples, and authoritative information with 
                     chapterIndex + 1
                   }] Words generated: ${totalWords}`
                 );
+              }
+
+              // DEDUCT TOKENS after successful generation
+              const deductSuccess = await deductTokens(user.id, totalTokensUsed, 'chapter', {
+                projectId,
+                chapterName: chapter.heading,
+                wordCount: totalWords,
+                chapterIndex,
+                estimatedTokens,
+                actualTokens: totalTokensUsed,
+              });
+
+              if (!deductSuccess) {
+                console.error(`[Generate Chapter ${chapterIndex + 1}] ⚠️  Failed to deduct tokens (${totalTokensUsed}), but content was generated`);
+              } else {
+                console.log(`[Generate Chapter ${chapterIndex + 1}] ✅ Deducted ${totalTokensUsed} tokens`);
               }
 
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;

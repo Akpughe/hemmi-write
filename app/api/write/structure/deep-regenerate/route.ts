@@ -14,8 +14,10 @@ import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
 import {
   createServerSupabaseClient,
   getCurrentUser,
+  requireAuth,
 } from "@/lib/supabase/server";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
+import { checkTokenBalance, deductTokens, estimateStructureTokens } from "@/lib/middleware/tokenMiddleware";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -28,6 +30,9 @@ interface ExtendedDeepRegenerateRequest extends DeepRegenerateRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: ExtendedDeepRegenerateRequest = await request.json();
     const {
       documentType,
@@ -49,6 +54,23 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ESTIMATE TOKEN USAGE (includes structure regeneration + potential research)
+    const estimatedTokens = estimateStructureTokens({
+      documentType,
+      targetWordCount: wordCount || 0,
+    }) + 5000; // Add 5000 for feedback analysis and regeneration
+
+    console.log(`[Deep Regenerate] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    if (tokenCheckError) {
+      console.log(`[Deep Regenerate] ❌ BLOCKED - Insufficient tokens`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Deep Regenerate] ✅ Token check passed`);
 
     // PHASE 1: Analyze feedback (disabled - quality checking removed)
     console.log("Phase 1: Analyzing feedback...");
@@ -257,6 +279,22 @@ export async function POST(request: NextRequest) {
       } catch (dbError) {
         console.error("Database operation failed:", dbError);
       }
+    }
+
+    // DEDUCT TOKENS after successful regeneration
+    const deductSuccess = await deductTokens(user.id, estimatedTokens, 'structure', {
+      projectId,
+      documentType,
+      wordCount,
+      userFeedback: userFeedback.substring(0, 100),
+      newSourcesAdded: newSourcesAdded.length,
+      estimatedTokens,
+    });
+
+    if (!deductSuccess) {
+      console.error(`[Deep Regenerate] ⚠️  Failed to deduct tokens (${estimatedTokens}), but structure was regenerated`);
+    } else {
+      console.log(`[Deep Regenerate] ✅ Deducted ${estimatedTokens} tokens`);
     }
 
     const response: DeepRegenerateResponse = {
