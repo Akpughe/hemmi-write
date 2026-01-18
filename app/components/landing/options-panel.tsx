@@ -77,9 +77,10 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/20 transition-all duration-200",
-                "text-xs font-medium uppercase tracking-[0.18em]",
-                "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "flex items-center gap-2 px-4 py-2 rounded-xl border border-border transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                "text-xs font-semibold uppercase tracking-[0.12em]",
+                "bg-background text-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                "active:scale-[0.98]"
               )}>
               {selectedLevel?.label || "Academic Level"}
               <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
@@ -106,9 +107,10 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/20 transition-all duration-200",
-                "text-xs font-medium uppercase tracking-[0.18em]",
-                "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "flex items-center gap-2 px-4 py-2 rounded-xl border border-border transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                "text-xs font-semibold uppercase tracking-[0.12em]",
+                "bg-background text-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                "active:scale-[0.98]"
               )}>
               {selectedStyle?.label || "Writing Style"}
               <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
@@ -135,9 +137,10 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/20 transition-all duration-200",
-                "text-xs font-medium uppercase tracking-[0.18em]",
-                "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "flex items-center gap-2 px-4 py-2 rounded-xl border border-border transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                "text-xs font-semibold uppercase tracking-[0.12em]",
+                "bg-background text-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                "active:scale-[0.98]"
               )}>
               {selectedCitation?.label || "Citation Style"}
               <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
@@ -164,9 +167,10 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/20 transition-all duration-200",
-                "text-xs font-medium uppercase tracking-[0.18em]",
-                "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "flex items-center gap-2 px-4 py-2 rounded-xl border border-border transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                "text-xs font-semibold uppercase tracking-[0.12em]",
+                "bg-background text-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                "active:scale-[0.98]"
               )}>
               {brief.chapters ? `${brief.chapters} Chapters` : "Chapters"}
               <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
@@ -192,9 +196,10 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/20 transition-all duration-200",
-              "text-xs font-medium uppercase tracking-[0.18em]",
-              "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              "flex items-center gap-2 px-4 py-2 rounded-xl border border-border transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+              "text-xs font-semibold uppercase tracking-[0.12em]",
+              "bg-background text-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+              "active:scale-[0.98]"
             )}>
             {brief.wordCount
               ? `${brief.wordCount.toLocaleString()} words`
@@ -221,11 +226,13 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
         <button
           onClick={() => onUpdate({ includeSources: !brief.includeSources })}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200",
-            "text-xs font-medium uppercase tracking-[0.18em]",
+            "flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+            "text-xs font-semibold uppercase tracking-[0.12em]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "active:scale-[0.98]",
             brief.includeSources
-              ? "bg-accent/15 text-foreground shadow-sm shadow-accent/15 ring-1 ring-accent/25"
-              : "border border-muted/20 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              ? "bg-foreground text-background shadow-sm shadow-foreground/10"
+              : "border border-border text-foreground/60 hover:bg-muted hover:text-foreground"
           )}>
           Include Sources
         </button>
@@ -235,9 +242,10 @@ export function OptionsPanel({ brief, onUpdate }: OptionsPanelProps) {
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-xl border border-muted/20 transition-all duration-200",
-                  "text-xs font-medium uppercase tracking-[0.18em]",
-                  "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  "flex items-center gap-2 px-4 py-2 rounded-xl border border-border transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                  "text-xs font-semibold uppercase tracking-[0.12em]",
+                  "bg-background text-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20",
+                  "active:scale-[0.98]"
                 )}>
                 {brief.sourceCount ? `${brief.sourceCount} sources` : "Sources"}
                 <ChevronDown className="w-3 h-3 ml-1 opacity-50" />

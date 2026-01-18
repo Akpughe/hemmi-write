@@ -46,10 +46,12 @@ export function DocumentTypeSelector({
             key={type.id}
             onClick={() => onSelect(type.id)}
             className={cn(
-              "relative inline-flex items-center justify-center rounded-full px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background gap-2",
+              "relative inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "active:scale-[0.98]",
               isSelected
-                ? "bg-accent/15 text-foreground shadow-sm shadow-accent/15 ring-1 ring-accent/25"
-                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                ? "bg-foreground text-background shadow-sm shadow-foreground/10"
+                : "text-foreground/60 hover:bg-muted hover:text-foreground"
             )}>
             <Icon className="w-3.5 h-3.5" />
             <span>{type.label}</span>
