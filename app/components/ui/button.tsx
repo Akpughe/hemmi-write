@@ -4,29 +4,66 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Button component with Apple/Airbnb-inspired design principles:
+ * - Confident, solid colors (not washed out with opacity)
+ * - Purposeful transitions (cubic-bezier for natural feel)
+ * - Clear hierarchy between variants
+ * - Tactile feedback (subtle scale on active)
+ * - WCAG AA+ contrast in all states
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  [
+    // Layout
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0",
+    // Typography
+    "text-sm font-semibold",
+    // Shape
+    "rounded-xl",
+    // Transitions - Apple-like cubic-bezier
+    "transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+    // Tactile feedback
+    "active:scale-[0.98]",
+    // Disabled state
+    "disabled:pointer-events-none disabled:opacity-50",
+    // SVG handling
+    "[&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0",
+    // Focus state - clean, accessible
+    "outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    // Invalid state
+    "aria-invalid:ring-destructive/30 aria-invalid:ring-2",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // Primary - confident, inverted colors
+        default:
+          "bg-foreground text-background shadow-sm shadow-foreground/10 hover:bg-foreground/90",
+        // Destructive - clear warning, accessible red
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+          "bg-destructive text-white shadow-sm shadow-destructive/20 hover:bg-destructive/90 focus-visible:ring-destructive/30",
+        // Outline - subtle but clear border
         outline:
-          "border border-input bg-background text-foreground hover:bg-accent hover:text-accent-foreground",
+          "border border-border bg-background text-foreground hover:bg-muted hover:border-foreground/20",
+        // Secondary - muted background, solid
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "bg-muted text-foreground hover:bg-muted/80",
+        // Ghost - transparent, reveals on hover
         ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          "text-foreground/70 hover:bg-muted hover:text-foreground",
+        // Link - underline style
+        link: "text-foreground underline-offset-4 hover:underline active:scale-100",
+        // Soft - lighter version of default for secondary actions
+        soft:
+          "bg-foreground/10 text-foreground hover:bg-foreground/15",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        default: "h-10 px-5 py-2.5",
+        sm: "h-8 px-3.5 py-2 text-xs gap-1.5",
+        lg: "h-12 px-6 py-3 text-base",
+        icon: "size-10",
         "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        "icon-lg": "size-12",
       },
     },
     defaultVariants: {
