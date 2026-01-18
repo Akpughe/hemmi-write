@@ -12,10 +12,12 @@ import { cn } from "@/lib/utils";
 import type { BillingCycle } from "./billing-toggle";
 
 export type PricingPlan = {
-  name: "Basic" | "Plus" | "Pro";
+  name: "Basic" | "Pro" | "Premium" | "Plus";
   monthly: number;
   quarterly: number;
   yearly: number;
+  tokens?: number;
+  unlimited?: boolean;
   features: string[];
   highlight?: boolean;
 };
@@ -67,9 +69,9 @@ function FeatureRow({ text }: { text: string }) {
     : null;
 
   return (
-    <li className="flex items-start gap-3">
-      <span className="mt-0.5 inline-flex size-5 items-center justify-center rounded-full bg-foreground text-background">
-        <Check className="size-3.5" />
+    <li className="flex items-start gap-2.5">
+      <span className="mt-0.5 inline-flex size-4 items-center justify-center rounded-full bg-foreground text-background shrink-0">
+        <Check className="size-2.5" />
       </span>
       <span className="flex-1">{text}</span>
       {showInfo && tooltipKey && (
@@ -95,17 +97,46 @@ export function PlanCard({
   plan,
   billingCycle,
   className,
+  currency = "USD",
+  currencySymbol = "$",
 }: {
   plan: PricingPlan;
   billingCycle: BillingCycle;
   className?: string;
+  currency?: "USD" | "NGN";
+  currencySymbol?: string;
 }) {
   const perMonth = computePerMonth(plan, billingCycle);
   const savePercent = computeSavePercent(plan, billingCycle);
   const billedLine = computeBilled(plan, billingCycle);
 
-  const ctaVariant = plan.name === "Plus" ? "default" : "default";
-  const isPlus = plan.name === "Plus";
+  const isPro = plan.name === "Pro";
+
+  const handleGetStarted = async () => {
+    try {
+      const response = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planType: plan.name.toLowerCase(),
+          billingCycle,
+          currency,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create checkout');
+      }
+
+      const data = await response.json();
+      // Redirect to checkout
+      window.location.href = data.data.checkoutUrl;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert(error instanceof Error ? error.message : 'Failed to start checkout. Please try again.');
+    }
+  };
 
   const cardInner = (
     <section
@@ -136,11 +167,11 @@ export function PlanCard({
               {plan.name}
             </h2>
           </div>
-          {isPlus &&
+          {isPro &&
             savePercent &&
             savePercent > 0 &&
             billingCycle !== "monthly" && (
-              <span className="rounded-full bg-gradient-to-r from-fuchsia-500 to-pink-500 px-3 py-1 text-xs font-semibold text-white">
+              <span className="rounded-full bg-linear-to-r from-fuchsia-500 to-pink-500 px-3 py-1 text-xs font-semibold text-white">
                 SAVE {savePercent}%
               </span>
             )}
@@ -148,19 +179,19 @@ export function PlanCard({
 
         <div className="space-y-1">
           <div className="font-public-sans flex items-end gap-2">
-            <span className="text-2xl font-semibold">$</span>
+            <span className="text-2xl font-semibold">{currencySymbol}</span>
             <span className="text-5xl font-semibold leading-none">
               {formatMoney(perMonth)}
             </span>
             <span className="pb-1 text-lg text-foreground/70">/ month</span>
             {billingCycle !== "monthly" && (
               <span className="pb-1 text-lg text-muted-foreground line-through">
-                ${formatMoney(plan.monthly)}
+                {currencySymbol}{formatMoney(plan.monthly)}
               </span>
             )}
           </div>
           <p className="font-public-sans text-sm text-muted-foreground">
-            {billedLine}
+            {billedLine.replace('$', currencySymbol)}
           </p>
         </div>
 
@@ -172,13 +203,8 @@ export function PlanCard({
 
         <Button
           size="lg"
-          variant={ctaVariant}
-          className={cn(
-            "font-public-sans h-12 w-full rounded-xl text-base font-semibold mt-4",
-            isPlus
-              ? "bg-gradient-to-r from-fuchsia-600 via-pink-500 to-orange-400 text-white hover:opacity-90"
-              : "bg-black text-white hover:bg-black/90"
-          )}>
+          onClick={handleGetStarted}
+          className="font-public-sans h-12 w-full text-base mt-4">
           Get Started
         </Button>
       </div>
@@ -188,7 +214,7 @@ export function PlanCard({
   if (!plan.highlight) return cardInner;
 
   return (
-    <div className="rounded-[30px] bg-gradient-to-r from-fuchsia-500 via-pink-500 to-orange-400 p-[2px]">
+    <div className="rounded-[30px] bg-linear-to-r from-fuchsia-500 via-pink-500 to-orange-400 p-[2px]">
       {cardInner}
     </div>
   );

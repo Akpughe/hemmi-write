@@ -1,8 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { type BillingCycle as BillingCycleType } from "@/lib/utils/pricing";
 
-export type BillingCycle = "monthly" | "quarterly" | "yearly";
+export type BillingCycle = BillingCycleType;
 
 type BillingOption = { label: string; value: BillingCycle };
 

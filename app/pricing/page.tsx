@@ -1,117 +1,328 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { X, Sparkles, ArrowRight } from "lucide-react";
 
 import {
   BillingToggle,
   type BillingCycle,
 } from "@/app/pricing/components/billing-toggle";
-import { PlanCard, type PricingPlan } from "@/app/pricing/components/plan-card";
 import { cn } from "@/lib/utils";
+import {
+  type Currency,
+  type PricingData,
+  type PlanData,
+  type PlanKey,
+  fetchPricing,
+  detectCurrency,
+  isNGNAvailable,
+  getCurrencySymbol,
+  formatMoney,
+  buildPlanData,
+} from "@/lib/utils/pricing";
 
 const billingOptions: { label: string; value: BillingCycle }[] = [
   { label: "Yearly", value: "yearly" },
-  { label: "Quarterly", value: "quarterly" },
   { label: "Monthly", value: "monthly" },
-];
-
-const plans: PricingPlan[] = [
-  {
-    name: "Basic",
-    monthly: 12,
-    quarterly: 30,
-    yearly: 120,
-    features: [
-      "2,000 credits / month",
-      "20,000 humanize words",
-      "2 concurrent tasks",
-      "500 times AI tools & more",
-      "Deeper research setting",
-      "Privacy mode support",
-      "24/7 customer support",
-    ],
-  },
-  {
-    name: "Plus",
-    monthly: 20,
-    quarterly: 50,
-    yearly: 196,
-    highlight: true,
-    features: [
-      "5,000 credits / month",
-      "100,000 humanize words",
-      "4 concurrent tasks",
-      "Unlimited AI tools & more",
-      "Deeper research setting",
-      "Privacy mode support",
-      "24/7 customer support",
-    ],
-  },
-  {
-    name: "Pro",
-    monthly: 32,
-    quarterly: 88,
-    yearly: 320,
-    features: [
-      "12,000 credits / month",
-      "Unlimited humanize words",
-      "10 concurrent tasks",
-      "Unlimited AI tools & more",
-      "Deeper research setting",
-      "Privacy mode support",
-      "24/7 customer support",
-    ],
-  },
 ];
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("yearly");
+  const [currency, setCurrency] = useState<Currency>("USD");
+  const [pricing, setPricing] = useState<PricingData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState<PlanKey | null>(
+    null
+  );
+
+  // Fetch pricing from database
+  useEffect(() => {
+    async function loadPricing() {
+      const data = await fetchPricing();
+      setPricing(data);
+      setLoading(false);
+    }
+    loadPricing();
+  }, []);
+
+  // Detect currency from location
+  useEffect(() => {
+    async function loadCurrency() {
+      const detected = await detectCurrency();
+      setCurrency(detected);
+    }
+    loadCurrency();
+  }, []);
+
+  // Auto-fallback to USD if NGN prices aren't available
+  useEffect(() => {
+    if (currency === "NGN" && !isNGNAvailable(pricing)) {
+      setCurrency("USD");
+    }
+  }, [pricing, currency]);
+
+  const currencySymbol = getCurrencySymbol(currency);
+
+  const plans: PlanData[] = useMemo(
+    () =>
+      pricing
+        ? [
+            buildPlanData(pricing, "basic", currency, billingCycle),
+            buildPlanData(pricing, "pro", currency, billingCycle),
+            buildPlanData(pricing, "premium", currency, billingCycle),
+          ]
+        : [],
+    [pricing, currency, billingCycle]
+  );
+
+  // Calculate savings percentage for yearly billing
+  const yearlySavings = useMemo(() => {
+    if (!pricing) return null;
+    const proPlan = buildPlanData(pricing, "pro", currency, "yearly");
+    const proMonthly = buildPlanData(pricing, "pro", currency, "monthly");
+    const yearlyPerMonth = proPlan.perMonth;
+    const monthlyPrice = proMonthly.perMonth;
+    const save = Math.round((1 - yearlyPerMonth / monthlyPrice) * 100);
+    return save > 0 ? save : null;
+  }, [pricing, currency]);
+
+  const handleStartCheckout = async (planType: PlanKey) => {
+    try {
+      setCheckoutLoadingPlan(planType);
+      const response = await fetch("/api/subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planType,
+          billingCycle,
+          currency,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error?.error || "Failed to start checkout");
+      }
+
+      const data = await response.json();
+      globalThis.location.href = data.data.checkoutUrl;
+    } catch (e) {
+      console.error("Checkout error:", e);
+      alert(
+        e instanceof Error
+          ? e.message
+          : "Failed to start checkout. Please try again."
+      );
+    } finally {
+      setCheckoutLoadingPlan(null);
+    }
+  };
+
+  if (loading || !pricing) {
+    return (
+      <main className="relative min-h-screen bg-surface-warm px-4 py-10">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-4">
+          <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
+          <div className="h-4 w-96 animate-pulse rounded bg-gray-200" />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="relative min-h-screen bg-surface-warm px-4 py-10">
       <Link
         href="/"
-        className="absolute right-6 top-6 rounded-full bg-transparent p-2 text-foreground/70 transition hover:text-foreground">
+        className="absolute right-6 top-6 rounded-full bg-transparent p-2 text-foreground/70 transition hover:text-foreground"
+      >
         <span className="sr-only">Close pricing</span>
         <X className="size-4" />
       </Link>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-10">
-        <header className="flex w-full max-w-3xl flex-col items-center gap-3 text-center">
-          <h1 className="font-public-sans text-5xl font-semibold tracking-tight text-foreground">
-            Hire Your Research Partner
-          </h1>
+        <header className="flex w-full max-w-3xl flex-col items-center gap-4 text-center">
+          <div className="flex items-center gap-3">
+            <div className="flex size-12 items-center justify-center rounded-2xl bg-foreground text-background shadow-lg shadow-foreground/10">
+              <Sparkles className="size-6" />
+            </div>
+            <h1 className="font-public-sans text-5xl font-semibold tracking-tight text-foreground">
+              Pricing Plans
+            </h1>
+          </div>
           <p className="font-public-sans text-base text-foreground/70">
             Subscribe for 10x faster research + 100% human content
           </p>
 
-          <BillingToggle
-            value={billingCycle}
-            onChange={setBillingCycle}
-            options={billingOptions}
-            saveTextByValue={{
-              yearly: (() => {
-                const plus = plans.find((p) => p.name === "Plus");
-                if (!plus) return undefined;
-                const perMonth = plus.yearly / 12;
-                const save = Math.round((1 - perMonth / plus.monthly) * 100);
-                return save > 0 ? `-${save}%` : undefined;
-              })(),
-            }}
-          />
+          <div className="flex flex-col items-center gap-2">
+            <BillingToggle
+              value={billingCycle}
+              onChange={setBillingCycle}
+              options={billingOptions}
+              saveTextByValue={
+                yearlySavings ? { yearly: `-${yearlySavings}%` } : undefined
+              }
+            />
+          </div>
         </header>
 
         <div className="w-full">
-          <div className={cn("grid gap-8", "md:grid-cols-3")}>
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.name}
-                plan={plan}
-                billingCycle={billingCycle}
-              />
-            ))}
+          <div className="grid gap-6 md:grid-cols-3">
+            {plans.map((plan) => {
+              const isRec = plan.isRecommended;
+              return (
+                <div
+                  key={plan.key}
+                  className={cn(
+                    "relative rounded-2xl p-6 transition-all duration-300",
+                    isRec
+                      ? "bg-foreground text-background shadow-xl shadow-foreground/20 scale-[1.02]"
+                      : "bg-background ring-1 ring-border hover:ring-foreground/20 hover:shadow-lg"
+                  )}
+                >
+                  {isRec && (
+                    <div className="absolute -top-3 left-4 rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-md">
+                      Most popular
+                    </div>
+                  )}
+
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3
+                        className={cn(
+                          "text-lg font-semibold tracking-tight",
+                          isRec ? "text-background" : "text-foreground"
+                        )}
+                      >
+                        {plan.name}
+                      </h3>
+                      <p
+                        className={cn(
+                          "mt-1 text-xs",
+                          isRec ? "text-background/70" : "text-foreground/60"
+                        )}
+                      >
+                        {plan.valueLabel}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-1">
+                    <div className="flex items-baseline gap-1">
+                      <span
+                        className={cn(
+                          "text-2xl font-semibold",
+                          isRec ? "text-background" : "text-foreground"
+                        )}
+                      >
+                        {currencySymbol}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-4xl font-bold tracking-tight leading-none",
+                          isRec ? "text-background" : "text-foreground"
+                        )}
+                      >
+                        {formatMoney(plan.perMonth)}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-sm ml-1",
+                          isRec ? "text-background/60" : "text-foreground/50"
+                        )}
+                      >
+                        /mo
+                      </span>
+                      {plan.strikeMonthlyWhenYearly && (
+                        <span
+                          className={cn(
+                            "text-sm line-through ml-2",
+                            isRec ? "text-background/40" : "text-foreground/40"
+                          )}
+                        >
+                          {plan.strikeMonthlyWhenYearly}
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={cn(
+                        "text-xs",
+                        isRec ? "text-background/60" : "text-foreground/50"
+                      )}
+                    >
+                      {plan.billedLine}
+                    </p>
+                  </div>
+
+                  <ul
+                    className={cn(
+                      "mt-5 space-y-2.5 text-sm",
+                      isRec ? "text-background/90" : "text-foreground/80"
+                    )}
+                  >
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2.5">
+                        <span
+                          className={cn(
+                            "mt-0.5 inline-flex size-4 items-center justify-center rounded-full shrink-0",
+                            isRec
+                              ? "bg-background text-foreground"
+                              : "bg-foreground text-background"
+                          )}
+                        >
+                          <svg
+                            className="size-2.5"
+                            viewBox="0 0 12 12"
+                            fill="none"
+                          >
+                            <path
+                              d="M2 6l3 3 5-6"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                        <span className="flex-1">{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    type="button"
+                    className={cn(
+                      "mt-6 w-full flex items-center justify-between px-5 py-3 rounded-xl font-semibold text-sm",
+                      "transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+                      "disabled:opacity-50 disabled:pointer-events-none",
+                      "active:scale-[0.98]",
+                      isRec
+                        ? "bg-background text-foreground hover:bg-background/90 focus-visible:ring-background"
+                        : "bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-foreground"
+                    )}
+                    disabled={checkoutLoadingPlan !== null}
+                    onClick={() => handleStartCheckout(plan.key)}
+                  >
+                    <span>
+                      {checkoutLoadingPlan === plan.key
+                        ? "Redirecting..."
+                        : "Get started"}
+                    </span>
+                    <ArrowRight className="size-4" />
+                  </button>
+
+                  <p
+                    className={cn(
+                      "mt-3 text-center text-xs",
+                      isRec ? "text-background/50" : "text-foreground/50"
+                    )}
+                  >
+                    Cancel anytime
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
