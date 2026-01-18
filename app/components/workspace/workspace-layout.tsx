@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import type {
   WritingBrief,
   WorkflowStep,
@@ -98,6 +98,26 @@ export function WorkspaceLayout({
   const [canGenerateStructure, setCanGenerateStructure] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState<boolean>(false);
+
+  // Load user preference for auto-approve on workspace mount
+  useEffect(() => {
+    const loadUserPreference = async () => {
+      try {
+        const response = await fetch("/api/user/profile");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user?.preferences?.autoApproveChapters !== undefined) {
+            setAutoApproveEnabled(data.user.preferences.autoApproveChapters);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load user preferences:", error);
+      }
+    };
+
+    loadUserPreference();
+  }, []);
 
   // Handler to open paywall modal
   const handleUpgradeClick = () => {
@@ -586,6 +606,8 @@ export function WorkspaceLayout({
         currentStep={currentStep}
         isFetching={isFetching}
         onUpgradeClick={handleUpgradeClick}
+        autoApprove={autoApproveEnabled}
+        onAutoApproveChange={setAutoApproveEnabled}
       />
 
       {/* Source Addition Notification Banner */}
@@ -695,6 +717,7 @@ export function WorkspaceLayout({
           structurePhase={structureStatus.phase}
           structureError={structureStatus.error}
           structureCompletedAt={structureStatus.completedAt}
+          autoApproveEnabled={autoApproveEnabled}
         />
 
         {/* Right Panel - Brief & Chat */}

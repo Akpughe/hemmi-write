@@ -80,6 +80,7 @@ interface EditorPanelProps {
   structurePhase?: "idle" | "loading" | "done" | "error";
   structureError?: string | null;
   structureCompletedAt?: Date | null;
+  autoApproveEnabled?: boolean;
 }
 
 export function EditorPanel({
@@ -107,6 +108,7 @@ export function EditorPanel({
   structurePhase = "idle",
   structureError = null,
   structureCompletedAt = null,
+  autoApproveEnabled = false,
 }: EditorPanelProps) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
@@ -868,6 +870,25 @@ export function EditorPanel({
       });
     }
   }, [setChapterHandlers]);
+
+  // Auto-approve chapters when enabled and in review state
+  useEffect(() => {
+    if (!autoApproveEnabled || !showChapterReview) {
+      return;
+    }
+
+    // Only auto-approve when in chapter mode
+    if (!plan || plan.sections.length === 0) {
+      return;
+    }
+
+    // Auto-approve after brief delay for visual feedback
+    const timer = setTimeout(() => {
+      handleApproveChapter();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [autoApproveEnabled, showChapterReview, handleApproveChapter, plan]);
 
   const [isExporting, setIsExporting] = useState(false);
 

@@ -31,6 +31,7 @@ interface StepGeneratingProps {
   writingStyle: WritingStyle;
   aiProvider: string;
   onComplete: () => void;
+  autoApproveEnabled?: boolean;
 }
 
 type ChapterState = "pending" | "generating" | "review" | "approved" | "error";
@@ -54,6 +55,7 @@ export default function StepGenerating({
   writingStyle,
   aiProvider,
   onComplete,
+  autoApproveEnabled = false,
 }: StepGeneratingProps) {
   const { appendContent } = useEditorContext();
   const config = DOCUMENT_TYPE_CONFIGS[documentType];
@@ -132,6 +134,23 @@ export default function StepGenerating({
       generateDocument();
     }
   }, []);
+
+  // Auto-approve chapters when enabled and they enter review state
+  useEffect(() => {
+    if (!autoApproveEnabled || !useChapterMode) return;
+
+    // Find the first chapter in "review" state
+    const reviewChapter = chapterStatuses.find((ch) => ch.state === "review");
+
+    if (reviewChapter) {
+      // Auto-approve after brief delay (500ms) for visual feedback
+      const timer = setTimeout(() => {
+        handleApproveChapter(reviewChapter.index);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [chapterStatuses, autoApproveEnabled, useChapterMode]);
 
   // Chapter-by-chapter generation
   const generateChapter = async (chapterIndex: number) => {
@@ -566,7 +585,7 @@ export default function StepGenerating({
                         ? `${chapter.wordCount.toLocaleString()} words`
                         : "Not started"}
                       {chapter.state === "generating" && " • Writing..."}
-                      {chapter.state === "review" && " • Ready for review"}
+                      {chapter.state === "review" && (autoApproveEnabled ? " • Auto-continuing..." : " • Ready for review")}
                       {chapter.state === "approved" && " • Approved"}
                       {chapter.state === "error" && ` • ${chapter.error}`}
                     </div>
