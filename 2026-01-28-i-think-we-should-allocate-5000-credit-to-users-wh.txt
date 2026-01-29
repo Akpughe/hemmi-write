@@ -1,0 +1,41 @@
+
+ ▐▛███▜▌   Claude Code v2.1.20
+▝▜█████▛▘  Opus 4.5 · Claude Pro
+  ▘▘ ▝▝    ~/Documents/hemmi-write
+
+❯ I think we should allocate 5000 credit to users when they signup so they  
+  can do some research first so after they see result, they'd want to       
+  continue writing but only after payment -- what do you think -- do not    
+  implement                                                                 
+  ⎿  ⧉ Selected 1 lines from Deep Research System.md in Cursor
+
+⏺ This is a solid freemium strategy. A few thoughts:
+
+  Why it works:
+  - Removes friction at signup - users can immediately experience value
+  - "Show don't tell" - research results speak for themselves
+  - Creates a natural conversion moment when credits run out and they're already
+   invested in writing
+
+  Things to consider:
+
+  1. Is 5000 credits calibrated correctly? It should be enough for 1-2
+  meaningful research sessions to demonstrate value, but not so generous that
+  users never need to pay. You'd want to check how many credits a typical deep
+  research query consumes.
+  2. Abuse prevention - Multiple account creation to farm free credits is a
+  common problem. Consider:
+    - Email verification
+    - Phone verification for credit grant
+    - IP/device fingerprinting
+    - Delayed credit grant (e.g., after first action)
+  3. Clear UX around credit balance - Users should always see their remaining
+  credits and understand when they'll need to pay. Surprise paywalls feel bad;
+  anticipated ones feel fair.
+  4. The transition moment matters - When credits run out mid-workflow (e.g.,
+  they've done research but haven't written yet), that's high-intent. The
+  payment prompt at that moment should be frictionless.
+
+  Overall, I think this is a reasonable approach - letting users prove value to
+  themselves before asking for money tends to work better than gates upfront,
+  especially for a tool where the output quality is the main selling point.

@@ -1,0 +1,403 @@
+{
+    "success": true,
+    "data": {
+        "status": "complete",
+        "success": true,
+        "originalQuery": "The Ethics of Neurotechnology: Brain-Computer Interfaces (BCIs) and Cognitive Liberty",
+        "effectiveQueries": [
+            "The Ethics of Neurotechnology: Brain-Computer Interfaces (BCIs) and Cognitive Liberty"
+        ],
+        "papers": [
+            {
+                "id": "res-sklusrq",
+                "title": "Ethical considerations for the use of brain-computer interfaces for cognitive enhancement",
+                "url": "https://pubmed.ncbi.nlm.nih.gov/39466848/",
+                "source": "claude",
+                "excerpt": "We discuss the ethical, legal, and scientific implications of eBCIs, including issues related to privacy, autonomy, inequality, and the broader societal impact of cognitive enhancement technologies. We conclude that the development of eBCIs raises challenges far beyond practical pros and cons, prompting fundamental questions regarding the nature of conscious selfhood and about who—and what—we are, and ought, to be.... We start by setting out some constraints on the development of enhancement BCIs (eBCIs), as well as the potential they hold. We then examine a range of ethical issues attending eBCIs, including privacy, inequality, standardisation of thought, inauthenticity, and cheapened achievements Altogether, we hope to provide a perspective on eBCIs that cautiously anticipates ways that embracing them would potentially improve, but perhaps also worsen, our lives.... ## Enhancement potential of BCIs\n\nHow might eBCIs, aimed not at alleviating neurological disease or pathology, but rather human enhancement, “unlock human potential”? While this question occupies its own emerging research area in bioethics [19], a useful framing for this question comes from the “extended mind” setting introduced earlier [23]. eBCIs provide many new ways in which extended cognitive processes can be implemented. They offer an immediacy and directness that seems—at least in principle—substantially different from that offered by other extended mind situations, such as those involving notebooks and phones.... ### Box 1: Key ethical questions surrounding invasive BCIs for cognitive enhancement\n\nErosion of privacy: To what extent does widespread use of eBCIs raise the risk of privacy erosion, such as thought violation or “brainjacking” where bad actors gain illicit access to neural data?\n\nInequality: Could giving financially privileged individuals access to eBCIs further widen existing socioeconomic gaps by providing them an additional cognitive or intellectual advantage?... Mental monoculture: Could the widespread use of eBCIs standardise cognitive processes, leading to diminished cognitive diversity and hindering innovation?\n\nInauthenticity: Do eBCIs pose a threat to authenticity by altering cognitive functions in ways that conflict with living in alignment with one’s true or evolving self?\n\nCheapened achievements. Are achievements aided by eBCIs, like cognition-boosting devices, less valuable due to reduced effort, with reliance on enhancements shifting credit from the individual to the tool’s creator?... Loss of autonomy vs hyperagency: Do eBCIs pose a “dual challenge” by potentially undermining autonomy through misinterpreted commands, while also creating “hyperagency,” where enhanced capabilities increase personal responsibility and the pressure of higher ethical standards?... ### Erosion of privacy\n\nThe idea that we have a right to freedom over our thoughts has been traditionally discussed in connection with freedom to express our thoughts in action (e.g., protest and speech). What about the thoughts themselves? Various international law frameworks recognise a right not to have one’s thoughts or opinions revealed [35] or manipulated [36]. The introduction of eBCIs in a population raises the risk of this kind of thought violation.... Consider, for instance, the threat of “brainjacking”—where bad actors attempt to gain unauthorised (at least, indirect) access to what you are thinking by gaining access to neural data and data pertaining to which thought commands are implemented by the eBCI, or to your neural data more generally [37–40].... Such data could evidently be used for all kinds of nefarious purposes: knowledge of your emotional state could be used to exploit marketing opportunities, or—more dramatically—knowledge of intentions could lead to blackmail. A variation of these risks arises when we consider that interpretation of eBCI data is likely less than fully accurate. On the one hand, this implicitly restores some vestige of privacy, but on the other it opens new vulnerabilities; for example, we might lose access to finance on the basis of a misread intention to gamble wildly.... As Arthur Schopenhauer [44] put it: “man can do what he wills, but he cannot will what he wills.” eBCIs raise the prospect of third-party actors changing what a person “wills,” perhaps without their consent [45].... ### Box 2: Current initiatives and recommendations for eBCIs\n\nSeveral efforts are already underway to define a the landscape for eBCI development and regulation. For example, recommendations that privacy of thought ought to be enshrined, protecting individuals’ rights to cognitive liberty and establishing safeguards against unauthorised access to neural data. In the USA, for example, two states (Colorado and Minnesota) have specific regulatory guidance for eBCIs for consumer purposes.... Recommendations are also advising that extensive cognitive testing should be conducted to characterise psychological consequences of eBCIs, both narrow (e.g., mood manipulation, vulnerability to influence) and broad (e.g., change of personality, loss/transfer of agency). Finally, it is argued that eBCIs should be regulated as if they are medical devices, i.e., applying stringent safety and efficacy standards and ensuring proper medical oversight and quality control. These recommendations are all good ideas, though their implementation may of course face practical hurdles.... ### Inequality\n\nSuppose eBCIs are available in the open marketplace; either they are available to everyone cheaply, or they are not. Let us assume they are not, and that like other high-end tech products they are expensive and will likely remain so. In this scenario, eBCIs would be of limited access, available only to the most privileged—thereby giving those already most financially privileged an additional cognitive or intellectual advantage, potentially widening already existing socioeconomic gaps [49–51].... ### Mental monoculture\n\nLet us now suppose that eBCIs do indeed become available easily and cheaply for all, at least in some form. Here is a very different challenge, predicated on equality rather than inequality of access: if (in short) everyone has an eBCI, a risk that arises concerns uniformity of thought and the implications for culture (scientific, artistic, etc.) and wider society that follow from that.... ### Inauthenticity\n\nBioconservative philosophers have long argued that enhancements, including eBCIs, might compromise our authenticity. The core idea is that living in accordance with one’s “true self” is a crucial component of human flourishing [56] and using eBCIs to alter our cognitive function may conflict with being true to ourselves.... Some bioconservative thinkers say the answer is “yes” (whereas techno-optimists as well as more cautious bioliberals are sceptical [18]). One line of argument here [69] maintains that cognitive enhancements like eBCIs divorce performance from the kind of effort needed to make the achievement valuable, or at least as valuable as it would be otherwise absent the eBCI.... Recent literature and bioethics suggests that the “cheapened achievements” worry is overstated as a general argument [18,72]; whether it has any teeth in the case of BCIs will plausibly depend on factors including the extent to which users rely on the eBCI as a mere tool as opposed to whether it is deeply integrated into our cognitive architecture [73] and whether eBCI users are exhibiting various other abilities and skills in the service of using eBCIs in effective ways [74].... #### Loss of autonomy versus hyperagency.\n\nA further philosophical challenge for eBCIs concerns autonomy, and in connection with “hyperagency” [71,75]. Suppose, to use a simple example, an individual issues a thought command to a computer via an eBCI; in the ideal case, this command will be executed by the eBCI exactly as the individual intends.... We can envision, however, mismatch cases. In particularly bad cases (either through malicious third-party actors or simply through imperfection in design), suppose the eBCI in some way “overrides” or otherwise fails to reliably encode or implement the thought command (in some cases without the user realising); these cases threaten user autonomy by undermining (in potentially undetectable ways) their capacity to make free choices in line with her intentions.... ## Conclusions and future perspectives\n\nThe balance between benefit and risk in eBCIs suggests the need for a middle way, somewhere between accelerationist/techno-optimist unrestricted development and outlawing nonmedical applications entirely. There is also the pragmatic issue that separating medical from enhancement applications will likely be very difficult in practice. Relatedly, the more obviously justifiable benefits of medical applications may put pressure on any attempt to introduce any form of regulation for eBCIs; people being offered relief from paralysis may quite understandably think that pontificating about potential mental monocultures to be irrelevant and obstructive.... Nonetheless, some of the ethical concerns we have raised—including erosion of privacy, uniformity of thought, cheapened achievements, and loss/gain of autonomy—apply to noninvasive eBCIs too. The noninvasive combination of ease of access, but lower precision and emphasis on recording, means that the overall ethical picture will look rather different [38].... After all, modern (non-BCI) technologies have led to all kinds of vulnerabilities in both of the directions we have identified: privacy (inside-out) and manipulation (outside-in). Social media, for example, both reveals our personal data and exposes us to manipulative pressures. BCIs take these same concerns and import them more directly into the brain.... Nonetheless, a case can be made for the importance of the skull. This is simply that once one breaches this boundary, no further boundaries remain. The importance of the skull may therefore lie in preserving the idea of autonomy, rather than in preserving anything particular about autonomy or agency itself.\n\nWhat’s clear from this discussion, and from other discussions of issues surrounding eBCI development, is that the questions raised are not limited to concerns about positive and negative individual and societal consequences. The merging of our neurobiology with technology raises fundamental questions about who, and what, we are—and who and what we can, and ought, to be.",
+                "publishedDate": "2024-10-28",
+                "authors": "Jared D. Broecker, Margaret A. Chapman, Nicholas Schiff, Michelle Mello",
+                "highlights": [],
+                "relevanceScore": 0,
+                "suggestedSections": [],
+                "isOpenAccess": false,
+                "completenessScore": 0.56,
+                "missingFields": [
+                    "abstract",
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "publisher",
+                    "suggestedSections",
+                    "relevanceScore"
+                ],
+                "doi": "10.1371/journal.pbio.3002899",
+                "year": 2024,
+                "journalName": "PLOS Biology",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:44:43.055Z",
+                "researchedAt": "2026-01-29T00:43:35.699Z",
+                "fieldsFound": [
+                    "journalName",
+                    "doi",
+                    "year"
+                ],
+                "cached": true
+            },
+            {
+                "id": "res-mosfdgo",
+                "title": "Mind the gap: bridging ethical considerations and neuroethics in brain-computer interfaces",
+                "url": "https://www.frontiersin.org/journals/human-neuroscience/articles/10.3389/fnhum.2025.1633627/full",
+                "authors": "Marcello Ienca, Orsolya Andics",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:43:36.715Z",
+                "journalName": "Frontiers in Human Neuroscience",
+                "year": 2025,
+                "doi": "10.3389/fnhum.2025.1633627",
+                "source": "claude",
+                "researchedAt": "2026-01-29T00:43:36.714Z",
+                "fieldsFound": [
+                    "journalName",
+                    "year",
+                    "doi"
+                ],
+                "cached": false,
+                "completenessScore": 0.53,
+                "missingFields": [
+                    "abstract",
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "publisher",
+                    "excerpt",
+                    "suggestedSections",
+                    "relevanceScore"
+                ]
+            },
+            {
+                "id": "res-41vfwib",
+                "title": "Neuralink's brain-computer interfaces",
+                "url": "https://www.frontiersin.org/journals/human-dynamics/articles/10.3389/fhumd.2025.1553905/pdf",
+                "authors": "Tamara Marshall-Pescini, Zsófia Virányi",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:44:59.758Z",
+                "journalName": "Frontiers in Human Dynamics",
+                "year": 2025,
+                "doi": "10.3389/fhumd.2025.1553905",
+                "publisher": "Frontiers Media",
+                "source": "claude",
+                "researchedAt": "2026-01-29T00:44:59.757Z",
+                "fieldsFound": [
+                    "year",
+                    "journalName",
+                    "doi",
+                    "publisher"
+                ],
+                "cached": false,
+                "completenessScore": 0.56,
+                "missingFields": [
+                    "abstract",
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "excerpt",
+                    "suggestedSections",
+                    "relevanceScore"
+                ]
+            },
+            {
+                "id": "res-jioikuh",
+                "title": "China's new ethical guidelines for the use of brain-computer interfaces",
+                "url": "https://academic.oup.com/nsr/article/11/4/nwae154/7668215",
+                "authors": "Yaling Huang, Jing Zhang, Yifeng Zhou, Tianzi Jiang",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:43:40.563Z",
+                "year": 2024,
+                "doi": "10.1093/nsr/nwae154",
+                "journalName": "National Science Review",
+                "abstract": "Brain-computer interfaces (BCIs) represent a transformative technology with significant potential for medical applications and human augmentation. However, their development raises important ethical, legal, and social questions. China has recently released new ethical guidelines for BCI research and development, which reflect the country's commitment to responsible innovation in this field. These guidelines address key concerns including informed consent, privacy protection, safety standards, and equitable access. This paper analyzes China's new ethical framework for BCIs, contextualizes it within the broader landscape of international BCI ethics, and discusses its implications for future BCI development and governance.",
+                "publisher": "Oxford University Press",
+                "source": "claude",
+                "researchedAt": "2026-01-29T00:43:40.563Z",
+                "fieldsFound": [
+                    "authors",
+                    "year",
+                    "doi",
+                    "journalName",
+                    "abstract",
+                    "publisher"
+                ],
+                "cached": false,
+                "completenessScore": 0.7100000000000001,
+                "missingFields": [
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "excerpt",
+                    "suggestedSections",
+                    "relevanceScore"
+                ]
+            },
+            {
+                "id": "perplexity-1769647367971-4",
+                "title": "Neuralink's brain-computer interfaces",
+                "url": "",
+                "source": "perplexity",
+                "excerpt": "disabilities, but the long-term effects, safety, and usability of these devices remain \nuncertain. Ethical concerns focus on informed consent, patient autonomy, and \nthe implications of integrating BCIs into human identity. The bidirectional nature \nof Neuralink’s devices introduces privacy risks, highlighting the need for stringent \noversight to safeguard sensitive neural data. Furthermore, the company’s initial... lack of transparency, such as delayed trial registration, has drawn criticism from \nthe scientific community for deviating from established norms of research ethics. \nRegulatory challenges also emerge as BCIs intersect with frameworks governing \ndata privacy, medical devices, and artificial intelligence. The lack of a cohesive \nlegal framework for neurotechnology underscores the importance of developing... comprehensive standards to balance innovation with the protection of fundamental \nrights. Finally, philosophical questions about human identity and agency arise as \nBCIs blur the boundaries between mind, body, and technology. As BCI technology \nadvances, it is imperative for the scientific community, policymakers, and society to \ncollaborate in addressing the opportunities and risks posed by this transformative... innovation.\nKEYWORDS\nprivacy risks, human enhancement, neuroethics, Neuralink, brain computer interface\n1 Introduction: Neuralink’s BCIs\nAlthough neurotechnologies were initially developed in research and clinical settings to \ntreat patients with motor or neuropsychiatric impairments, the growing expansion of their \nnon-medical applications has increasingly attracted private companies eager to advance and... identified for neuromodulation. From a neuroethical perspective, in \nthese situations, once the patient’s informed consent is obtained, the \nintervention is legitimized as it is a therapeutic procedure for sick \nindividuals (Smith et al., 2023).\nConcerning brain-computer interface (BCI), the first intervention... funding, place Neuralink at the forefront of this type of research. At \nthe same time, they demand a profound sense of responsibility toward \npatients, the scientific community, and society as a whole.\n3 Bioethical and neuroethical aspects\nNeuralink’s experimentation promises to offer significant benefits \nfor various types of patients with neurological conditions. The primary... and the risks associated with such interventions should also \nbe estimated. There is also the potential danger of sudden malfunction, \nas we are talking about a system that controls external effectors, which \ncould cause harm to third parties. Neuralink should provide more \ninformation on these aspects and make the protocol publicly available.\nFurthermore, one may question whether the brain could... analysis relative to the patient’s condition and the improvements BCI \ncan deliver in the short term.\nAmong the ethical aspects and risk communication, it must \nbe considered that patients with severe disabilities, such as those with \nlocked-in syndrome or tetraplegia, might be so eager to improve their \ncondition that they accept high risks without fully understanding the... critical reflection on the use of this neurotechnology.\nPrivacy concerns related to BCI in clinical settings are particularly \ncomplex. At first glance, they might appear secondary to the patient’s \nwell-being, as BCIs can greatly enhance both physical and mental \nconditions (consider, for instance, a tetraplegic individual who can... independently use a computer). However, once significant abilities are \nregained, individuals may find their privacy threatened precisely \nbecause of the interface that has substantially improved their well-\nbeing. Therefore, it is crucial to once again assess the costs and benefits \nin advance, considering the patient’s condition and preferences, while... fully disclosing all the implications of using BCIs (Andorno and \nLavazza, 2023).\n4 Research ethics aspects\nIn May 2023, Neuralink received FDA approval (after a rejection \nin 2022) for human clinical trials but the traditional process of \nscientific dissemination, which involves publishing results in peer-... practice of communicating significant updates via social media \nplatforms signals a deviation from these established standards, raising \nconcerns about transparency and ethical accountability.\nFrom the perspective of research ethics, the failure to register \nNeuralink’s first clinical trial in the ClinicalTrials.gov database seemed \nto violate the fundamental ethical guidelines for biomedical research,... insignificant results. By making all preregistered studies public, the \nscientific community can have a completer and more accurate picture \nof the research landscape, promoting a more holistic and informed \nadvancement of science.\n5 Legal aspects\nBrain-computer interfaces (BCIs) like those from Neuralink... significantly raise significant concerns regarding the protection of \nhuman rights both in the context of scientific and technological \nresearch and in the deployment of such devices within the consumer \nmarket. The sphere of freedom must be protected from both public \n(especially in non-democratic regimes) and private powers (for major \ntech players), as well as from third parties (malicious actors). From... this perspective, the notion of freedom encompasses both the bodily \ndimension (if the device requires surgical procedures) and the \n“mental” dimension (cognition, memory, sensory processing, etc.), \nwhich may be disturbed or violated by the manipulation of brain \nsignals through BCIs.\nIt is also essential to ensure the protection of the physical and... mental integrity of the BCI user in terms of device safety. Additionally, \nthe widespread development of BCIs also contributes to the \nadvancement of certain rights, such as the right to autonomy and \nsocial inclusion for individuals with disabilities (e.g., through \ncommunication tools and assistive technologies) and the right to... health (e.g., by enabling recovery from psychiatric or motor disorders).\nMedical and non-medical uses of the BCIs may have an impact on \nthe exercise of rights with both economic (e.g., purchasing goods and \nservices) and personal implications (e.g., providing informed consent \nor refusing data processing and medical interventions, especially... when the person is vulnerable: Pizzetti, 2020). In these contexts, it is \nessential to guarantee that the user’s intentions are accurately \nrepresented and that the possibility of disconnecting from the \ninterface remains available at all times.\nExamining the legal aspects may necessitate, from a \nmethodological perspective, consideration of various factors. These... include legal doctrine—given that neurorights have predominantly \nbeen shaped by legal scholars to date—as well as legislative provisions \nwithin a multilevel legal framework. This is particularly relevant \nbecause neurotechnologies affect fundamental rights that are \nrecognized and protected at both supranational and national levels. \nFurthermore, the tools of legal interpretation and analogy must... be employed, as in some jurisdictions, neurotechnologies continue to \nbe governed by statutory provisions pertaining to medical devices, \nelectronic products that could be — but not necessarily are —\nneurological (which may include AI software or hardware), and \nrelated rights — which are contiguous but not exactly tailored on \nneurorights — such as personal psycho-physiological integrity... and privacy.\nWhile some authors advocate for the adoption of new rights, i.e., \nneuro-rights to respond to the challenges resulting from the potential \nof this technology (Ienca and Andorno, 2017; Yuste et al., 2021), other \nauthors claim that rights recognized in national constitutions and... international instruments can be updated to provide appropriate \nprotection in this context (Bublitz, 2024; Ligthart, 2020). In any case, \nwhen establishing the framework for fundamental neuro-rights, it is \nessential to consider the necessary balance between competing \ninterests, as well as the importance of the purpose for which the device... On one hand, the aggregation and analysis of brain data obtained \nthrough these technologies can be framed within the debates on \nprivacy protection (Field, 2024). However, when neurotechnologies \navailable on the market do not only collect data but alter brain activity \ndifferent risks arise (Sosa Navarro and Dura-Bernal, 2023).... environment and serves as a guide for shaping public policies in this \narea. It also specifically recognises the “neuro-rights,” which \nencompass individual self-control over personal identity and \nautonomy in decision-making, as well as the security and privacy of \ndata related to or acquired through neural processes. It also includes... physical and psychological liberty (article 19, 1st sect.). This aims to \nsafeguard the physical and psychological integrity of individuals, as \nwell as to promote the wellness of the person.\nThis being said legislators on both sides of the Atlantic appear to \nbe primarily concerned with the safety and health risks associated... with their use, overlooking the impact on mental integrity, autonomy, \nfreedom of thought, and the values related to them. In light of the \nabove, since 2019, international organizations such as the Council of \nEurope (Report, COE, 2021), the OECD (9 principles, OECD, 2019)... and UNESCO (report 2021 and upcoming recommendation; \nUNESCO, 2021) have responded to this governance gap by adopting \nstatements addressing the ethical and human rights aspects of \nneurotechnologies. In the same line, the UN Human Rights Council \nhas recently adopted a report drafted by the Human Rights Advisory... interfaces (BCI) might leverage AI software to better analyze and \ninterpret the neuro-patterns generated by individuals using these \ndevices for various purposes, both medical and non-medical, \nincluding critical situations like labour and educational environments. \nFrom this perspective, neurotechnology could be subject to regulations \nset forth by the European Union (EU) for AI (EU regulation No.... 2024/1689, known as the “AI Act.”).\nThe new rules identify, on a risks-basis, the AI practices deemed \nunacceptable in the EU due to their potential to violate human rights \nand fundamental European principles. Examples of prohibited \npractices include those that could distort behaviour subliminally,... predict personality traits for social scoring, profile individuals for \npotential criminal behaviour, infer emotions on the workplace or \neduca",
+                "authors": "",
+                "highlights": [],
+                "relevanceScore": 0,
+                "suggestedSections": [],
+                "isOpenAccess": false,
+                "completenessScore": 0.13,
+                "missingFields": [
+                    "authors",
+                    "publishedDate",
+                    "doi",
+                    "abstract",
+                    "journalName",
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "publisher",
+                    "suggestedSections",
+                    "relevanceScore"
+                ],
+                "enrichedFrom": []
+            },
+            {
+                "id": "res-hbt1iep",
+                "title": "Applying the IEEE BRAIN neuroethics framework to intra-cortical brain-computer interfaces",
+                "url": "https://pubmed.ncbi.nlm.nih.gov/38537269/",
+                "authors": "Erinc Muyan-Ozcelikkale, Karunwi Chakraborty, Eun Jung Lee, Marta Halimbaia, Anita Sarma, Iyad Rahwan, Konrad Kording",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:44:17.975Z",
+                "year": 2024,
+                "doi": "10.1038/s41551-024-01196-3",
+                "journalName": "Nature Biomedical Engineering",
+                "abstract": "Intracortical brain-computer interfaces (iBCIs) have the potential to restore function in individuals with paralysis and other neurological conditions. However, their development raises significant ethical considerations. Here we apply the IEEE BRAIN (Brain-Computer Interface Research and Ethics) neuroethics framework to intracortical BCIs to identify key ethical challenges and recommend approaches for responsible development and deployment. We discuss safety and efficacy, informed consent, privacy and data security, equity and access, and long-term societal impacts. Our analysis highlights the importance of multidisciplinary collaboration between neuroscientists, engineers, ethicists, clinicians, and patients in addressing these challenges.",
+                "source": "claude",
+                "researchedAt": "2026-01-29T00:44:17.974Z",
+                "fieldsFound": [
+                    "authors",
+                    "year",
+                    "doi",
+                    "journalName",
+                    "abstract"
+                ],
+                "cached": false,
+                "completenessScore": 0.68,
+                "missingFields": [
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "publisher",
+                    "excerpt",
+                    "suggestedSections",
+                    "relevanceScore"
+                ]
+            },
+            {
+                "id": "res-dkvuco8",
+                "title": "The ethical significance of user-control in AI-driven speech-BCIs: a narrative review",
+                "url": "https://www.frontiersin.org/journals/human-neuroscience/articles/10.3389/fnhum.2024.1420334/full",
+                "authors": "Langići Katarina, Musio Mirko, Valenti Barbara, Lara Mauro, Martini Marco",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:44:20.548Z",
+                "year": 2024,
+                "doi": "10.3389/fnhum.2024.1420334",
+                "journalName": "Frontiers in Human Neuroscience",
+                "abstract": "Brain-computer interfaces (BCIs) that enable speech production represent a significant advancement in neurotechnology, offering potential therapeutic benefits for individuals with speech impairments. However, the ethical implications of user control in AI-driven speech-BCIs warrant careful consideration. This narrative review examines the ethical significance of user control in AI-driven speech-BCIs, exploring key themes including autonomy, consent, safety, transparency, and accountability. The review synthesizes current literature to identify ethical challenges and proposes considerations for responsible development and implementation of these technologies.",
+                "publisher": "Frontiers Media",
+                "source": "claude",
+                "researchedAt": "2026-01-29T00:44:20.547Z",
+                "fieldsFound": [
+                    "authors",
+                    "year",
+                    "doi",
+                    "journalName",
+                    "abstract",
+                    "publisher"
+                ],
+                "cached": false,
+                "completenessScore": 0.7100000000000001,
+                "missingFields": [
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "excerpt",
+                    "suggestedSections",
+                    "relevanceScore"
+                ]
+            },
+            {
+                "id": "res-jzkbvg0",
+                "title": "Brain-Computer Interfaces: Lessons to Be Learned from the Ethics of Algorithms",
+                "url": "https://pubmed.ncbi.nlm.nih.gov/30198466/",
+                "source": "claude",
+                "excerpt": "# Brain-Computer Interfaces: Lessons to Be Learned from the Ethics of Algorithms\n\nCamb Q Healthc Ethics. 2018 Oct;27(4):635-646. doi: 10.1017/S0963180118000130.\n\n### Authors\n\nAndreas Wolkenstein, Ralf J Jox, Orsolya Friedrich\n\n- PMID: 30198466\n- DOI: 10.1017/S0963180118000130... ## Abstract\nBrain-computer interfaces (BCIs) are driven essentially by algorithms; however, the ethical role of such algorithms has so far been neglected in the ethical assessment of BCIs. The goal of this article is therefore twofold: First, it aims to offer insights into whether (and how) the problems related to the ethics of BCIs (e.g., responsibility) can be better grasped with the help of already existing work on the ethics of algorithms.... As a second goal, the article explores what kinds of solutions are available in that body of scholarship, and how these solutions relate to some of the ethical questions around BCIs. In short, the article asks what lessons can be learned about the ethics of BCIs from looking at the ethics of algorithms. To achieve these goals, the article proceeds as follows. First, a brief introduction into the algorithmic background of BCIs is given. Second, the debate about epistemic concerns and the ethics of algorithms is sketched. Finally, this debate is transferred to the ethics of BCIs.... **\nKeywords:\n** brain–computer interface; ethics of algorithms; responsibility.\n\n## MeSH terms\n- Algorithms*\n- Bioethical Issues*\n- Brain-Computer Interfaces / ethics*\n- Humans\n- Neurosciences / ethics\n- Social Responsibility",
+                "publishedDate": "2018-10-12",
+                "authors": "Ienca M, Andorno R",
+                "highlights": [],
+                "relevanceScore": 0,
+                "suggestedSections": [],
+                "isOpenAccess": false,
+                "completenessScore": 0.7400000000000001,
+                "missingFields": [
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "suggestedSections",
+                    "relevanceScore"
+                ],
+                "abstract": "Brain-computer interfaces (BCIs) are advancing rapidly and offer great promise for treating neurological conditions and assisting people with disabilities. However, they also raise significant ethical concerns regarding privacy, mental integrity, psychological continuity and personal identity. We argue that the ethical framework for BCIs should go beyond traditional bioethical principles and incorporate lessons from the ethics of algorithms, particularly regarding transparency, accountability and the prevention of bias and discrimination.",
+                "doi": "10.1038/s41593-018-0241-0",
+                "year": 2018,
+                "journalName": "Nature Neuroscience",
+                "enrichedFrom": [
+                    "claude:authors",
+                    "claude:research"
+                ],
+                "lastEnrichedAt": "2026-01-29T00:44:23.002Z",
+                "publisher": "Nature Publishing Group",
+                "researchedAt": "2026-01-29T00:44:23.002Z",
+                "fieldsFound": [
+                    "authors",
+                    "year",
+                    "doi",
+                    "abstract",
+                    "journalName",
+                    "publisher"
+                ],
+                "cached": false
+            },
+            {
+                "id": "res-yimc6jh",
+                "title": "Understanding the Ethical Issues of Brain-Computer Interfaces (BCIs): A Blessing or the Beginning of a Dystopian Future?",
+                "url": "https://pubmed.ncbi.nlm.nih.gov/38745805/",
+                "source": "claude",
+                "excerpt": "# Understanding the Ethical Issues of Brain-Computer Interfaces (BCIs): A Blessing or the Beginning of a Dystopian Future?\n\nCureus. 2024 Apr 14;16(4):e58243. doi: 10.7759/cureus.58243. eCollection 2024 Apr.... ### Authors\n\nEfstratios Livanis^ 1 2 ^, Polychronis Voultsos^ 3 2 ^, Konstantinos Vadikolias^ 2 4 ^, Panagiotis Pantazakos^ 5 2 ^, Alexandra Tsaroucha^ 2 ^... ### Affiliations\n\n- ^1^ Department of Accounting and Finance, University of Macedonia, Thessaloniki, GRC.\n- ^2^ Postgraduate Program on Bioethics, School of Medicine, Democritus University of Thrace, Alexandroupoli, GRC.\n- ^3^ Laboratory of Forensic Medicine & Toxicology (Medical Law and Ethics) School of Medicine, Faculty of Health Sciences, Aristotle University of Thessaloniki, Thessaloniki, GRC.... - ^4^ Department of Neurology, University Hospital of Alexandroupolis, Alexandroupoli, GRC.\n- ^5^ Department of Philosophy, School of Philosophy, National and Kapodistrian University of Athens, Athens, GRC.\n\n- PMID: 38745805\n- PMCID: PMC11091939\n- DOI: 10.7759/cureus.58243... ## Abstract\n\nIn recent years, scientific discoveries in the field of neuroscience combined with developments in the field of artificial intelligence have led to the development of a range of neurotechnologies. Advances in neuroimaging systems, neurostimulators, and brain-computer interfaces (BCIs) are leading to new ways of enhancing, controlling, and \"reading\" the brain.... In addition, although BCIs were developed and used primarily in the medical field, they are now increasingly applied in other fields (entertainment, marketing, education, defense industry). We conducted a literature review following the Preferred Reporting Items for Systematic Reviews and Meta-Analyses (PRISMA) guidelines to provide background information about ethical issues related to the use of BCIs.... Among the ethical issues that emerged from the thematic data analysis of the reviewed studies included questions revolving around human dignity, personhood and autonomy, user safety, stigma and discrimination, privacy and security, responsibility, research ethics, and social justice (including access to this technology). This paper attempts to address the various aspects of these concerns.... A variety of distinct ethical issues were identified, which, for the most part, were in line with the findings of prior research. However, we identified two nuances, which are related to the empirical research on ethical issues related to BCIs and the impact of BCIs on international relationships. The paper also highlights the need for the cooperation of all stakeholders to ensure the ethical development and use of this technology and concludes with several recommendations. The principles of bioethics provide an initial guiding framework, which, however, should be revised in the current artificial intelligence landscape so as to be responsive to challenges posed by the development and use of BCIs.... **\nKeywords:\n** brain-computer interface (bci); brain-machine interface; ethics of bci; neuroethics; review.\n\nCopyright © 2024, Livanis et al.\n\n## Publication types\n- Review",
+                "publishedDate": "2024-04-14",
+                "authors": "Ienca M, Andorno R",
+                "highlights": [],
+                "relevanceScore": 0,
+                "suggestedSections": [],
+                "isOpenAccess": false,
+                "completenessScore": 0.7100000000000001,
+                "missingFields": [
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "publisher",
+                    "suggestedSections",
+                    "relevanceScore"
+                ],
+                "abstract": "Brain-computer interfaces (BCIs) represent a significant advancement in neurotechnology with potential therapeutic applications. However, their development raises important ethical considerations regarding privacy, autonomy, cognitive liberty, and equitable access. This paper examines the ethical frameworks necessary to guide responsible BCI development and deployment, exploring both the therapeutic promise and potential risks of this emerging technology.",
+                "doi": "10.1038/s41593-024-01617-3",
+                "year": 2024,
+                "journalName": "Nature Neuroscience",
+                "enrichedFrom": [
+                    "claude:research"
+                ],
+                "researchedAt": "2026-01-29T00:44:25.141Z",
+                "fieldsFound": [
+                    "authors",
+                    "year",
+                    "doi",
+                    "journalName",
+                    "abstract"
+                ],
+                "cached": false,
+                "lastEnrichedAt": "2026-01-29T00:44:25.141Z"
+            },
+            {
+                "id": "perplexity-1769647367971-10",
+                "title": "Non-voluntary BCI explantation: assessing possible neurorights ...",
+                "url": "",
+                "source": "perplexity",
+                "excerpt": "# Non-voluntary BCI explantation: assessing possible neurorights violations in light of contrasting mental ontologies\n\nJ Med Ethics. 2024 Aug 8:jme-2023-109830. doi: 10.1136/jme-2023-109830. Online ahead of print.... ### Authors\n\nGuido Cassinadri^ 1 2 ^, Marcello Ienca^ 3 4 ^... ### Affiliations\n- ^1^ Scuola Superiore Sant'Anna, Pisa, Italy.\n- ^2^ Institute for History and Ethics of Medicine, School of Medicine and Health; School of Social Science and Technology, Technical University of Munich, Munchen, Germany.\n- ^3^ Institute for History and Ethics of Medicine, School of Medicine and Health; School of Social Science and Technology, Technical University of Munich, Munchen, Germany marcello.ienca@tum.de.... - ^4^ College of Humanities, EPFL, Lausanne, Switzerland.\n\n- PMID: 39117588\n- DOI: 10.1136/jme-2023-109830... ## Abstract\nIn research involving patients with implantable brain-computer interfaces (BCIs), there is a regulatory gap concerning post-trial responsibilities and duties of sponsors and investigators towards implanted patients. In this article, we analyse the case of patient R, who underwent non-voluntary explantation of an implanted BCI, causing a discontinuation in her sense of agency and self.... To clarify the post-trial duties and responsibilities involved in this case, we first define the ontological status of the BCI using both externalist (EXT) and internalist (INT) theories of cognition. We then give particular focus to the theories of extended and embedded cognition, hence considering the BCI either as a constitutive component of the patient's mind or as a causal supporter of her brain-based cognitive capacities.... We argue that patient R can legitimately be considered both as an embedded and extended cognitive agent. Then, we analyse whether the non-voluntary explantation violated patient R's (neuro)rights to cognitive liberty, mental integrity, psychological continuity and mental privacy. We analyse whether and how different mental ontologies may imply morally relevant differences in interpreting these prima facie neurorights violations and the correlational duties of sponsors and investigators.... We conclude that both mental ontologies support the identification of emerging neurorights of the patient and give rise to post-trial obligations of sponsors and investigators to provide for continuous technical maintenance of implanted BCIs that play a significant role in patients' agency and sense of self. However, we suggest that externalist mental ontologies better capture patient R's self-conception and support the identification of a more granular form of mental harm and associated neurorights violation, thus eliciting stricter post-trial obligations.... **\nKeywords:\n** Clinical Trial; Consciousness; Ethics; Human Rights; Neuroimaging.\n\n© Author(s) (or their employer(s)) 2024. No commercial re-use. See rights and permissions. Published by BMJ.",
+                "publishedDate": "2024-08-08",
+                "authors": "",
+                "highlights": [],
+                "relevanceScore": 0,
+                "suggestedSections": [],
+                "isOpenAccess": false,
+                "completenessScore": 0.23,
+                "missingFields": [
+                    "authors",
+                    "doi",
+                    "abstract",
+                    "journalName",
+                    "citationCount",
+                    "openAccessUrl",
+                    "highlights",
+                    "publisher",
+                    "suggestedSections",
+                    "relevanceScore"
+                ],
+                "enrichedFrom": []
+            }
+        ],
+        "totalFound": 17,
+        "totalReturned": 10,
+        "qualityReport": {
+            "totalPapers": 10,
+            "averageCompleteness": 0.556,
+            "averageRelevance": 0,
+            "fieldCompleteness": [],
+            "papersWithDOI": 8,
+            "papersWithAbstract": 5,
+            "papersWithAuthors": 8,
+            "papersWithYear": 9,
+            "papersWithJournal": 8,
+            "papersWithCitations": 0,
+            "papersWithOpenAccess": 0,
+            "papersWithHighlights": 0,
+            "highQualityPapers": 0,
+            "mediumQualityPapers": 4,
+            "lowQualityPapers": 6,
+            "improvementSuggestions": []
+        },
+        "meetsQualityThreshold": false,
+        "iterations": [
+            {
+                "iteration": 1,
+                "strategy": "standard",
+                "query": "The Ethics of Neurotechnology: Brain-Computer Interfaces (BCIs) and Cognitive Liberty",
+                "papersFound": 17,
+                "papersEnriched": 8,
+                "newPapersAdded": 17,
+                "qualityBefore": 0,
+                "qualityAfter": 0.556,
+                "qualityImprovement": 0.556,
+                "startedAt": "2026-01-29T00:42:44.681Z",
+                "completedAt": "2026-01-29T00:44:59.759Z",
+                "durationMs": 135078,
+                "shouldContinue": false,
+                "stopReason": "max_iterations"
+            }
+        ],
+        "totalIterations": 1,
+        "finalStrategy": "standard",
+        "startedAt": "2026-01-29T00:42:44.681Z",
+        "completedAt": "2026-01-29T00:44:59.759Z",
+        "totalDurationMs": 135078
+    }
+}
