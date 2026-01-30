@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/app/components/theme-provider";
 import SupabaseProvider from "@/lib/context/SupabaseContext";
 import { ReactQueryProvider } from "@/lib/providers/react-query-provider";
 import { Toaster } from "sonner";
+import { MobileNotice } from "@/app/components/mobile-notice";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -144,6 +145,7 @@ export default function RootLayout({
           </SupabaseProvider>
         </ReactQueryProvider>
         <Toaster />
+        <MobileNotice />
       </body>
     </html>
   );

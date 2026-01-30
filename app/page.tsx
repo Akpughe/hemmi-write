@@ -217,9 +217,9 @@ export default function HomePage() {
       <FAQJsonLd faqs={homepageFaqs} />
 
       {/* Logo mark */}
-      <div className="absolute top-6 left-6 z-10">
+      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-accent/20 flex items-center justify-center">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-md bg-accent/20 flex items-center justify-center">
             <span className="text-accent font-bold text-sm">
               <img
                 src={
@@ -231,7 +231,7 @@ export default function HomePage() {
               />
             </span>
           </div>
-          <span className="text-foreground/80 font-medium">
+          <span className="text-foreground/80 font-medium hidden sm:block">
             <img
               src={
                 isMounted && theme === "dark"
@@ -246,11 +246,11 @@ export default function HomePage() {
       </div>
 
       {/* Header Actions */}
-      <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 flex items-center gap-1 sm:gap-2 z-10">
         <Link
           href="/pricing"
           className={cn(
-            "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+            "hidden sm:inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
           )}>
           Pricing
         </Link>
@@ -260,7 +260,7 @@ export default function HomePage() {
           <button
             onClick={handleLoginClick}
             className={cn(
-              "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+              "inline-flex items-center justify-center rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
             )}>
             Log in
           </button>
@@ -269,14 +269,14 @@ export default function HomePage() {
       </div>
 
       {/* Hero section */}
-      <div className="min-h-[85vh] flex flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-2xl flex flex-col items-center gap-8">
+      <div className="min-h-screen sm:min-h-[85vh] flex flex-col items-center justify-center px-4 py-8 sm:py-12">
+        <div className="w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8">
           {/* Hero text */}
-          <div className="text-center space-y-3">
-            <h1 className="text-4xl md:text-4xl font-medium font-fraunces tracking-tight text-balance">
+          <div className="text-center space-y-2 sm:space-y-3 pt-8 sm:pt-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-medium font-fraunces tracking-tight text-balance leading-tight">
               What do you want to write?
             </h1>
-            <p className="text-foreground/80 font-fraunces text-lg">
+            <p className="text-sm sm:text-base text-foreground/80 font-fraunces">
               Research, plan, and write with AI assistance
             </p>
           </div>
