@@ -192,8 +192,9 @@ class SubscriptionService {
 
   /**
    * Get user's active subscription by user ID (uses service role to bypass RLS)
+   * Use this in webhook/service contexts where there's no authenticated user session
    */
-  private async getActiveSubscriptionByUserId(userId: string): Promise<Subscription | null> {
+  async getActiveSubscriptionByUserId(userId: string): Promise<Subscription | null> {
     try {
       const supabase = await createServiceRoleSupabaseClient();
 
@@ -251,6 +252,99 @@ class SubscriptionService {
     } catch (error) {
       console.error('[SubscriptionService] Get active subscription error:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get subscription by gateway subscription ID (for webhook processing)
+   */
+  async getSubscriptionByGatewayId(gatewaySubscriptionId: string): Promise<Subscription | null> {
+    try {
+      const supabase = await createServiceRoleSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('gateway_subscription_id', gatewaySubscriptionId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned
+          return null;
+        }
+        console.error('[SubscriptionService] Get subscription by gateway ID error:', error);
+        return null;
+      }
+
+      return this.mapSubscription(data);
+    } catch (error) {
+      console.error('[SubscriptionService] Get subscription by gateway ID error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Mark subscription as past_due (for failed renewals)
+   */
+  async markSubscriptionPastDue(subscriptionId: string): Promise<void> {
+    try {
+      const supabase = await createServiceRoleSupabaseClient();
+
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'past_due',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', subscriptionId);
+
+      if (error) {
+        console.error('[SubscriptionService] Mark past_due error:', error);
+        throw error;
+      }
+
+      console.log('[SubscriptionService] Subscription marked as past_due:', subscriptionId);
+    } catch (error) {
+      console.error('[SubscriptionService] Mark past_due error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mark subscription as cancelled by gateway ID
+   */
+  async cancelSubscriptionByGatewayId(gatewaySubscriptionId: string): Promise<void> {
+    try {
+      const subscription = await this.getSubscriptionByGatewayId(gatewaySubscriptionId);
+      if (!subscription) {
+        console.warn('[SubscriptionService] Subscription not found for gateway ID:', gatewaySubscriptionId);
+        return;
+      }
+
+      const supabase = await createServiceRoleSupabaseClient();
+
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'cancelled',
+          auto_renew: false,
+          cancelled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', subscription.id);
+
+      if (error) {
+        console.error('[SubscriptionService] Cancel by gateway ID error:', error);
+        throw error;
+      }
+
+      console.log('[SubscriptionService] Subscription cancelled by gateway ID:', gatewaySubscriptionId);
+    } catch (error) {
+      console.error('[SubscriptionService] Cancel by gateway ID error:', error);
+      throw error;
     }
   }
 
@@ -315,6 +409,7 @@ class SubscriptionService {
 
   /**
    * Add tokens via one-time purchase (top-up)
+   * Returns { success: boolean, error?: string } for better error handling
    */
   async addTokens(
     userId: string,
@@ -323,12 +418,12 @@ class SubscriptionService {
     currency: Currency,
     gateway: PaymentGateway,
     transactionId: string
-  ): Promise<boolean> {
+  ): Promise<{ success: boolean; error?: string; subscriptionId?: string }> {
     try {
       const supabase = await createServiceRoleSupabaseClient();
 
-      // Get or create active subscription
-      let subscription = await this.getActiveSubscription(userId);
+      // Use service role method to bypass RLS (important for webhook context)
+      let subscription = await this.getActiveSubscriptionByUserId(userId);
 
       if (!subscription) {
         // Create a one-time subscription
@@ -336,7 +431,7 @@ class SubscriptionService {
         const periodEnd = new Date(periodStart);
         periodEnd.setFullYear(periodEnd.getFullYear() + 1); // Valid for 1 year
 
-        console.log('[SubscriptionService] Creating one-time subscription with tokens:', tokens);
+        console.log('[SubscriptionService] Creating one-time subscription with tokens:', tokens, 'for user:', userId);
 
         const { data: newSub, error: subError } = await supabase
           .from('subscriptions')
@@ -359,14 +454,18 @@ class SubscriptionService {
 
         if (subError) {
           console.error('[SubscriptionService] Create one-time subscription error:', subError);
-          throw subError;
+          return { success: false, error: `Failed to create subscription: ${subError.message}` };
         }
 
         subscription = this.mapSubscription(newSub);
+        console.log('[SubscriptionService] Created new one-time subscription:', subscription.id);
       } else {
         // Add tokens to existing subscription
         const newBalance = subscription.tokensRemaining + tokens;
         const newAllocation = subscription.tokenAllocation + tokens;
+
+        console.log('[SubscriptionService] Adding', tokens, 'tokens to existing subscription:', subscription.id,
+          'Current balance:', subscription.tokensRemaining, 'New balance:', newBalance);
 
         const { error: updateError } = await supabase
           .from('subscriptions')
@@ -378,12 +477,14 @@ class SubscriptionService {
 
         if (updateError) {
           console.error('[SubscriptionService] Update tokens error:', updateError);
-          throw updateError;
+          return { success: false, error: `Failed to update tokens: ${updateError.message}` };
         }
+
+        console.log('[SubscriptionService] Tokens updated successfully for subscription:', subscription.id);
       }
 
       // Record payment history
-      await supabase.from('payment_history').insert({
+      const { error: historyError } = await supabase.from('payment_history').insert({
         user_id: userId,
         subscription_id: subscription.id,
         transaction_id: transactionId,
@@ -395,10 +496,19 @@ class SubscriptionService {
         status: 'success',
       });
 
-      return true;
+      if (historyError) {
+        console.error('[SubscriptionService] Record payment history error:', historyError);
+        // Don't fail the whole operation - tokens were added, just log this error
+        console.warn('[SubscriptionService] Tokens added but payment history failed to record');
+      } else {
+        console.log('[SubscriptionService] Payment history recorded for transaction:', transactionId);
+      }
+
+      return { success: true, subscriptionId: subscription.id };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('[SubscriptionService] Add tokens error:', error);
-      return false;
+      return { success: false, error: errorMessage };
     }
   }
 

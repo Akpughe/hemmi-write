@@ -141,7 +141,7 @@ async function handleCheckoutSessionCompleted(event: { data: { object: Record<st
       }
     } else {
       // One-time payment or top-up
-      await subscriptionService.addTokens(
+      const result = await subscriptionService.addTokens(
         userId,
         tokens,
         amountPaid,
@@ -150,7 +150,14 @@ async function handleCheckoutSessionCompleted(event: { data: { object: Record<st
         session.id
       );
 
-      console.log('[Stripe Webhook] Tokens added for user:', userId, 'Amount:', tokens);
+      if (!result.success) {
+        console.error('[Stripe Webhook] Failed to add tokens for user:', userId,
+          'Error:', result.error);
+        throw new Error(`Failed to add tokens: ${result.error}`);
+      }
+
+      console.log('[Stripe Webhook] Tokens added successfully for user:', userId,
+        'Tokens:', tokens, 'Subscription:', result.subscriptionId);
     }
   } catch (error) {
     console.error('[Stripe Webhook] Handle checkout session error:', error);
@@ -172,14 +179,22 @@ async function handleSubscriptionCreated(event: { data: { object: Record<string,
  */
 async function handleSubscriptionUpdated(event: { data: { object: Record<string, unknown> } }) {
   const subscription = event.data.object as { id: string; customer: string; status: string; current_period_end: number; cancel_at_period_end: boolean; metadata: Record<string, string> };
-  console.log('[Stripe Webhook] Subscription updated:', subscription.id);
+  console.log('[Stripe Webhook] Subscription updated:', subscription.id, 'Status:', subscription.status);
 
   try {
     // If subscription is set to cancel at period end, update our database
     if (subscription.cancel_at_period_end) {
-      // Find and update subscription in our database
-      // This would require a query - for now we log it
       console.log('[Stripe Webhook] Subscription will cancel at period end:', subscription.id);
+      // We don't cancel yet - just log. The actual cancellation happens when subscription.deleted fires
+    }
+
+    // Handle status changes
+    if (subscription.status === 'past_due') {
+      const localSub = await subscriptionService.getSubscriptionByGatewayId(subscription.id);
+      if (localSub) {
+        await subscriptionService.markSubscriptionPastDue(localSub.id);
+        console.log('[Stripe Webhook] Marked subscription as past_due:', subscription.id);
+      }
     }
   } catch (error) {
     console.error('[Stripe Webhook] Handle subscription updated error:', error);
@@ -194,9 +209,8 @@ async function handleSubscriptionDeleted(event: { data: { object: Record<string,
   console.log('[Stripe Webhook] Subscription deleted:', subscription.id);
 
   try {
-    // Find subscription by gateway ID and mark as cancelled
-    // This would require a query to find the subscription
-    // For now, we log it - the cron job will handle expiry
+    await subscriptionService.cancelSubscriptionByGatewayId(subscription.id);
+    console.log('[Stripe Webhook] Subscription cancelled in database:', subscription.id);
   } catch (error) {
     console.error('[Stripe Webhook] Handle subscription deleted error:', error);
   }
@@ -207,20 +221,20 @@ async function handleSubscriptionDeleted(event: { data: { object: Record<string,
  */
 async function handleInvoicePaymentSucceeded(event: { data: { object: Record<string, unknown> } }) {
   const invoice = event.data.object as { id: string; customer: string; subscription: string | null; amount_paid: number; currency: string; billing_reason: string; metadata: Record<string, string> };
-  console.log('[Stripe Webhook] Invoice payment succeeded:', invoice.id);
+  console.log('[Stripe Webhook] Invoice payment succeeded:', invoice.id, 'Reason:', invoice.billing_reason);
 
   try {
     // If this is a subscription renewal
     if (invoice.billing_reason === 'subscription_cycle' && invoice.subscription) {
-      // Find subscription by gateway ID and renew it
-      // This would require a query to find the subscription ID
       console.log('[Stripe Webhook] Renewing subscription:', invoice.subscription);
 
-      // TODO: Implement subscription renewal by gateway_subscription_id
-      // const subscription = await findSubscriptionByGatewayId(invoice.subscription);
-      // if (subscription) {
-      //   await subscriptionService.renewSubscription(subscription.id);
-      // }
+      const subscription = await subscriptionService.getSubscriptionByGatewayId(invoice.subscription);
+      if (subscription) {
+        await subscriptionService.renewSubscription(subscription.id);
+        console.log('[Stripe Webhook] Subscription renewed successfully:', subscription.id);
+      } else {
+        console.warn('[Stripe Webhook] Subscription not found for renewal:', invoice.subscription);
+      }
     }
   } catch (error) {
     console.error('[Stripe Webhook] Handle invoice payment succeeded error:', error);
@@ -232,15 +246,20 @@ async function handleInvoicePaymentSucceeded(event: { data: { object: Record<str
  */
 async function handleInvoicePaymentFailed(event: { data: { object: Record<string, unknown> } }) {
   const invoice = event.data.object as { id: string; customer: string; subscription: string | null; amount_due: number; currency: string; attempt_count: number; metadata: Record<string, string> };
-  console.log('[Stripe Webhook] Invoice payment failed:', invoice.id);
+  console.log('[Stripe Webhook] Invoice payment failed:', invoice.id, 'Attempt:', invoice.attempt_count);
 
   try {
     // Mark subscription as past_due
     if (invoice.subscription) {
-      // Find subscription by gateway ID and mark as past_due
       console.log('[Stripe Webhook] Marking subscription as past_due:', invoice.subscription);
 
-      // TODO: Implement marking subscription as past_due
+      const subscription = await subscriptionService.getSubscriptionByGatewayId(invoice.subscription);
+      if (subscription) {
+        await subscriptionService.markSubscriptionPastDue(subscription.id);
+        console.log('[Stripe Webhook] Subscription marked as past_due:', subscription.id);
+      } else {
+        console.warn('[Stripe Webhook] Subscription not found for past_due marking:', invoice.subscription);
+      }
     }
   } catch (error) {
     console.error('[Stripe Webhook] Handle invoice payment failed error:', error);
