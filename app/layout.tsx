@@ -38,10 +38,86 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Hemmi - AI Writing Assistant",
+const siteConfig = {
+  name: "Hemmi",
+  title: "Hemmi - AI Writing Assistant for Research & Academic Writing",
   description:
-    "A powerful writing application with AI assistance and rich text editing",
+    "Write research papers, essays, and reports 10x faster with AI assistance. Get high-quality, human-like content with proper citations and academic rigor.",
+  url: process.env.NEXT_PUBLIC_APP_URL || "https://hemmi.app",
+  ogImage: "https://ik.imagekit.io/r9a7zbqsf/og.png",
+  creator: "Hemmi AI",
+  keywords: [
+    "AI writing assistant",
+    "research paper writer",
+    "essay writer",
+    "academic writing tool",
+    "AI content generator",
+    "citation generator",
+    "APA citation",
+    "MLA citation",
+    "research assistant",
+    "thesis writer",
+    "dissertation help",
+    "academic AI",
+  ],
+};
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
+  title: {
+    default: siteConfig.title,
+    template: `%s | ${siteConfig.name}`,
+  },
+  description: siteConfig.description,
+  keywords: siteConfig.keywords,
+  authors: [{ name: siteConfig.creator }],
+  creator: siteConfig.creator,
+  publisher: siteConfig.creator,
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteConfig.url,
+    title: siteConfig.title,
+    description: siteConfig.description,
+    siteName: siteConfig.name,
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Hemmi - AI Writing Assistant",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.title,
+    description: siteConfig.description,
+    images: [siteConfig.ogImage],
+    creator: "@hemmi_ai",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION,
+  },
+  alternates: {
+    canonical: siteConfig.url,
+  },
 };
 
 export default function RootLayout({
@@ -59,7 +135,7 @@ export default function RootLayout({
             <EditorProvider>
               <ThemeProvider
                 attribute="class"
-                defaultTheme="system"
+                defaultTheme="light"
                 enableSystem
                 disableTransitionOnChange>
                 {children}

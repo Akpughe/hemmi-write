@@ -141,7 +141,7 @@ export function PlanCard({
   const cardInner = (
     <section
       className={cn(
-        "relative flex flex-col rounded-[28px] bg-white px-8 pb-8 pt-7 shadow-[0_18px_60px_rgba(15,23,42,0.10)]",
+        "relative flex flex-col rounded-[28px] bg-card px-8 pb-8 pt-7 shadow-[0_18px_60px_rgba(15,23,42,0.10)] dark:shadow-[0_18px_60px_rgba(0,0,0,0.3)]",
         // make highlighted card a bit taller than the side cards; ensure side cards (Basic & Pro) match
         plan.highlight
           ? "min-h-[680px] md:min-h-fit"

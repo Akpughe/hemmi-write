@@ -17,10 +17,10 @@ export default function ProgressStep({ status, title, description }: ProgressSte
           <CheckCircle2 className="w-6 h-6 text-green-500" />
         )}
         {status === 'active' && (
-          <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+          <Loader2 className="w-6 h-6 text-blue-600 dark:text-blue-400 animate-spin" />
         )}
         {status === 'pending' && (
-          <Circle className="w-6 h-6 text-gray-300" />
+          <Circle className="w-6 h-6 text-muted-foreground/50" />
         )}
       </div>
 
@@ -29,10 +29,10 @@ export default function ProgressStep({ status, title, description }: ProgressSte
         <h4
           className={`font-medium ${
             status === 'active'
-              ? 'text-blue-900'
+              ? 'text-blue-700 dark:text-blue-300'
               : status === 'completed'
-              ? 'text-green-900'
-              : 'text-gray-500'
+              ? 'text-green-700 dark:text-green-400'
+              : 'text-muted-foreground'
           }`}
         >
           {title}
@@ -41,10 +41,10 @@ export default function ProgressStep({ status, title, description }: ProgressSte
           <p
             className={`text-sm mt-0.5 ${
               status === 'active'
-                ? 'text-blue-700'
+                ? 'text-blue-600 dark:text-blue-400'
                 : status === 'completed'
-                ? 'text-green-700'
-                : 'text-gray-400'
+                ? 'text-green-600 dark:text-green-500'
+                : 'text-muted-foreground/70'
             }`}
           >
             {description}

@@ -58,9 +58,9 @@ export default function StepResearchReview({ sources, isLoading, onConfirm, onBa
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-gray-600 text-lg">Researching sources...</p>
-        <p className="text-gray-500 text-sm mt-2">This may take a moment</p>
+        <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mb-4" />
+        <p className="text-muted-foreground text-lg">Researching sources...</p>
+        <p className="text-muted-foreground/70 text-sm mt-2">This may take a moment</p>
       </div>
     );
   }
@@ -68,10 +68,10 @@ export default function StepResearchReview({ sources, isLoading, onConfirm, onBa
   if (sources.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-600 mb-4">No sources found. Please try a different topic.</p>
+        <p className="text-muted-foreground mb-4">No sources found. Please try a different topic.</p>
         <button
           onClick={onBack}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors"
         >
           Go Back
         </button>
@@ -82,16 +82,16 @@ export default function StepResearchReview({ sources, isLoading, onConfirm, onBa
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-gray-600 mb-4">
+        <p className="text-muted-foreground mb-4">
           Review the sources we found and select which ones to include in your document. Selected sources will be cited using numbered markers [1], [2], [3], etc.
         </p>
 
-        <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between bg-muted/50 p-4 rounded-lg border border-border">
           <div>
-            <p className="font-medium text-gray-900">
+            <p className="font-medium text-foreground">
               {selectedCount} of {sources.length} sources selected
             </p>
-            <p className="text-sm text-gray-600">Recommended: 3-5 sources for best quality</p>
+            <p className="text-sm text-muted-foreground">Recommended: 3-5 sources for best quality</p>
           </div>
           <div className="flex gap-2">
             <button
@@ -102,7 +102,7 @@ export default function StepResearchReview({ sources, isLoading, onConfirm, onBa
             </button>
             <button
               onClick={handleDeselectAll}
-              className="px-3 py-1.5 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+              className="px-3 py-1.5 text-sm bg-muted text-foreground rounded hover:bg-muted/80 transition-colors"
             >
               Deselect All
             </button>
@@ -122,19 +122,19 @@ export default function StepResearchReview({ sources, isLoading, onConfirm, onBa
         ))}
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">How citations work:</h4>
-        <ul className="list-disc list-inside space-y-1 text-sm text-blue-800">
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+        <h4 className="font-semibold text-blue-700 dark:text-blue-300 mb-2">How citations work:</h4>
+        <ul className="list-disc list-inside space-y-1 text-sm text-blue-700 dark:text-blue-300">
           <li>Selected sources will be numbered in the order shown above [1], [2], [3]...</li>
           <li>The AI will reference these sources throughout your document</li>
           <li>A formatted reference list will be added at the end</li>
         </ul>
       </div>
 
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           Back

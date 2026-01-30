@@ -479,34 +479,34 @@ export default function StepGenerating({
     return (
       <div className="space-y-6">
         {/* Progress Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 {allChaptersComplete
                   ? "All Chapters Complete!"
                   : `Generating Chapter ${currentChapterIndex + 1} of ${
                       structure.sections.length
                     }`}
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 {completedChapters} chapters approved •{" "}
                 {totalWords.toLocaleString()} words written
               </p>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {Math.round(
                   (completedChapters / structure.sections.length) * 100
                 )}
                 %
               </div>
-              <div className="text-xs text-gray-500">Complete</div>
+              <div className="text-xs text-muted-foreground">Complete</div>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-muted rounded-full h-2">
             <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{
@@ -520,17 +520,17 @@ export default function StepGenerating({
 
         {/* Table of Contents Preview */}
         {displayTOC && (
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-900 mb-2 text-sm flex items-center gap-2">
-              <FileText className="w-4 h-4 text-gray-500" />
+          <div className="bg-card border border-border rounded-lg p-4">
+            <h4 className="font-semibold text-foreground mb-2 text-sm flex items-center gap-2">
+              <FileText className="w-4 h-4 text-muted-foreground" />
               Table of Contents
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
               {displayTOC.items.map((item, idx) => (
                 <div
                   key={idx}
-                  className="text-xs text-gray-600 flex items-center gap-2">
-                  <span className="font-mono text-gray-400 w-6 text-right">
+                  className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span className="font-mono text-muted-foreground/70 w-6 text-right">
                     {item.sectionNumber || "•"}
                   </span>
                   <span className={item.title === "References" ? "italic" : ""}>
@@ -549,38 +549,38 @@ export default function StepGenerating({
               key={index}
               className={`border rounded-lg p-3 transition-all ${
                 chapter.state === "generating"
-                  ? "border-blue-400 bg-blue-50"
+                  ? "border-blue-500/50 bg-blue-500/10"
                   : chapter.state === "approved"
-                  ? "border-green-300 bg-green-50"
+                  ? "border-green-500/50 bg-green-500/10"
                   : chapter.state === "review"
-                  ? "border-yellow-400 bg-yellow-50"
+                  ? "border-yellow-500/50 bg-yellow-500/10"
                   : chapter.state === "error"
-                  ? "border-red-300 bg-red-50"
-                  : "border-gray-200 bg-gray-50"
+                  ? "border-red-500/50 bg-red-500/10"
+                  : "border-border bg-muted/50"
               }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {chapter.state === "generating" && (
-                    <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                    <Loader2 className="w-4 h-4 text-blue-600 dark:text-blue-400 animate-spin" />
                   )}
                   {chapter.state === "approved" && (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
                   )}
                   {chapter.state === "review" && (
-                    <Eye className="w-4 h-4 text-yellow-600" />
+                    <Eye className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                   )}
                   {chapter.state === "error" && (
-                    <AlertCircle className="w-4 h-4 text-red-600" />
+                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                   )}
                   {chapter.state === "pending" && (
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    <div className="w-4 h-4 rounded-full border-2 border-muted-foreground/50" />
                   )}
 
                   <div>
-                    <div className="font-medium text-sm text-gray-900">
+                    <div className="font-medium text-sm text-foreground">
                       {structure.sections[index].heading}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       {chapter.wordCount > 0
                         ? `${chapter.wordCount.toLocaleString()} words`
                         : "Not started"}
@@ -596,7 +596,7 @@ export default function StepGenerating({
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleRegenerateChapter(index)}
-                      className="px-3 py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 transition-colors">
+                      className="px-3 py-1 text-xs border border-border rounded hover:bg-muted transition-colors text-foreground">
                       Regenerate
                     </button>
                     <button
@@ -623,19 +623,19 @@ export default function StepGenerating({
         {currentChapter &&
           (currentChapter.state === "generating" ||
             currentChapter.state === "review") && (
-            <div className="border border-gray-200 rounded-lg p-6 bg-white">
+            <div className="border border-border rounded-lg p-6 bg-card">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-gray-900">
+                <h4 className="font-semibold text-foreground">
                   {structure.sections[currentChapterIndex].heading}
                 </h4>
                 {currentChapter.state === "generating" && (
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-muted-foreground">
                     {currentChapter.wordCount} words...
                   </span>
                 )}
               </div>
 
-              <div className="max-h-[400px] overflow-y-auto prose prose-sm max-w-none text-black">
+              <div className="max-h-[400px] overflow-y-auto prose prose-sm max-w-none text-foreground dark:prose-invert">
                 {currentChapter.content || "Starting generation..."}
                 {currentChapter.state === "generating" && (
                   <span className="inline-block w-2 h-4 bg-blue-600 animate-pulse ml-1" />
@@ -646,14 +646,14 @@ export default function StepGenerating({
 
         {/* Final Insert Button (when all complete) */}
         {allChaptersComplete && (
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-            <div className="text-sm text-gray-600">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+            <div className="text-sm text-muted-foreground">
               {totalWords.toLocaleString()} words across {completedChapters}{" "}
               chapters
             </div>
             <button
               onClick={onComplete}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+              className="px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
               Cancel
             </button>
             <button
@@ -673,10 +673,10 @@ export default function StepGenerating({
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <h3 className="text-xl font-semibold text-foreground mb-2">
           Generation Failed
         </h3>
-        <p className="text-gray-600 mb-4">{error}</p>
+        <p className="text-muted-foreground mb-4">{error}</p>
         <button
           onClick={() => {
             setStatus("generating");
@@ -694,12 +694,12 @@ export default function StepGenerating({
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3 mb-4">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-blue-600 dark:text-blue-400 animate-spin" />
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-foreground">
               Generating Your {config.label}...
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               {generatedContent.length > 0
                 ? `${generatedContent.split(/\s+/).length} words written...`
                 : "Starting generation..."}
@@ -708,16 +708,16 @@ export default function StepGenerating({
         </div>
 
         {generatedContent.length > 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg p-6 max-h-[500px] overflow-y-auto">
-            <div className="prose prose-sm max-w-none whitespace-pre-wrap">
+          <div className="bg-card border border-border rounded-lg p-6 max-h-[500px] overflow-y-auto">
+            <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground dark:prose-invert">
               {generatedContent}
               <span className="inline-block w-2 h-4 bg-blue-600 animate-pulse ml-1" />
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">Processing:</h4>
-            <ul className="space-y-2 text-sm text-gray-600">
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <h4 className="font-medium text-foreground mb-2">Processing:</h4>
+            <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
                 Analyzing {sources.length} sources
@@ -744,25 +744,25 @@ export default function StepGenerating({
       </div>
 
       <div className="text-center mb-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <h3 className="text-xl font-semibold text-foreground mb-2">
           Document Generated!
         </h3>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Your {config.label.toLowerCase()} is ready to be inserted into the
           editor
         </p>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg p-6 max-h-[400px] overflow-y-auto">
+      <div className="bg-card border border-border rounded-lg p-6 max-h-[400px] overflow-y-auto">
         <div
-          className="prose prose-sm max-w-none [&_*]:!text-black"
+          className="prose prose-sm max-w-none text-foreground dark:prose-invert"
           dangerouslySetInnerHTML={{ __html: generatedContent }}
         />
       </div>
 
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="font-semibold text-green-900 mb-2">What's included:</h4>
-        <ul className="list-disc list-inside space-y-1 text-sm text-green-800">
+      <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+        <h4 className="font-semibold text-green-700 dark:text-green-300 mb-2">What's included:</h4>
+        <ul className="list-disc list-inside space-y-1 text-sm text-green-700 dark:text-green-300">
           <li>
             {sources.length} sources cited using {config.citationStyle} format
           </li>
@@ -771,10 +771,10 @@ export default function StepGenerating({
         </ul>
       </div>
 
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
         <button
           onClick={onComplete}
-          className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+          className="px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
           Cancel
         </button>
         <button

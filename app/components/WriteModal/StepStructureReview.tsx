@@ -217,10 +217,10 @@ export default function StepStructureReview({
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        <h3 className="text-xl font-semibold text-foreground mb-2">
           Structure Generation Failed
         </h3>
-        <p className="text-gray-600 mb-4">{error}</p>
+        <p className="text-muted-foreground mb-4">{error}</p>
         <button
           onClick={() => generateStructure()}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
@@ -233,11 +233,11 @@ export default function StepStructureReview({
   if (isLoading || !structure) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-gray-600 text-lg">
+        <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mb-4" />
+        <p className="text-muted-foreground text-lg">
           Planning your document structure...
         </p>
-        <p className="text-gray-500 text-sm mt-2">
+        <p className="text-muted-foreground/70 text-sm mt-2">
           Analyzing sources and creating outline
         </p>
       </div>
@@ -246,14 +246,14 @@ export default function StepStructureReview({
 
   return (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <FileText className="w-5 h-5 text-blue-600 mt-0.5" />
+          <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-900 mb-1">
+            <h4 className="font-semibold text-blue-700 dark:text-blue-300 mb-1">
               Review the Writing Plan
             </h4>
-            <p className="text-sm text-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
               This is our approach for writing your {config.label.toLowerCase()}
               . You can provide feedback to refine the structure before we start
               writing.
@@ -263,13 +263,13 @@ export default function StepStructureReview({
       </div>
 
       {/* Display Structure */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
+      <div className="bg-card border border-border rounded-lg p-6 space-y-6">
         {/* Title */}
         <div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
+          <h3 className="text-xl font-bold text-foreground mb-2">
             {structure.title}
           </h3>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-muted-foreground">
             {config.label} • {structure.estimatedWordCount} words •{" "}
             {structure.sections.length} sections
           </div>
@@ -277,29 +277,29 @@ export default function StepStructureReview({
 
         {/* Approach & Tone */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-700 text-sm mb-2">
+          <div className="bg-muted/50 rounded-lg p-4">
+            <h4 className="font-semibold text-foreground/80 text-sm mb-2">
               Writing Approach
             </h4>
-            <p className="text-sm text-gray-900">{structure.approach}</p>
+            <p className="text-sm text-foreground">{structure.approach}</p>
           </div>
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-semibold text-gray-700 text-sm mb-2">Tone</h4>
-            <p className="text-sm text-gray-900">{structure.tone}</p>
+          <div className="bg-muted/50 rounded-lg p-4">
+            <h4 className="font-semibold text-foreground/80 text-sm mb-2">Tone</h4>
+            <p className="text-sm text-foreground">{structure.tone}</p>
           </div>
         </div>
 
         {/* Sections */}
         <div>
-          <h4 className="font-semibold text-gray-700 mb-3">
+          <h4 className="font-semibold text-foreground/80 mb-3">
             Document Structure
           </h4>
 
           {/* Table of Contents Preview */}
           {(structure.tableOfContents || structure.sections.length > 0) && (
-            <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h5 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-500" />
+            <div className="mb-6 bg-muted/50 rounded-lg p-4 border border-border">
+              <h5 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-muted-foreground" />
                 Table of Contents
               </h5>
               <div className="space-y-1 pl-1">
@@ -314,8 +314,8 @@ export default function StepStructureReview({
                         : undefined,
                   }))
                 ).map((item, idx) => (
-                  <div key={idx} className="text-sm text-gray-700 font-mono">
-                    <span className="text-gray-400 mr-2">
+                  <div key={idx} className="text-sm text-foreground/80 font-mono">
+                    <span className="text-muted-foreground mr-2">
                       {item.sectionNumber || "•"}
                     </span>
                     {item.title}
@@ -326,8 +326,8 @@ export default function StepStructureReview({
                   !(structure.tableOfContents?.items || []).some((i) =>
                     i.title.toLowerCase().includes("references")
                   ) && (
-                    <div className="text-sm text-gray-700 font-mono">
-                      <span className="text-gray-400 mr-2">•</span>
+                    <div className="text-sm text-foreground/80 font-mono">
+                      <span className="text-muted-foreground mr-2">•</span>
                       References
                     </div>
                   )}
@@ -338,17 +338,17 @@ export default function StepStructureReview({
           <div className="space-y-4">
             {structure.sections.map((section, index) => (
               <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
-                <h5 className="font-semibold text-gray-900 mb-1">
+                <h5 className="font-semibold text-foreground mb-1">
                   {index + 1}. {section.heading}
                 </h5>
-                <p className="text-sm text-gray-600 mb-2">
+                <p className="text-sm text-muted-foreground mb-2">
                   {section.description}
                 </p>
                 <ul className="space-y-1">
                   {(section.keyPoints ?? []).map((point, pointIndex) => (
                     <li
                       key={pointIndex}
-                      className="text-sm text-gray-700 flex items-start gap-2">
+                      className="text-sm text-foreground/80 flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                       <span>{point}</span>
                     </li>
@@ -362,8 +362,8 @@ export default function StepStructureReview({
 
       {/* Regeneration Progress */}
       {isRegenerating && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
-          <h4 className="font-semibold text-gray-900 mb-4">
+        <div className="bg-card border border-border rounded-lg p-6 space-y-4">
+          <h4 className="font-semibold text-foreground mb-4">
             Deep Regeneration in Progress...
           </h4>
           <ProgressStep
@@ -407,10 +407,10 @@ export default function StepStructureReview({
 
       {/* Feedback Section */}
       {!isRegenerating && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+        <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
           <label
             htmlFor="feedback"
-            className="block text-sm font-medium text-gray-700">
+            className="block text-sm font-medium text-foreground">
             Want to make changes? Provide feedback:
           </label>
           <textarea
@@ -418,17 +418,17 @@ export default function StepStructureReview({
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="e.g., Add a section on case studies, expand the methodology section, change the tone to be more persuasive, include more analysis on environmental impacts..."
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-black"
+            className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none bg-card text-foreground"
             rows={3}
           />
           <button
             onClick={handleRegenerate}
             disabled={!feedback.trim()}
-            className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+            className="w-full px-4 py-2 bg-foreground text-background rounded-lg hover:bg-foreground/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             Deep Regenerate Structure
           </button>
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-600 dark:text-red-400 text-sm">
               {error}
             </div>
           )}
@@ -436,10 +436,10 @@ export default function StepStructureReview({
       )}
 
       {/* Navigation */}
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+          className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
           Back
         </button>

@@ -110,13 +110,13 @@ export function SubscriptionStatus({ className }: SubscriptionStatusProps) {
     return (
       <Card className={cn("animate-pulse", className)}>
         <CardHeader>
-          <div className="h-6 w-48 bg-gray-200 rounded" />
-          <div className="h-4 w-64 bg-gray-200 rounded mt-2" />
+          <div className="h-6 w-48 bg-muted rounded" />
+          <div className="h-4 w-64 bg-muted rounded mt-2" />
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="h-4 w-full bg-gray-200 rounded" />
-            <div className="h-4 w-3/4 bg-gray-200 rounded" />
+            <div className="h-4 w-full bg-muted rounded" />
+            <div className="h-4 w-3/4 bg-muted rounded" />
           </div>
         </CardContent>
       </Card>
@@ -199,7 +199,7 @@ export function SubscriptionStatus({ className }: SubscriptionStatusProps) {
               {balance.toLocaleString()} / {subscription.tokenAllocation.toLocaleString()}
             </span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-yellow-400 to-yellow-600 transition-all"
               style={{
@@ -221,8 +221,8 @@ export function SubscriptionStatus({ className }: SubscriptionStatusProps) {
             className={cn(
               "rounded-lg p-3 flex items-start gap-3",
               isExpiringSoon
-                ? "bg-orange-50 border border-orange-200"
-                : "bg-gray-50 border"
+                ? "bg-orange-500/10 border border-orange-500/30"
+                : "bg-muted/50 border"
             )}>
             <Calendar
               className={cn(

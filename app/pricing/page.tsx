@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { X, Sparkles, ArrowRight } from "lucide-react";
+import Script from "next/script";
 
 import {
   BillingToggle,
@@ -21,6 +22,7 @@ import {
   formatMoney,
   buildPlanData,
 } from "@/lib/utils/pricing";
+import { BreadcrumbJsonLd, WebPageJsonLd } from "@/app/components/seo/JsonLd";
 
 const billingOptions: { label: string; value: BillingCycle }[] = [
   { label: "Yearly", value: "yearly" },
@@ -32,9 +34,8 @@ export default function PricingPage() {
   const [currency, setCurrency] = useState<Currency>("USD");
   const [pricing, setPricing] = useState<PricingData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [checkoutLoadingPlan, setCheckoutLoadingPlan] = useState<PlanKey | null>(
-    null
-  );
+  const [checkoutLoadingPlan, setCheckoutLoadingPlan] =
+    useState<PlanKey | null>(null);
 
   // Fetch pricing from database
   useEffect(() => {
@@ -123,19 +124,55 @@ export default function PricingPage() {
     return (
       <main className="relative min-h-screen bg-surface-warm px-4 py-10">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-center gap-4">
-          <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
-          <div className="h-4 w-96 animate-pulse rounded bg-gray-200" />
+          <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-96 animate-pulse rounded bg-muted" />
         </div>
       </main>
     );
   }
 
+  // Generate pricing schema for structured data
+  const pricingSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "Hemmi AI Writing Assistant",
+    description:
+      "AI-powered writing assistant for research papers, essays, and academic documents.",
+    offers: plans.map((plan) => ({
+      "@type": "Offer",
+      name: plan.name,
+      price: plan.perMonth,
+      priceCurrency: currency,
+      priceValidUntil: new Date(
+        Date.now() + 365 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      availability: "https://schema.org/InStock",
+    })),
+  };
+
   return (
     <main className="relative min-h-screen bg-surface-warm px-4 py-10">
+      <WebPageJsonLd
+        name="Pricing Plans | Hemmi"
+        description="Choose the perfect plan for your writing needs. Get AI-powered research, unlimited documents, and premium features."
+        url="https://hemmi.app/pricing"
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", url: "https://hemmi.app" },
+          { name: "Pricing", url: "https://hemmi.app/pricing" },
+        ]}
+      />
+      <Script
+        id="pricing-jsonld"
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingSchema) }}
+        strategy="afterInteractive"
+      />
+
       <Link
         href="/"
-        className="absolute right-6 top-6 rounded-full bg-transparent p-2 text-foreground/70 transition hover:text-foreground"
-      >
+        className="absolute right-6 top-6 rounded-full bg-transparent p-2 text-foreground/70 transition hover:text-foreground">
         <span className="sr-only">Close pricing</span>
         <X className="size-4" />
       </Link>
@@ -178,8 +215,7 @@ export default function PricingPage() {
                     isRec
                       ? "bg-foreground text-background shadow-xl shadow-foreground/20 scale-[1.02]"
                       : "bg-background ring-1 ring-border hover:ring-foreground/20 hover:shadow-lg"
-                  )}
-                >
+                  )}>
                   {isRec && (
                     <div className="absolute -top-3 left-4 rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground shadow-md">
                       Most popular
@@ -192,16 +228,14 @@ export default function PricingPage() {
                         className={cn(
                           "text-lg font-semibold tracking-tight",
                           isRec ? "text-background" : "text-foreground"
-                        )}
-                      >
+                        )}>
                         {plan.name}
                       </h3>
                       <p
                         className={cn(
                           "mt-1 text-xs",
                           isRec ? "text-background/70" : "text-foreground/60"
-                        )}
-                      >
+                        )}>
                         {plan.valueLabel}
                       </p>
                     </div>
@@ -213,24 +247,21 @@ export default function PricingPage() {
                         className={cn(
                           "text-2xl font-semibold",
                           isRec ? "text-background" : "text-foreground"
-                        )}
-                      >
+                        )}>
                         {currencySymbol}
                       </span>
                       <span
                         className={cn(
                           "text-4xl font-bold tracking-tight leading-none",
                           isRec ? "text-background" : "text-foreground"
-                        )}
-                      >
+                        )}>
                         {formatMoney(plan.perMonth)}
                       </span>
                       <span
                         className={cn(
                           "text-sm ml-1",
                           isRec ? "text-background/60" : "text-foreground/50"
-                        )}
-                      >
+                        )}>
                         /mo
                       </span>
                       {plan.strikeMonthlyWhenYearly && (
@@ -238,8 +269,7 @@ export default function PricingPage() {
                           className={cn(
                             "text-sm line-through ml-2",
                             isRec ? "text-background/40" : "text-foreground/40"
-                          )}
-                        >
+                          )}>
                           {plan.strikeMonthlyWhenYearly}
                         </span>
                       )}
@@ -248,8 +278,7 @@ export default function PricingPage() {
                       className={cn(
                         "text-xs",
                         isRec ? "text-background/60" : "text-foreground/50"
-                      )}
-                    >
+                      )}>
                       {plan.billedLine}
                     </p>
                   </div>
@@ -258,8 +287,7 @@ export default function PricingPage() {
                     className={cn(
                       "mt-5 space-y-2.5 text-sm",
                       isRec ? "text-background/90" : "text-foreground/80"
-                    )}
-                  >
+                    )}>
                     {plan.features.map((f) => (
                       <li key={f} className="flex items-start gap-2.5">
                         <span
@@ -268,13 +296,11 @@ export default function PricingPage() {
                             isRec
                               ? "bg-background text-foreground"
                               : "bg-foreground text-background"
-                          )}
-                        >
+                          )}>
                           <svg
                             className="size-2.5"
                             viewBox="0 0 12 12"
-                            fill="none"
-                          >
+                            fill="none">
                             <path
                               d="M2 6l3 3 5-6"
                               stroke="currentColor"
@@ -302,8 +328,7 @@ export default function PricingPage() {
                         : "bg-foreground text-background hover:bg-foreground/90 focus-visible:ring-foreground"
                     )}
                     disabled={checkoutLoadingPlan !== null}
-                    onClick={() => handleStartCheckout(plan.key)}
-                  >
+                    onClick={() => handleStartCheckout(plan.key)}>
                     <span>
                       {checkoutLoadingPlan === plan.key
                         ? "Redirecting..."
@@ -316,8 +341,7 @@ export default function PricingPage() {
                     className={cn(
                       "mt-3 text-center text-xs",
                       isRec ? "text-background/50" : "text-foreground/50"
-                    )}
-                  >
+                    )}>
                     Cancel anytime
                   </p>
                 </div>
