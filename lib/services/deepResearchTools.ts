@@ -12,6 +12,7 @@ import {
   FieldCompletenessReport,
 } from "@/lib/types/deepResearch";
 import { researchCache } from "./researchCacheService";
+import { EnrichmentResult } from "./metadataEnrichmentService";
 
 // =============================================================================
 // Tool Type Definition (Provider-Agnostic)
@@ -505,14 +506,13 @@ IMPORTANT:
       metadata.authors = metadata.authors.replace(/^Authors:\s*/i, "").trim();
     }
 
-    // Cache the result
-    const result = {
+    const result: EnrichmentResult = {
       ...metadata,
-      source: "claude",
-      researchedAt: new Date().toISOString(),
+      source: "scraping", // 'claude' not in EnrichmentResult source union
+      confidence: "medium",
     };
 
-    researchCache.setEnrichment(cacheKey, result as any);
+    researchCache.setEnrichment(cacheKey, result);
     console.log(
       `[Research] Found metadata: ${Object.keys(metadata).join(", ")}`,
     );
@@ -523,13 +523,14 @@ IMPORTANT:
         ...result,
         fieldsFound: Object.keys(metadata),
         cached: false,
-      },
+      } as Record<string, unknown>,
     };
-  } catch (error: any) {
-    console.error(`[Research] Error:`, error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[Research] Error:`, message);
     return {
       success: false,
-      error: `Research failed: ${error.message}`,
+      error: `Research failed: ${message}`,
     };
   }
 }
@@ -613,7 +614,7 @@ export async function executeExtractIdentifiers(input: {
               .map(([k, v]) => `${k}=${v}`)
               .join(", ")}`
           : "No academic identifiers found in the provided text.",
-      },
+      } as Record<string, unknown>,
     };
   } catch (error: any) {
     return {
@@ -1242,7 +1243,7 @@ Respond with ONLY the JSON array, no other text.`;
  */
 export async function batchEnrichPapers(
   papers: PartialDeepResearchPaper[],
-  concurrency: number = 3,
+  concurrency: number = 10,
   minCompleteness: number = 0.8,
 ): Promise<PartialDeepResearchPaper[]> {
   const enrichedPapers: PartialDeepResearchPaper[] = [];
