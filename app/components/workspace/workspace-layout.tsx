@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import type {
   WritingBrief,
   WorkflowStep,
@@ -22,6 +22,8 @@ import { hasManualEdits } from "@/lib/utils/contentTracking";
 import { useCreateProject } from "@/lib/hooks/use-projects";
 import { useRouter } from "next/navigation";
 import { mapUIDocumentTypeToEnum } from "@/lib/utils/documentTypeMapper";
+import { useDeepResearch } from "@/lib/hooks/useDeepResearch";
+import { ResearchModal } from "./research-modal";
 
 interface WorkspaceLayoutProps {
   brief: WritingBrief;
@@ -51,7 +53,7 @@ export function WorkspaceLayout({
   const router = useRouter();
   const createProject = useCreateProject();
   const [projectId, setProjectId] = useState<string | null>(
-    initialProjectId || null
+    initialProjectId || null,
   );
   const [sources, setSources] = useState<Source[]>(initialSources);
   const [plan, setPlan] = useState<DocumentPlan | null>(initialPlan);
@@ -64,7 +66,7 @@ export function WorkspaceLayout({
   const [insertRequest, setInsertRequest] = useState<string | null>(null);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(
-    initialLastSavedAt ? new Date(initialLastSavedAt) : null
+    initialLastSavedAt ? new Date(initialLastSavedAt) : null,
   );
   const [newSourceAdded, setNewSourceAdded] = useState<{
     sourceId: string;
@@ -97,8 +99,94 @@ export function WorkspaceLayout({
   const generateStructureRef = useRef<null | (() => void)>(null);
   const [canGenerateStructure, setCanGenerateStructure] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
-  const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
+  const [paywallReason, setPaywallReason] = useState<
+    "insufficient_tokens" | "no_subscription"
+  >("insufficient_tokens");
   const [autoApproveEnabled, setAutoApproveEnabled] = useState<boolean>(false);
+  const [showResearchModal, setShowResearchModal] = useState(false);
+  const [isInlineResearchActive, setIsInlineResearchActive] = useState(false);
+
+  // Deep research streaming hook
+  const deepResearch = useDeepResearch();
+
+  // Handle streaming research completion - merge papers into sources
+  const handleStreamingResearchComplete = useCallback((newSources: Source[]) => {
+    setSources((prev) => {
+      // Deduplicate by URL
+      const existingUrls = new Set(prev.map((s) => s.url.toLowerCase()));
+      const uniqueNew = newSources.filter(
+        (s) => !existingUrls.has(s.url.toLowerCase())
+      );
+      return [...prev, ...uniqueNew];
+    });
+    setShowResearchModal(false);
+    setIsInlineResearchActive(false);
+  }, []);
+
+  // Sync deepResearch phase completion with researchStatus
+  useEffect(() => {
+    if (deepResearch.phase === "complete" && isInlineResearchActive) {
+      // Convert papersComplete to Source[] format
+      const newSources: Source[] = deepResearch.papersComplete.map((paper) => ({
+        id: paper.id,
+        title: paper.title,
+        url: paper.url || "",
+        snippet: paper.abstract || "",
+        author: paper.authors,
+        publishedDate: paper.year ? `${paper.year}` : undefined,
+        selected: true,
+        journalName: paper.journalName,
+        volume: paper.volume,
+        issue: paper.issue,
+        pages: paper.pages,
+        doi: paper.doi,
+        year: paper.year,
+        publisher: paper.publisher,
+        publicationType: paper.publicationType,
+        authorsStructured: paper.authorsStructured,
+      }));
+
+      // Call completion handler to merge sources
+      handleStreamingResearchComplete(newSources);
+
+      // Update research status to done
+      setResearchStatus({
+        phase: "done",
+        error: null,
+        completedAt: new Date(),
+      });
+    } else if (deepResearch.phase === "error" && isInlineResearchActive) {
+      // Handle error state
+      setResearchStatus({
+        phase: "error",
+        error: deepResearch.phaseMessage || "Research failed",
+        completedAt: null,
+      });
+      setIsInlineResearchActive(false);
+    }
+  }, [deepResearch.phase, deepResearch.papersComplete, deepResearch.phaseMessage, isInlineResearchActive, handleStreamingResearchComplete]);
+
+  // Start inline research for new projects (no sources yet)
+  const handleStartInlineResearch = useCallback(async () => {
+    if (!brief.topic) return;
+    
+    setIsInlineResearchActive(true);
+    
+    // Ensure project exists first
+    const currentProjectId = await ensureProject();
+    if (!currentProjectId) return;
+
+    // Start streaming research
+    await deepResearch.executeWithStream(
+      {
+        query: brief.topic,
+        maxPapers: brief.sourceCount || 5,
+        targetCompleteness: 0.8,
+      },
+      currentProjectId
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brief.topic, brief.sourceCount]);
 
   // Load user preference for auto-approve on workspace mount
   useEffect(() => {
@@ -121,8 +209,8 @@ export function WorkspaceLayout({
 
   // Handler to open paywall modal
   const handleUpgradeClick = () => {
-    console.log('🔥 [WorkspaceLayout] Upgrade button clicked');
-    setPaywallReason('insufficient_tokens');
+    console.log("🔥 [WorkspaceLayout] Upgrade button clicked");
+    setPaywallReason("insufficient_tokens");
     setShowPaywall(true);
   };
 
@@ -474,7 +562,7 @@ export function WorkspaceLayout({
                     prevContent,
                     sectionTitle,
                     newSectionContent,
-                    plan.sections
+                    plan.sections,
                   );
                 });
               }
@@ -498,7 +586,7 @@ export function WorkspaceLayout({
     currentContent: string,
     sectionTitle: string,
     newSectionContent: string,
-    sections: DocumentPlan["sections"]
+    sections: DocumentPlan["sections"],
   ): string => {
     // Find the section index
     const sectionIndex = sections.findIndex((s) => s.title === sectionTitle);
@@ -513,11 +601,11 @@ export function WorkspaceLayout({
     // Find start of current section
     const escapedTitle = currentSection.title.replace(
       /[.*+?^${}()|[\]\\]/g,
-      "\\$&"
+      "\\$&",
     );
     const sectionRegex = new RegExp(
       `<h[1-6][^>]*>\\s*${escapedTitle}\\s*<\\/h[1-6]>`,
-      "i"
+      "i",
     );
     const match = currentContent.match(sectionRegex);
 
@@ -529,11 +617,11 @@ export function WorkspaceLayout({
       if (nextSection) {
         const escapedNextTitle = nextSection.title.replace(
           /[.*+?^${}()|[\]\\]/g,
-          "\\$&"
+          "\\$&",
         );
         const nextRegex = new RegExp(
           `<h[1-6][^>]*>\\s*${escapedNextTitle}\\s*<\\/h[1-6]>`,
-          "i"
+          "i",
         );
         const nextMatch = currentContent.match(nextRegex);
         if (nextMatch && nextMatch.index !== undefined) {
@@ -551,11 +639,11 @@ export function WorkspaceLayout({
     if (nextSection) {
       const escapedNextTitle = nextSection.title.replace(
         /[.*+?^${}()|[\]\\]/g,
-        "\\$&"
+        "\\$&",
       );
       const nextRegex = new RegExp(
         `<h[1-6][^>]*>\\s*${escapedNextTitle}\\s*<\\/h[1-6]>`,
-        "i"
+        "i",
       );
       const nextMatch = currentContent.slice(startIndex).match(nextRegex);
       if (nextMatch && nextMatch.index !== undefined) {
@@ -689,6 +777,8 @@ export function WorkspaceLayout({
             generateStructureRef.current = handler;
             setCanGenerateStructure(Boolean(handler));
           }}
+          onFindMoreSources={() => setShowResearchModal(true)}
+          onStartInlineResearch={handleStartInlineResearch}
         />
 
         {/* Center - Editor */}
@@ -714,10 +804,44 @@ export function WorkspaceLayout({
           researchCompletedAt={researchStatus.completedAt}
           canGenerateStructure={canGenerateStructure}
           onGenerateStructure={() => generateStructureRef.current?.()}
+          onStartResearch={() => {
+            // For new projects (no sources), use inline research
+            // For existing projects, use modal
+            if (sources.length === 0) {
+              handleStartInlineResearch();
+            } else {
+              setShowResearchModal(true);
+            }
+          }}
+          isInlineResearchActive={isInlineResearchActive}
           structurePhase={structureStatus.phase}
           structureError={structureStatus.error}
           structureCompletedAt={structureStatus.completedAt}
           autoApproveEnabled={autoApproveEnabled}
+          streamingResearch={
+            deepResearch.isStreaming
+              ? {
+                  isStreaming: deepResearch.isStreaming,
+                  phase: deepResearch.phase,
+                  phaseMessage: deepResearch.phaseMessage,
+                  papersFound: deepResearch.papersFound,
+                  papersEnriching: deepResearch.papersEnriching,
+                  papersComplete: deepResearch.papersComplete,
+                  papersFailed: deepResearch.papersFailed,
+                  targetCount: deepResearch.targetCount,
+                  completedCount: deepResearch.completedCount,
+                  savedCount: deepResearch.savedCount,
+                  tokensUsed: deepResearch.tokensUsed,
+                  tokensRemaining: deepResearch.tokensRemaining,
+                  tokenWarning: deepResearch.tokenWarning,
+                  tokenExhausted: deepResearch.tokenExhausted,
+                }
+              : undefined
+          }
+          onCancelResearch={() => {
+            deepResearch.cancel();
+            setIsInlineResearchActive(false);
+          }}
         />
 
         {/* Right Panel - Brief & Chat */}
@@ -750,6 +874,23 @@ export function WorkspaceLayout({
         onOpenChange={setShowPaywall}
         reason={paywallReason}
       />
+
+      {/* Research Modal - for "Find more sources" */}
+      {projectId && (
+        <ResearchModal
+          open={showResearchModal}
+          onOpenChange={setShowResearchModal}
+          projectId={projectId}
+          existingSources={sources}
+          topic={brief.topic || ""}
+          targetCount={5}
+          onComplete={handleStreamingResearchComplete}
+          onUpgrade={() => {
+            setPaywallReason("insufficient_tokens");
+            setShowPaywall(true);
+          }}
+        />
+      )}
     </div>
   );
 }
