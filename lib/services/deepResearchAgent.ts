@@ -16,7 +16,6 @@ import {
 } from "@/lib/types/deepResearch";
 import {
   executeSearchPapers,
-  executeEnrichPaper,
   executeValidatePapers,
   executeExtractIdentifiers,
   batchEnrichPapers,
@@ -88,16 +87,16 @@ function generateAggressiveQueries(originalQuery: string): string[] {
 function expandWithSynonyms(query: string): string[] {
   // Common academic synonyms
   const synonymMap: Record<string, string[]> = {
-    "study": ["research", "investigation", "analysis", "examination"],
-    "effect": ["impact", "influence", "consequence", "outcome"],
-    "method": ["approach", "technique", "methodology", "procedure"],
-    "result": ["finding", "outcome", "conclusion", "discovery"],
-    "increase": ["growth", "rise", "expansion", "enhancement"],
-    "decrease": ["reduction", "decline", "drop", "diminution"],
-    "important": ["significant", "crucial", "essential", "critical"],
-    "show": ["demonstrate", "indicate", "reveal", "suggest"],
-    "use": ["utilize", "employ", "apply", "implement"],
-    "develop": ["create", "design", "establish", "formulate"],
+    study: ["research", "investigation", "analysis", "examination"],
+    effect: ["impact", "influence", "consequence", "outcome"],
+    method: ["approach", "technique", "methodology", "procedure"],
+    result: ["finding", "outcome", "conclusion", "discovery"],
+    increase: ["growth", "rise", "expansion", "enhancement"],
+    decrease: ["reduction", "decline", "drop", "diminution"],
+    important: ["significant", "crucial", "essential", "critical"],
+    show: ["demonstrate", "indicate", "reveal", "suggest"],
+    use: ["utilize", "employ", "apply", "implement"],
+    develop: ["create", "design", "establish", "formulate"],
   };
 
   const queries: string[] = [];
@@ -106,7 +105,10 @@ function expandWithSynonyms(query: string): string[] {
   for (const [word, synonyms] of Object.entries(synonymMap)) {
     if (words.includes(word)) {
       for (const synonym of synonyms.slice(0, 2)) {
-        const newQuery = query.replace(new RegExp(`\\b${word}\\b`, "gi"), synonym);
+        const newQuery = query.replace(
+          new RegExp(`\\b${word}\\b`, "gi"),
+          synonym,
+        );
         if (newQuery !== query) {
           queries.push(newQuery);
         }
@@ -153,7 +155,8 @@ export class DeepResearchAgent {
     const effectiveQueries: string[] = [query.query];
 
     const maxIterations = query.maxIterations || 3;
-    const targetCompleteness = query.targetCompleteness || QUALITY_THRESHOLDS.stopIfAbove;
+    const targetCompleteness =
+      query.targetCompleteness || QUALITY_THRESHOLDS.stopIfAbove;
 
     this.sendProgress({
       stage: ResearchStatus.SEARCHING,
@@ -186,15 +189,17 @@ export class DeepResearchAgent {
         const iterationQueries = this.getQueriesForIteration(
           query.query,
           iteration,
-          strategy
+          strategy,
         );
-        effectiveQueries.push(...iterationQueries.filter(q => !effectiveQueries.includes(q)));
+        effectiveQueries.push(
+          ...iterationQueries.filter((q) => !effectiveQueries.includes(q)),
+        );
 
         // Search for papers
         const searchResults = await this.searchWithStrategy(
           iterationQueries,
           strategy,
-          query
+          query,
         );
 
         const papersFoundThisIteration = searchResults.length;
@@ -207,18 +212,23 @@ export class DeepResearchAgent {
         });
 
         // Merge with existing papers (before enrichment to avoid duplicates)
-        const mergedPapers = deduplicatePapers([...allPapers, ...searchResults]);
+        const mergedPapers = deduplicatePapers([
+          ...allPapers,
+          ...searchResults,
+        ]);
         const newPapersCount = mergedPapers.length - allPapers.length;
 
         // Enrich new papers
         const enrichedPapers = await batchEnrichPapers(
-          mergedPapers.filter(p => !p.enrichedFrom || p.enrichedFrom.length === 0),
-          5 // Concurrency
+          mergedPapers.filter(
+            (p) => !p.enrichedFrom || p.enrichedFrom.length === 0,
+          ),
+          5, // Concurrency
         );
 
         // Merge enriched data back
-        allPapers = mergedPapers.map(paper => {
-          const enriched = enrichedPapers.find(e => e.id === paper.id);
+        allPapers = mergedPapers.map((paper) => {
+          const enriched = enrichedPapers.find((e) => e.id === paper.id);
           return enriched || paper;
         });
 
@@ -271,7 +281,7 @@ export class DeepResearchAgent {
           targetCompleteness,
           allPapers.length,
           query.maxPapers || 20,
-          iterationResult.qualityImprovement
+          iterationResult.qualityImprovement,
         );
 
         iterationResult.shouldContinue = shouldContinue;
@@ -320,7 +330,7 @@ export class DeepResearchAgent {
       finalPapers = finalPapers.slice(0, maxPapers);
 
       // Calculate final completeness scores
-      finalPapers = finalPapers.map(paper => {
+      finalPapers = finalPapers.map((paper) => {
         const { score, missingFields } = calculatePaperCompleteness(paper);
         return {
           ...paper,
@@ -335,25 +345,36 @@ export class DeepResearchAgent {
         min_completeness: query.minCompleteness || 0.7,
       });
 
-      const qualityReport = (finalValidation.data as { qualityReport: QualityReport })?.qualityReport || {
+      const qualityReport = (
+        finalValidation.data as { qualityReport: QualityReport }
+      )?.qualityReport || {
         totalPapers: finalPapers.length,
         averageCompleteness: currentQuality,
         averageRelevance: 0,
         fieldCompleteness: [],
-        papersWithDOI: finalPapers.filter(p => p.doi).length,
-        papersWithAbstract: finalPapers.filter(p => p.abstract).length,
-        papersWithAuthors: finalPapers.filter(p => p.authors).length,
-        papersWithYear: finalPapers.filter(p => p.year || p.publishedDate).length,
-        papersWithJournal: finalPapers.filter(p => p.journalName).length,
-        papersWithCitations: finalPapers.filter(p => p.citationCount !== undefined).length,
-        papersWithOpenAccess: finalPapers.filter(p => p.openAccessUrl).length,
-        papersWithHighlights: finalPapers.filter(p => p.highlights && p.highlights.length > 0).length,
-        highQualityPapers: finalPapers.filter(p => (p.completenessScore || 0) >= 0.85).length,
-        mediumQualityPapers: finalPapers.filter(p => {
+        papersWithDOI: finalPapers.filter((p) => p.doi).length,
+        papersWithAbstract: finalPapers.filter((p) => p.abstract).length,
+        papersWithAuthors: finalPapers.filter((p) => p.authors).length,
+        papersWithYear: finalPapers.filter((p) => p.year || p.publishedDate)
+          .length,
+        papersWithJournal: finalPapers.filter((p) => p.journalName).length,
+        papersWithCitations: finalPapers.filter(
+          (p) => p.citationCount !== undefined,
+        ).length,
+        papersWithOpenAccess: finalPapers.filter((p) => p.openAccessUrl).length,
+        papersWithHighlights: finalPapers.filter(
+          (p) => p.highlights && p.highlights.length > 0,
+        ).length,
+        highQualityPapers: finalPapers.filter(
+          (p) => (p.completenessScore || 0) >= 0.85,
+        ).length,
+        mediumQualityPapers: finalPapers.filter((p) => {
           const score = p.completenessScore || 0;
           return score >= 0.7 && score < 0.85;
         }).length,
-        lowQualityPapers: finalPapers.filter(p => (p.completenessScore || 0) < 0.7).length,
+        lowQualityPapers: finalPapers.filter(
+          (p) => (p.completenessScore || 0) < 0.7,
+        ).length,
         improvementSuggestions: [],
       };
 
@@ -389,7 +410,6 @@ export class DeepResearchAgent {
       });
 
       return result;
-
     } catch (error: any) {
       const endTime = Date.now();
 
@@ -436,11 +456,13 @@ export class DeepResearchAgent {
         startedAt: new Date(startTime).toISOString(),
         completedAt: new Date(endTime).toISOString(),
         totalDurationMs: endTime - startTime,
-        errors: [{
-          stage: "execution",
-          message: error.message,
-          timestamp: new Date().toISOString(),
-        }],
+        errors: [
+          {
+            stage: "execution",
+            message: error.message,
+            timestamp: new Date().toISOString(),
+          },
+        ],
       };
     }
   }
@@ -465,7 +487,7 @@ export class DeepResearchAgent {
   private getQueriesForIteration(
     originalQuery: string,
     iteration: number,
-    strategy: IterationStrategy
+    strategy: IterationStrategy,
   ): string[] {
     switch (strategy) {
       case IterationStrategy.STANDARD:
@@ -493,7 +515,7 @@ export class DeepResearchAgent {
   private async searchWithStrategy(
     queries: string[],
     strategy: IterationStrategy,
-    config: DeepResearchQuery
+    config: DeepResearchQuery,
   ): Promise<PartialDeepResearchPaper[]> {
     const allResults: PartialDeepResearchPaper[] = [];
 
@@ -530,13 +552,13 @@ export class DeepResearchAgent {
         }
 
         // Small delay to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     } else {
       // Aggressive: parallel searches with multiple queries
       const searchPromises = queries.slice(0, 8).map(async (query, index) => {
         // Stagger requests slightly
-        await new Promise(resolve => setTimeout(resolve, index * 50));
+        await new Promise((resolve) => setTimeout(resolve, index * 50));
 
         const result = await executeSearchPapers({
           query,
@@ -551,7 +573,7 @@ export class DeepResearchAgent {
       });
 
       const results = await Promise.all(searchPromises);
-      results.forEach(papers => allResults.push(...papers));
+      results.forEach((papers) => allResults.push(...papers));
     }
 
     return deduplicatePapers(allResults);
@@ -567,10 +589,13 @@ export class DeepResearchAgent {
     targetQuality: number,
     paperCount: number,
     targetPaperCount: number,
-    qualityImprovement: number
+    qualityImprovement: number,
   ): { shouldContinue: boolean; reason?: IterationResult["stopReason"] } {
     // Check if we've reached quality target with enough papers
-    if (currentQuality >= targetQuality && paperCount >= targetPaperCount * 0.8) {
+    if (
+      currentQuality >= targetQuality &&
+      paperCount >= targetPaperCount * 0.8
+    ) {
       return { shouldContinue: false, reason: "quality_met" };
     }
 
@@ -595,16 +620,21 @@ export class DeepResearchAgent {
    */
   private applyFilters(
     papers: PartialDeepResearchPaper[],
-    query: DeepResearchQuery
+    query: DeepResearchQuery,
   ): PartialDeepResearchPaper[] {
     let filtered = [...papers];
 
     // Filter by year range
     if (query.yearRange) {
-      filtered = filtered.filter(paper => {
-        const year = paper.year || (paper.publishedDate ? new Date(paper.publishedDate).getFullYear() : null);
+      filtered = filtered.filter((paper) => {
+        const year =
+          paper.year ||
+          (paper.publishedDate
+            ? new Date(paper.publishedDate).getFullYear()
+            : null);
         if (!year) return !query.yearRange?.start && !query.yearRange?.end; // Keep if no year filter
-        if (query.yearRange?.start && year < query.yearRange.start) return false;
+        if (query.yearRange?.start && year < query.yearRange.start)
+          return false;
         if (query.yearRange?.end && year > query.yearRange.end) return false;
         return true;
       });
@@ -612,14 +642,14 @@ export class DeepResearchAgent {
 
     // Filter by minimum relevance
     if (query.minRelevance) {
-      filtered = filtered.filter(paper =>
-        (paper.relevanceScore || 0) >= query.minRelevance!
+      filtered = filtered.filter(
+        (paper) => (paper.relevanceScore || 0) >= query.minRelevance!,
       );
     }
 
     // Filter by minimum completeness
     if (query.minCompleteness) {
-      filtered = filtered.filter(paper => {
+      filtered = filtered.filter((paper) => {
         const { score } = calculatePaperCompleteness(paper);
         return score >= query.minCompleteness!;
       });
@@ -627,18 +657,24 @@ export class DeepResearchAgent {
 
     // Filter by DOI requirement
     if (query.requireDOI) {
-      filtered = filtered.filter(paper => paper.doi && paper.doi.trim() !== "");
+      filtered = filtered.filter(
+        (paper) => paper.doi && paper.doi.trim() !== "",
+      );
     }
 
     // Filter by abstract requirement
     if (query.requireAbstract) {
-      filtered = filtered.filter(paper => paper.abstract && paper.abstract.trim() !== "");
+      filtered = filtered.filter(
+        (paper) => paper.abstract && paper.abstract.trim() !== "",
+      );
     }
 
     // Filter by publication type
     if (query.publicationTypes && query.publicationTypes.length > 0) {
-      filtered = filtered.filter(paper =>
-        paper.publicationType && query.publicationTypes!.includes(paper.publicationType as any)
+      filtered = filtered.filter(
+        (paper) =>
+          paper.publicationType &&
+          query.publicationTypes!.includes(paper.publicationType as any),
       );
     }
 
@@ -664,9 +700,8 @@ export class DeepResearchAgent {
  */
 export async function executeDeepResearch(
   query: DeepResearchQuery,
-  progressCallback?: ProgressCallback
+  progressCallback?: ProgressCallback,
 ): Promise<DeepResearchResult> {
   const agent = new DeepResearchAgent(progressCallback);
   return agent.execute(query);
 }
-
