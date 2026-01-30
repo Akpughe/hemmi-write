@@ -1,5 +1,5 @@
 // React Hook for Deep Research with SSE Streaming
-// Provides real-time progress updates during research
+// Provides real-time progress updates during research with paper-level granularity
 
 import { useState, useCallback, useRef } from "react";
 import {
@@ -7,6 +7,8 @@ import {
   DeepResearchResult,
   ResearchStatus,
   ResearchProgressUpdate,
+  PartialDeepResearchPaper,
+  ResearchPhase,
 } from "@/lib/types/deepResearch";
 
 // =============================================================================
@@ -30,11 +32,33 @@ export interface DeepResearchState {
   progress: DeepResearchProgress | null;
   result: DeepResearchResult | null;
   error: { code: string; message: string; retryable: boolean } | null;
+
+  // New granular state
+  phase: ResearchPhase;
+  phaseMessage: string;
+
+  // Papers in different states
+  papersFound: PartialDeepResearchPaper[];
+  papersEnriching: Map<string, { paper: PartialDeepResearchPaper; field: string }>;
+  papersComplete: PartialDeepResearchPaper[];
+  papersFailed: PartialDeepResearchPaper[];
+
+  // Token tracking
+  tokensUsed: number;
+  tokensRemaining: number;
+  tokenWarning: boolean;
+  tokenExhausted: boolean;
+
+  // Stats
+  targetCount: number;
+  foundCount: number;
+  completedCount: number;
+  savedCount: number;
 }
 
 export interface UseDeepResearchReturn extends DeepResearchState {
   execute: (query: DeepResearchQuery) => Promise<DeepResearchResult | null>;
-  executeWithStream: (query: DeepResearchQuery) => Promise<DeepResearchResult | null>;
+  executeWithStream: (query: DeepResearchQuery, projectId?: string) => Promise<DeepResearchResult | null>;
   cancel: () => void;
   reset: () => void;
 }
@@ -74,17 +98,37 @@ function parseSSEEvents(text: string): SSEEvent[] {
 }
 
 // =============================================================================
+// Initial State
+// =============================================================================
+
+const initialState: DeepResearchState = {
+  isLoading: false,
+  isStreaming: false,
+  progress: null,
+  result: null,
+  error: null,
+  phase: "idle",
+  phaseMessage: "",
+  papersFound: [],
+  papersEnriching: new Map(),
+  papersComplete: [],
+  papersFailed: [],
+  tokensUsed: 0,
+  tokensRemaining: 0,
+  tokenWarning: false,
+  tokenExhausted: false,
+  targetCount: 0,
+  foundCount: 0,
+  completedCount: 0,
+  savedCount: 0,
+};
+
+// =============================================================================
 // Hook Implementation
 // =============================================================================
 
 export function useDeepResearch(): UseDeepResearchReturn {
-  const [state, setState] = useState<DeepResearchState>({
-    isLoading: false,
-    isStreaming: false,
-    progress: null,
-    result: null,
-    error: null,
-  });
+  const [state, setState] = useState<DeepResearchState>(initialState);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -92,13 +136,7 @@ export function useDeepResearch(): UseDeepResearchReturn {
    * Reset state
    */
   const reset = useCallback(() => {
-    setState({
-      isLoading: false,
-      isStreaming: false,
-      progress: null,
-      result: null,
-      error: null,
-    });
+    setState(initialState);
   }, []);
 
   /**
@@ -125,11 +163,9 @@ export function useDeepResearch(): UseDeepResearchReturn {
       cancel();
 
       setState({
+        ...initialState,
         isLoading: true,
-        isStreaming: false,
-        progress: null,
-        result: null,
-        error: null,
+        targetCount: query.maxPapers || 20,
       });
 
       abortControllerRef.current = new AbortController();
@@ -162,23 +198,27 @@ export function useDeepResearch(): UseDeepResearchReturn {
           ...prev,
           isLoading: false,
           result: data.data,
+          phase: "complete",
+          papersComplete: data.data.papers || [],
+          completedCount: data.data.papers?.length || 0,
         }));
 
         return data.data;
-      } catch (error: any) {
-        if (error.name === "AbortError") {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === "AbortError") {
           return null;
         }
 
         const err = {
           code: "NETWORK_ERROR",
-          message: error.message || "Network error",
+          message: error instanceof Error ? error.message : "Network error",
           retryable: true,
         };
         setState((prev) => ({
           ...prev,
           isLoading: false,
           error: err,
+          phase: "error",
         }));
         return null;
       }
@@ -190,13 +230,19 @@ export function useDeepResearch(): UseDeepResearchReturn {
    * Execute deep research with SSE streaming
    */
   const executeWithStream = useCallback(
-    async (query: DeepResearchQuery): Promise<DeepResearchResult | null> => {
+    async (query: DeepResearchQuery, projectId?: string): Promise<DeepResearchResult | null> => {
       // Cancel any existing request
       cancel();
 
+      const targetCount = query.maxPapers || 20;
+
       setState({
+        ...initialState,
         isLoading: true,
         isStreaming: true,
+        phase: "searching",
+        phaseMessage: "Connecting...",
+        targetCount,
         progress: {
           stage: ResearchStatus.PENDING,
           message: "Connecting...",
@@ -207,8 +253,6 @@ export function useDeepResearch(): UseDeepResearchReturn {
           currentQuality: 0,
           targetQuality: query.targetCompleteness || 0.85,
         },
-        result: null,
-        error: null,
       });
 
       abortControllerRef.current = new AbortController();
@@ -217,7 +261,7 @@ export function useDeepResearch(): UseDeepResearchReturn {
         const response = await fetch("/api/deep-research/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(query),
+          body: JSON.stringify({ ...query, projectId }),
           signal: abortControllerRef.current.signal,
         });
 
@@ -233,6 +277,7 @@ export function useDeepResearch(): UseDeepResearchReturn {
             isLoading: false,
             isStreaming: false,
             error,
+            phase: "error",
           }));
           return null;
         }
@@ -248,6 +293,7 @@ export function useDeepResearch(): UseDeepResearchReturn {
             isLoading: false,
             isStreaming: false,
             error,
+            phase: "error",
           }));
           return null;
         }
@@ -284,10 +330,86 @@ export function useDeepResearch(): UseDeepResearchReturn {
                 case "connected":
                   setState((prev) => ({
                     ...prev,
-                    progress: {
-                      ...prev.progress!,
-                      message: "Connected, starting research...",
-                    },
+                    phaseMessage: "Connected, starting research...",
+                    progress: prev.progress
+                      ? { ...prev.progress, message: "Connected, starting research..." }
+                      : null,
+                  }));
+                  break;
+
+                case "phase":
+                  setState((prev) => ({
+                    ...prev,
+                    phase: data.phase || prev.phase,
+                    phaseMessage: data.message || "",
+                    foundCount: data.count ?? prev.foundCount,
+                  }));
+                  break;
+
+                case "paper_found":
+                  setState((prev) => ({
+                    ...prev,
+                    papersFound: [...prev.papersFound, data.paper],
+                    foundCount: prev.foundCount + 1,
+                  }));
+                  break;
+
+                case "paper_enriching":
+                  setState((prev) => {
+                    const newEnriching = new Map(prev.papersEnriching);
+                    newEnriching.set(data.paperId, {
+                      paper: data.paper,
+                      field: data.enrichmentField || "metadata",
+                    });
+                    return {
+                      ...prev,
+                      papersEnriching: newEnriching,
+                    };
+                  });
+                  break;
+
+                case "paper_complete":
+                  setState((prev) => {
+                    const newEnriching = new Map(prev.papersEnriching);
+                    newEnriching.delete(data.paperId);
+                    return {
+                      ...prev,
+                      papersEnriching: newEnriching,
+                      papersComplete: [...prev.papersComplete, data.paper],
+                      completedCount: prev.completedCount + 1,
+                    };
+                  });
+                  break;
+
+                case "paper_failed":
+                  setState((prev) => {
+                    const newEnriching = new Map(prev.papersEnriching);
+                    newEnriching.delete(data.paperId);
+                    return {
+                      ...prev,
+                      papersEnriching: newEnriching,
+                      papersFailed: [...prev.papersFailed, data.paper],
+                    };
+                  });
+                  break;
+
+                case "tokens_low":
+                  setState((prev) => ({
+                    ...prev,
+                    tokenWarning: true,
+                    tokensRemaining: data.tokensRemaining,
+                    tokensUsed: data.tokensUsed,
+                    savedCount: data.papersSaved,
+                  }));
+                  break;
+
+                case "tokens_exhausted":
+                  setState((prev) => ({
+                    ...prev,
+                    tokenExhausted: true,
+                    tokensRemaining: data.tokensRemaining,
+                    tokensUsed: data.tokensUsed,
+                    savedCount: data.papersSaved,
                   }));
                   break;
 
@@ -304,6 +426,9 @@ export function useDeepResearch(): UseDeepResearchReturn {
                       currentQuality: data.currentQuality || 0,
                       targetQuality: data.targetQuality || 0.85,
                     },
+                    tokensUsed: data.tokensUsed ?? prev.tokensUsed,
+                    tokensRemaining: data.tokensRemaining ?? prev.tokensRemaining,
+                    savedCount: data.papersSaved ?? prev.savedCount,
                   }));
                   break;
 
@@ -313,6 +438,8 @@ export function useDeepResearch(): UseDeepResearchReturn {
                     setState((prev) => ({
                       ...prev,
                       result: data.data,
+                      savedCount: data.papersSaved ?? prev.savedCount,
+                      tokensUsed: data.tokensUsed ?? prev.tokensUsed,
                     }));
                   }
                   break;
@@ -325,6 +452,7 @@ export function useDeepResearch(): UseDeepResearchReturn {
                       message: data.message || "Unknown error",
                       retryable: data.retryable ?? true,
                     },
+                    phase: "error",
                   }));
                   break;
 
@@ -333,6 +461,11 @@ export function useDeepResearch(): UseDeepResearchReturn {
                     ...prev,
                     isLoading: false,
                     isStreaming: false,
+                    phase: "complete",
+                    phaseMessage: data.message || "Complete",
+                    savedCount: data.papersSaved ?? prev.savedCount,
+                    tokensUsed: data.tokensUsed ?? prev.tokensUsed,
+                    tokensRemaining: data.tokensRemaining ?? prev.tokensRemaining,
                     progress: prev.progress
                       ? {
                           ...prev.progress,
@@ -357,14 +490,14 @@ export function useDeepResearch(): UseDeepResearchReturn {
         }));
 
         return finalResult;
-      } catch (error: any) {
-        if (error.name === "AbortError") {
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === "AbortError") {
           return null;
         }
 
         const err = {
           code: "STREAM_ERROR",
-          message: error.message || "Stream error",
+          message: error instanceof Error ? error.message : "Stream error",
           retryable: true,
         };
         setState((prev) => ({
@@ -372,6 +505,7 @@ export function useDeepResearch(): UseDeepResearchReturn {
           isLoading: false,
           isStreaming: false,
           error: err,
+          phase: "error",
         }));
         return null;
       }
