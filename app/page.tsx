@@ -181,10 +181,21 @@ export default function HomePage() {
       {/* Logo mark */}
       <div className="absolute top-6 left-6 z-10">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
-            <span className="text-accent font-bold text-sm">H</span>
+          <div className="w-8 h-8 rounded-md bg-accent/20 flex items-center justify-center">
+            <span className="text-accent font-bold text-sm">
+              <img
+                src="https://ik.imagekit.io/r9a7zbqsf/2.svg"
+                alt="Hemmi AI"
+              />
+            </span>
           </div>
-          <span className="text-foreground/80 font-medium">Hemmi</span>
+          <span className="text-foreground/80 font-medium">
+            <img
+              src="https://ik.imagekit.io/r9a7zbqsf/3.png?updatedAt=1769801681737"
+              className="w-20"
+              alt="Hemmi"
+            />
+          </span>
         </div>
       </div>
 
@@ -219,7 +230,7 @@ export default function HomePage() {
             <h1 className="text-4xl md:text-4xl font-medium font-fraunces tracking-tight text-balance">
               What do you want to write?
             </h1>
-            <p className="text-black font-fraunces text-lg">
+            <p className="text-foreground/80 font-fraunces text-lg">
               Research, plan, and write with AI assistance
             </p>
           </div>

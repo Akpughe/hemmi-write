@@ -59,7 +59,7 @@ export default function RootLayout({
             <EditorProvider>
               <ThemeProvider
                 attribute="class"
-                defaultTheme="system"
+                defaultTheme="light"
                 enableSystem
                 disableTransitionOnChange>
                 {children}
