@@ -60,11 +60,13 @@ export function PaywallModal({
 
   const headerTitle =
     reason === "no_subscription"
-      ? "Unlock Hemmi"
+      ? "Subscription Required"
       : "Keep writing without interruptions";
 
   const headerDescription = useMemo(() => {
-    if (reason === "no_subscription") return "Pick a plan below and checkout instantly.";
+    if (reason === "no_subscription") {
+      return "You need an active subscription to access the workspace. Choose a plan to continue.";
+    }
     if (estimatedTokens) {
       return `You need ~${estimatedTokens.toLocaleString()} tokens to continue.`;
     }

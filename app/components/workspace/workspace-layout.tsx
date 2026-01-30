@@ -123,6 +123,36 @@ export function WorkspaceLayout({
     setIsInlineResearchActive(false);
   }, []);
 
+  // Check for 402 Payment Required errors from deep research
+  useEffect(() => {
+    if (deepResearch.error) {
+      const errorMsg = deepResearch.error.message || "";
+      const errorCode = deepResearch.error.code || "";
+
+      console.log("🔍 [WorkspaceLayout] Deep research error detected:", {
+        message: errorMsg,
+        code: errorCode,
+        fullError: deepResearch.error,
+      });
+
+      // Check if it's a payment/subscription error
+      const isPaymentError =
+        errorMsg.includes("402") ||
+        errorMsg.includes("INSUFFICIENT_TOKENS") ||
+        errorMsg.includes("NO_SUBSCRIPTION") ||
+        errorMsg.includes("no active subscription") ||
+        errorMsg.includes("Payment Required") ||
+        errorCode === "NO_SUBSCRIPTION";
+
+      if (isPaymentError) {
+        console.log("💳 [WorkspaceLayout] Payment Required from research - showing paywall");
+        setPaywallReason("no_subscription");
+        setShowPaywall(true);
+        setIsInlineResearchActive(false);
+      }
+    }
+  }, [deepResearch.error]);
+
   // Sync deepResearch phase completion with researchStatus
   useEffect(() => {
     if (deepResearch.phase === "complete" && isInlineResearchActive) {
@@ -169,12 +199,15 @@ export function WorkspaceLayout({
   // Start inline research for new projects (no sources yet)
   const handleStartInlineResearch = useCallback(async () => {
     if (!brief.topic) return;
-    
+
     setIsInlineResearchActive(true);
-    
+
     // Ensure project exists first
     const currentProjectId = await ensureProject();
-    if (!currentProjectId) return;
+    if (!currentProjectId) {
+      setIsInlineResearchActive(false);
+      return;
+    }
 
     // Start streaming research
     await deepResearch.executeWithStream(
@@ -214,6 +247,17 @@ export function WorkspaceLayout({
     setShowPaywall(true);
   };
 
+  // Helper to handle 402 Payment Required errors
+  const handle402Error = useCallback((response: Response) => {
+    if (response.status === 402) {
+      console.log("💳 [WorkspaceLayout] 402 Payment Required - showing paywall");
+      setPaywallReason("no_subscription");
+      setShowPaywall(true);
+      return true;
+    }
+    return false;
+  }, []);
+
   // Intercept step change to update project status in DB
   const handleStepChange = async (step: WorkflowStep) => {
     onStepChange(step);
@@ -221,7 +265,7 @@ export function WorkspaceLayout({
     // Update workflow step in DB for every transition
     if (projectId) {
       try {
-        await fetch(`/api/projects/${projectId}`, {
+        const response = await fetch(`/api/projects/${projectId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -232,6 +276,9 @@ export function WorkspaceLayout({
             }),
           }),
         });
+
+        // Check for 402 Payment Required
+        handle402Error(response);
       } catch (error) {
         console.error("Failed to update project workflow step:", error);
       }
@@ -296,6 +343,11 @@ export function WorkspaceLayout({
           projectId,
         }),
       });
+
+      // Check for 402 Payment Required
+      if (handle402Error(response)) {
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("Failed to regenerate structure");
@@ -384,6 +436,11 @@ export function WorkspaceLayout({
           },
         }),
       });
+
+      // Check for 402 Payment Required
+      if (handle402Error(response)) {
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("Failed to analyze source impact");
@@ -518,6 +575,11 @@ export function WorkspaceLayout({
           },
         }),
       });
+
+      // Check for 402 Payment Required
+      if (handle402Error(response)) {
+        return;
+      }
 
       if (!response.ok) {
         throw new Error("Failed to regenerate sections");
