@@ -144,7 +144,7 @@ class TokenService {
         p_user_id: userId,
         p_tokens: amount,
         p_operation_type: operationType,
-        p_metadata: metadata || null,
+        p_metadata: (metadata as any) || null,
         p_project_id: projectId || null,
       });
 
