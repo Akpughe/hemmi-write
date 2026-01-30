@@ -72,7 +72,14 @@ export interface DeepResearchPaper {
   issue?: string;
   pages?: string;
   publisher?: string;
-  publicationType?: "journal" | "conference" | "preprint" | "book" | "thesis" | "report" | "web";
+  publicationType?:
+    | "journal"
+    | "conference"
+    | "preprint"
+    | "book"
+    | "thesis"
+    | "report"
+    | "web";
 
   // Content
   abstract?: string;
@@ -99,7 +106,13 @@ export interface DeepResearchPaper {
   missingFields: string[]; // List of missing critical fields
 
   // Metadata
-  source: "perplexity" | "semanticscholar" | "crossref" | "openalex" | "arxiv" | "pubmed";
+  source:
+    | "perplexity"
+    | "semanticscholar"
+    | "crossref"
+    | "openalex"
+    | "arxiv"
+    | "pubmed";
   enrichedFrom?: string[]; // APIs used for enrichment
   lastEnrichedAt?: string; // ISO date string
 }
@@ -127,7 +140,13 @@ export interface DeepResearchQuery {
   preferOpenAccess?: boolean; // Prioritize open access papers
 
   // Academic Filters
-  publicationTypes?: ("journal" | "conference" | "preprint" | "book" | "thesis")[];
+  publicationTypes?: (
+    | "journal"
+    | "conference"
+    | "preprint"
+    | "book"
+    | "thesis"
+  )[];
   excludeDomains?: string[]; // Domains to exclude
   includeDomains?: string[]; // Only include these domains
 
@@ -276,6 +295,7 @@ export interface ResearchProgressUpdate {
   // Paper Progress
   papersFound?: number;
   papersEnriched?: number;
+  papers?: PartialDeepResearchPaper[];
   currentQuality?: number;
   targetQuality?: number;
 
@@ -296,9 +316,9 @@ export interface ResearchProgressUpdate {
 
 export const COMPLETENESS_WEIGHTS = {
   // Critical Fields (60% total)
-  title: 0.10,
-  authors: 0.10,
-  publishedDate: 0.10,
+  title: 0.1,
+  authors: 0.1,
+  publishedDate: 0.1,
   doi: 0.15,
   abstract: 0.15,
 
@@ -322,12 +342,12 @@ export const COMPLETENESS_WEIGHTS = {
 export const QUALITY_THRESHOLDS = {
   excellent: 0.95,
   good: 0.85,
-  acceptable: 0.80,
-  minimum: 0.70,
+  acceptable: 0.8,
+  minimum: 0.7,
 
   // Iteration Thresholds
-  stopIfAbove: 0.80, // Stop iterating if quality >= 80% (target completeness)
-  acceptableIfAbove: 0.70, // Accept best effort if quality >= this after max iterations
+  stopIfAbove: 0.8, // Stop iterating if quality >= 80% (target completeness)
+  acceptableIfAbove: 0.7, // Accept best effort if quality >= this after max iterations
 } as const;
 
 // =============================================================================
@@ -345,18 +365,20 @@ export const StructuredAuthorSchema = z.object({
 export const DeepResearchQuerySchema = z.object({
   query: z.string().min(3, "Query must be at least 3 characters"),
   maxPapers: z.number().min(1).max(100).default(20),
-  yearRange: z.object({
-    start: z.number().min(1900).max(2100).optional(),
-    end: z.number().min(1900).max(2100).optional(),
-  }).optional(),
+  yearRange: z
+    .object({
+      start: z.number().min(1900).max(2100).optional(),
+      end: z.number().min(1900).max(2100).optional(),
+    })
+    .optional(),
   minRelevance: z.number().min(0).max(1).default(0.5),
   minCompleteness: z.number().min(0).max(1).default(0.7),
   requireDOI: z.boolean().default(false),
   requireAbstract: z.boolean().default(false),
   preferOpenAccess: z.boolean().default(false),
-  publicationTypes: z.array(
-    z.enum(["journal", "conference", "preprint", "book", "thesis"])
-  ).optional(),
+  publicationTypes: z
+    .array(z.enum(["journal", "conference", "preprint", "book", "thesis"]))
+    .optional(),
   excludeDomains: z.array(z.string()).optional(),
   includeDomains: z.array(z.string()).optional(),
   expandQuery: z.boolean().default(true),
@@ -382,7 +404,17 @@ export const DeepResearchPaperSchema = z.object({
   issue: z.string().optional(),
   pages: z.string().optional(),
   publisher: z.string().optional(),
-  publicationType: z.enum(["journal", "conference", "preprint", "book", "thesis", "report", "web"]).optional(),
+  publicationType: z
+    .enum([
+      "journal",
+      "conference",
+      "preprint",
+      "book",
+      "thesis",
+      "report",
+      "web",
+    ])
+    .optional(),
   abstract: z.string().optional(),
   excerpt: z.string().optional(),
   fullContent: z.string().optional(),
@@ -397,7 +429,14 @@ export const DeepResearchPaperSchema = z.object({
   isOpenAccess: z.boolean().default(false),
   completenessScore: z.number().min(0).max(1),
   missingFields: z.array(z.string()).default([]),
-  source: z.enum(["perplexity", "semanticscholar", "crossref", "openalex", "arxiv", "pubmed"]),
+  source: z.enum([
+    "perplexity",
+    "semanticscholar",
+    "crossref",
+    "openalex",
+    "arxiv",
+    "pubmed",
+  ]),
   enrichedFrom: z.array(z.string()).optional(),
   lastEnrichedAt: z.string().optional(),
 });
@@ -429,4 +468,103 @@ export type PartialDeepResearchPaper = Partial<DeepResearchPaper> & {
 };
 
 // Paper update for enrichment merging
-export type PaperEnrichmentUpdate = Partial<Omit<DeepResearchPaper, "id" | "title" | "url">>;
+export type PaperEnrichmentUpdate = Partial<
+  Omit<DeepResearchPaper, "id" | "title" | "url">
+>;
+
+// =============================================================================
+// Streaming Event Types (Granular Paper-Level Events)
+// =============================================================================
+
+export type ResearchEventType =
+  | "connected"
+  | "phase"           // Phase transitions
+  | "paper_found"     // Paper discovered (partial data)
+  | "paper_enriching" // Paper being enriched
+  | "paper_complete"  // Paper fully processed & saved
+  | "paper_failed"    // Paper failed validation
+  | "tokens_low"      // Token warning
+  | "tokens_exhausted"// Tokens ran out
+  | "progress"        // Keep for backwards compat
+  | "result"
+  | "error"
+  | "done";
+
+export type ResearchPhase =
+  | "idle"
+  | "searching"
+  | "found"
+  | "enriching"
+  | "validating"
+  | "complete"
+  | "error";
+
+export interface PaperStreamEvent {
+  type: "paper_found" | "paper_enriching" | "paper_complete" | "paper_failed";
+  paperId: string;
+  paper: PartialDeepResearchPaper;
+  enrichmentField?: string;  // "authors" | "doi" | "abstract" etc
+  message?: string;
+}
+
+export interface PhaseEvent {
+  type: "phase";
+  phase: ResearchPhase;
+  message: string;
+  count?: number;
+  topic?: string;
+}
+
+export interface TokenEvent {
+  type: "tokens_low" | "tokens_exhausted";
+  tokensRemaining: number;
+  tokensUsed: number;
+  papersSaved: number;
+}
+
+export interface StreamConnectedEvent {
+  type: "connected";
+  message: string;
+  query: string;
+  config: {
+    maxPapers: number;
+    maxIterations: number;
+    targetCompleteness: number;
+  };
+}
+
+export interface StreamDoneEvent {
+  type: "done";
+  message: string;
+  success: boolean;
+  totalPapers: number;
+  quality: number;
+  iterations: number;
+  durationMs: number;
+  papersSaved?: number;
+}
+
+export interface StreamErrorEvent {
+  type: "error";
+  code: string;
+  message: string;
+  retryable: boolean;
+  timestamp?: string;
+}
+
+export interface StreamResultEvent {
+  type: "result";
+  success: boolean;
+  data: DeepResearchResult;
+}
+
+// Union type for all streaming events
+export type StreamingResearchEvent =
+  | StreamConnectedEvent
+  | PhaseEvent
+  | PaperStreamEvent
+  | TokenEvent
+  | ResearchProgressUpdate
+  | StreamResultEvent
+  | StreamErrorEvent
+  | StreamDoneEvent;
