@@ -13,6 +13,10 @@ import {
   ResearchStatus,
   ResearchProgressUpdate,
   QUALITY_THRESHOLDS,
+  PaperStreamEvent,
+  PhaseEvent,
+  ResearchPhase,
+  StreamingResearchEvent,
 } from "@/lib/types/deepResearch";
 import {
   DEEP_RESEARCH_TOOLS,
@@ -26,7 +30,8 @@ import {
 // Types
 // =============================================================================
 
-export type ProgressCallback = (update: ResearchProgressUpdate) => void;
+// Extended callback that accepts both legacy and new event types
+export type ProgressCallback = (update: ResearchProgressUpdate | PaperStreamEvent | PhaseEvent | StreamingResearchEvent) => void;
 
 type ConversationMessage = Anthropic.MessageParam;
 
@@ -111,7 +116,7 @@ export class ClaudeResearchAgent {
   }
 
   /**
-   * Send progress update
+   * Send progress update (legacy format)
    */
   private sendProgress(update: Partial<ResearchProgressUpdate>): void {
     if (this.progressCallback) {
@@ -120,6 +125,43 @@ export class ClaudeResearchAgent {
         timestamp: new Date().toISOString(),
         ...update,
       } as ResearchProgressUpdate);
+    }
+  }
+
+  /**
+   * Send phase transition event
+   */
+  private sendPhase(phase: ResearchPhase, message: string, count?: number, topic?: string): void {
+    if (this.progressCallback) {
+      const event: PhaseEvent = {
+        type: "phase",
+        phase,
+        message,
+        count,
+        topic,
+      };
+      this.progressCallback(event);
+    }
+  }
+
+  /**
+   * Send paper-level event
+   */
+  private sendPaperEvent(
+    type: PaperStreamEvent["type"],
+    paper: PartialDeepResearchPaper,
+    enrichmentField?: string,
+    message?: string
+  ): void {
+    if (this.progressCallback) {
+      const event: PaperStreamEvent = {
+        type,
+        paperId: paper.id,
+        paper,
+        enrichmentField,
+        message,
+      };
+      this.progressCallback(event);
     }
   }
 
@@ -147,6 +189,9 @@ export class ClaudeResearchAgent {
     const targetCompleteness =
       query.targetCompleteness || QUALITY_THRESHOLDS.stopIfAbove;
     const maxPapers = query.maxPapers || 20;
+
+    // Send initial phase event
+    this.sendPhase("searching", `Searching for ${maxPapers} references...`, maxPapers, query.query);
 
     this.sendProgress({
       stage: ResearchStatus.SEARCHING,
@@ -179,6 +224,7 @@ export class ClaudeResearchAgent {
           maxIterations,
           papersFound: allPapers.length,
           currentQuality,
+          papers: allPapers,
         });
 
         // Call Claude
@@ -201,159 +247,265 @@ export class ClaudeResearchAgent {
         );
 
         if (toolUseBlocks.length > 0) {
-          // Execute tools and collect results
+          // Execute tools and collect results in batches to avoid rate limits (429)
           const toolResults: Anthropic.ToolResultBlockParam[] = [];
+          const concurrencyLimit = 3;
 
-          for (const toolUse of toolUseBlocks) {
-            this.sendProgress({
-              stage: this.getStageFromTool(toolUse.name),
-              message: `Executing ${toolUse.name}...`,
-              papersFound: allPapers.length,
-            });
-
-            console.log(`[Claude Agent] Executing tool: ${toolUse.name}`);
-
-            const result = await executeToolCall(
-              toolUse.name as ToolName,
-              toolUse.input as Record<string, unknown>,
-            );
-
-            // Track papers from search results
-            if (
-              toolUse.name === "search_papers" &&
-              result.success &&
-              result.data
-            ) {
-              const searchData = result.data as {
-                papers: PartialDeepResearchPaper[];
-              };
-              if (searchData.papers) {
-                allPapers = deduplicatePapers([
-                  ...allPapers,
-                  ...searchData.papers,
-                ]);
+          for (let i = 0; i < toolUseBlocks.length; i += concurrencyLimit) {
+            const batch = toolUseBlocks.slice(i, i + concurrencyLimit);
+            const batchResults = await Promise.all(
+              batch.map(async (toolUse) => {
                 this.sendProgress({
-                  stage: ResearchStatus.SEARCHING,
-                  message: `Found ${searchData.papers.length} papers (${allPapers.length} total)`,
+                  stage: this.getStageFromTool(toolUse.name),
+                  message: `Executing ${toolUse.name}...`,
                   papersFound: allPapers.length,
                 });
-              }
-            }
 
-            // Track author enrichment results
-            if (
-              toolUse.name === "enrich_missing_authors" &&
-              result.success &&
-              result.data
-            ) {
-              const enrichData = result.data as {
-                papers?: PartialDeepResearchPaper[];
-                enrichedCount?: number;
-                totalNeeded?: number;
-              };
+                console.log(`[Claude Agent] Executing tool: ${toolUse.name}`);
 
-              // CRITICAL: Merge enriched papers back into allPapers
-              if (enrichData.papers) {
-                allPapers = deduplicatePapers([
-                  ...allPapers,
-                  ...enrichData.papers,
-                ]);
-                console.log(
-                  `[Claude Agent] Merged ${enrichData.papers.length} enriched papers into allPapers`,
+                const result = await executeToolCall(
+                  toolUse.name as ToolName,
+                  toolUse.input as Record<string, unknown>,
                 );
-              }
 
-              this.sendProgress({
-                stage: ResearchStatus.ENRICHING,
-                message: `Enriched authors: ${enrichData.enrichedCount || 0}/${enrichData.totalNeeded || 0} papers`,
-                papersEnriched: allPapers.filter((p) => p.enrichedFrom?.length)
-                  .length,
-              });
-            }
+                // Track papers from search results
+                if (
+                  toolUse.name === "search_papers" &&
+                  result.success &&
+                  result.data
+                ) {
+                  const searchData = result.data as {
+                    papers: PartialDeepResearchPaper[];
+                  };
+                  if (searchData.papers) {
+                    // Emit paper_found for each newly discovered paper
+                    for (const paper of searchData.papers) {
+                      this.sendPaperEvent(
+                        "paper_found",
+                        paper,
+                        undefined,
+                        `Found: ${paper.title}`
+                      );
+                    }
 
-            // Track research/enrichment results
-            if (
-              toolUse.name === "research_paper_metadata" &&
-              result.success &&
-              result.data
-            ) {
-              const researchData = result.data as Record<string, unknown> & {
-                fieldsFound?: string[];
-              };
+                    allPapers = deduplicatePapers([
+                      ...allPapers,
+                      ...searchData.papers,
+                    ]);
 
-              // Get original title/URL from tool use input
-              const toolInput = toolUse.input as {
-                title: string;
-                url?: string;
-              };
+                    // Send phase update with count
+                    this.sendPhase(
+                      "found",
+                      `Found ${allPapers.length} candidates`,
+                      allPapers.length,
+                      query.query
+                    );
 
-              allPapers = deduplicatePapers([
-                ...allPapers,
-                {
-                  id: `res-${Math.random().toString(36).substring(2, 9)}`,
-                  title: toolInput.title,
-                  url: toolInput.url || "",
-                  ...researchData,
-                  lastEnrichedAt: new Date().toISOString(),
-                  enrichedFrom: ["claude:research"],
-                } as PartialDeepResearchPaper,
-              ]);
+                    this.sendProgress({
+                      stage: ResearchStatus.SEARCHING,
+                      message: `Found ${searchData.papers.length} papers (${allPapers.length} total)`,
+                      papersFound: allPapers.length,
+                      papers: allPapers,
+                    });
+                  }
+                }
 
-              this.sendProgress({
-                stage: ResearchStatus.ENRICHING,
-                message: `Researched paper metadata: found ${researchData.fieldsFound?.join(", ") || "fields"}`,
-                papersEnriched: allPapers.filter((p) => p.enrichedFrom?.length)
-                  .length,
-              });
-            }
+                // Track author enrichment results
+                if (
+                  toolUse.name === "enrich_missing_authors" &&
+                  result.success &&
+                  result.data
+                ) {
+                  const enrichData = result.data as {
+                    papers?: PartialDeepResearchPaper[];
+                    enrichedCount?: number;
+                    totalNeeded?: number;
+                  };
 
-            // Track validation results
-            if (
-              toolUse.name === "validate_papers" &&
-              result.success &&
-              result.data
-            ) {
-              const validationData = result.data as {
-                qualityReport: QualityReport;
-                paperResults?: {
-                  id: string;
-                  title: string;
-                  url: string;
-                  completenessScore: number;
-                  missingFields: string[];
-                }[];
-              };
+                  // Send enriching phase
+                  this.sendPhase(
+                    "enriching",
+                    `Enriching ${enrichData.totalNeeded || 0} papers with authors...`
+                  );
 
-              // Merge any updated completeness scores if returned
-              if (validationData.paperResults) {
-                const updatedPapers: PartialDeepResearchPaper[] =
-                  validationData.paperResults.map((res) => ({
-                    id: res.id,
-                    title: res.title,
-                    url: res.url || "", // Need URL for PartialDeepResearchPaper
-                    completenessScore: res.completenessScore,
-                    missingFields: res.missingFields,
-                  }));
-                allPapers = deduplicatePapers([...allPapers, ...updatedPapers]);
-              }
+                  // CRITICAL: Merge enriched papers back into allPapers
+                  if (enrichData.papers) {
+                    // Emit paper_complete for each enriched paper
+                    for (const paper of enrichData.papers) {
+                      // First emit enriching event
+                      this.sendPaperEvent(
+                        "paper_enriching",
+                        paper,
+                        "authors",
+                        `Getting authors for "${paper.title}"`
+                      );
 
-              if (validationData.qualityReport) {
-                currentQuality =
-                  validationData.qualityReport.averageCompleteness;
-                this.sendProgress({
-                  stage: ResearchStatus.VALIDATING,
-                  message: `Quality: ${(currentQuality * 100).toFixed(1)}%`,
-                  currentQuality,
-                  targetQuality: targetCompleteness,
-                });
-              }
-            }
+                      // Then emit complete event with full data
+                      this.sendPaperEvent(
+                        "paper_complete",
+                        paper,
+                        undefined,
+                        `Enriched: ${paper.title}`
+                      );
+                    }
 
-            toolResults.push({
-              type: "tool_result",
-              tool_use_id: toolUse.id,
-              content: JSON.stringify(result),
-            });
+                    allPapers = deduplicatePapers([
+                      ...allPapers,
+                      ...enrichData.papers,
+                    ]);
+                    console.log(
+                      `[Claude Agent] Merged ${enrichData.papers.length} enriched papers into allPapers`,
+                    );
+                  }
+
+                  this.sendProgress({
+                    stage: ResearchStatus.ENRICHING,
+                    message: `Enriched authors: ${enrichData.enrichedCount || 0}/${enrichData.totalNeeded || 0} papers`,
+                    papersEnriched: allPapers.filter(
+                      (p) => p.enrichedFrom?.length,
+                    ).length,
+                    papers: allPapers,
+                  });
+                }
+
+                // Track research/enrichment results
+                if (
+                  toolUse.name === "research_paper_metadata" &&
+                  result.success &&
+                  result.data
+                ) {
+                  const researchData = result.data as Record<
+                    string,
+                    unknown
+                  > & {
+                    fieldsFound?: string[];
+                  };
+
+                  // Get original title/URL from tool use input
+                  const toolInput = toolUse.input as {
+                    title: string;
+                    url?: string;
+                  };
+
+                  const enrichedPaper: PartialDeepResearchPaper = {
+                    id: `res-${Math.random().toString(36).substring(2, 9)}`,
+                    title: toolInput.title,
+                    url: toolInput.url || "",
+                    ...researchData,
+                    lastEnrichedAt: new Date().toISOString(),
+                    enrichedFrom: ["claude:research"],
+                  } as PartialDeepResearchPaper;
+
+                  // Emit enriching event for the field being researched
+                  const fieldsFound = researchData.fieldsFound?.join(", ") || "metadata";
+                  this.sendPaperEvent(
+                    "paper_enriching",
+                    enrichedPaper,
+                    fieldsFound,
+                    `Researching ${fieldsFound} for "${toolInput.title}"`
+                  );
+
+                  // Emit paper_complete
+                  this.sendPaperEvent(
+                    "paper_complete",
+                    enrichedPaper,
+                    undefined,
+                    `Enriched: ${toolInput.title}`
+                  );
+
+                  allPapers = deduplicatePapers([
+                    ...allPapers,
+                    enrichedPaper,
+                  ]);
+
+                  this.sendProgress({
+                    stage: ResearchStatus.ENRICHING,
+                    message: `Researched paper metadata: found ${fieldsFound}`,
+                    papersEnriched: allPapers.filter(
+                      (p) => p.enrichedFrom?.length,
+                    ).length,
+                    papers: allPapers,
+                  });
+                }
+
+                // Track validation results
+                if (
+                  toolUse.name === "validate_papers" &&
+                  result.success &&
+                  result.data
+                ) {
+                  // Send validating phase
+                  this.sendPhase("validating", "Validating paper quality...");
+
+                  const validationData = result.data as {
+                    qualityReport: QualityReport;
+                    paperResults?: {
+                      id: string;
+                      title: string;
+                      url: string;
+                      completenessScore: number;
+                      missingFields: string[];
+                    }[];
+                  };
+
+                  // Merge any updated completeness scores if returned
+                  if (validationData.paperResults) {
+                    const updatedPapers: PartialDeepResearchPaper[] =
+                      validationData.paperResults.map((res) => ({
+                        id: res.id,
+                        title: res.title,
+                        url: res.url || "", // Need URL for PartialDeepResearchPaper
+                        completenessScore: res.completenessScore,
+                        missingFields: res.missingFields,
+                      }));
+
+                    // Emit paper_complete or paper_failed based on completeness
+                    for (const paper of updatedPapers) {
+                      const score = paper.completenessScore || 0;
+                      if (score >= 0.7) {
+                        this.sendPaperEvent(
+                          "paper_complete",
+                          paper,
+                          undefined,
+                          `Validated: ${paper.title} (${(score * 100).toFixed(0)}%)`
+                        );
+                      } else if (score < 0.5) {
+                        this.sendPaperEvent(
+                          "paper_failed",
+                          paper,
+                          undefined,
+                          `Low quality: ${paper.title} (${(score * 100).toFixed(0)}%)`
+                        );
+                      }
+                    }
+
+                    allPapers = deduplicatePapers([
+                      ...allPapers,
+                      ...updatedPapers,
+                    ]);
+                  }
+
+                  if (validationData.qualityReport) {
+                    currentQuality =
+                      validationData.qualityReport.averageCompleteness;
+                    this.sendProgress({
+                      stage: ResearchStatus.VALIDATING,
+                      message: `Quality: ${(currentQuality * 100).toFixed(1)}%`,
+                      currentQuality,
+                      targetQuality: targetCompleteness,
+                      papers: allPapers,
+                    });
+                  }
+                }
+
+                return {
+                  type: "tool_result",
+                  tool_use_id: toolUse.id,
+                  content: JSON.stringify(result),
+                } as Anthropic.ToolResultBlockParam;
+              }),
+            );
+            toolResults.push(...batchResults);
           }
 
           // Add assistant message with tool uses
@@ -462,6 +614,14 @@ export class ClaudeResearchAgent {
         completedAt: new Date(endTime).toISOString(),
         totalDurationMs: endTime - startTime,
       };
+
+      // Send complete phase
+      this.sendPhase(
+        "complete",
+        `Research complete: ${finalPapers.length} papers found`,
+        finalPapers.length,
+        query.query
+      );
 
       this.sendProgress({
         type: "result",
