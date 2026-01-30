@@ -45,7 +45,7 @@ interface CreateSubscriptionParams {
 
 class SubscriptionService {
   /**
-   * Create a new subscription
+   * Create a new subscription or renew existing one
    */
   async createSubscription(
     params: CreateSubscriptionParams
@@ -53,6 +53,9 @@ class SubscriptionService {
     try {
       // Use service role to bypass RLS for creation
       const supabase = await createServiceRoleSupabaseClient();
+
+      // Check if user already has an active subscription
+      const existingSubscription = await this.getActiveSubscriptionByUserId(params.userId);
 
       // Get token allocation for this plan
       let tokenAllocation = await tokenService.getTokenAllocationForPlan(
@@ -87,7 +90,58 @@ class SubscriptionService {
         params.billingCycle
       );
 
-      console.log('[SubscriptionService] Creating subscription with token_allocation:', tokenAllocation);
+      // If user has an existing active subscription, update it instead of creating new one
+      if (existingSubscription) {
+        console.log('[SubscriptionService] User has existing active subscription, upgrading/renewing instead');
+
+        // Calculate new token balance: remaining tokens + new allocation
+        const newTokensRemaining = existingSubscription.tokensRemaining + tokenAllocation;
+
+        const { data: updatedSub, error: updateError } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_type: params.planType,
+            billing_cycle: params.billingCycle,
+            token_allocation: tokenAllocation,
+            tokens_remaining: newTokensRemaining,
+            currency: params.currency,
+            amount_paid: params.amountPaid,
+            payment_gateway: params.paymentGateway,
+            gateway_subscription_id: params.gatewaySubscriptionId || existingSubscription.gatewaySubscriptionId,
+            gateway_customer_id: params.gatewayCustomerId || existingSubscription.gatewayCustomerId,
+            status: 'active',
+            auto_renew: !!params.gatewaySubscriptionId,
+            current_period_start: periodStart.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingSubscription.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('[SubscriptionService] Update subscription error:', updateError);
+          throw updateError;
+        }
+
+        // Record payment history
+        await supabase.from('payment_history').insert({
+          user_id: params.userId,
+          subscription_id: updatedSub.id,
+          transaction_id: params.transactionId,
+          payment_gateway: params.paymentGateway,
+          amount: params.amountPaid,
+          currency: params.currency,
+          tokens_purchased: tokenAllocation,
+          payment_type: 'subscription',
+          status: 'success',
+        });
+
+        console.log('[SubscriptionService] Subscription renewed/upgraded for user:', params.userId, 'new tokens_remaining:', newTokensRemaining);
+        return this.mapSubscription(updatedSub);
+      }
+
+      console.log('[SubscriptionService] Creating new subscription with token_allocation:', tokenAllocation);
 
       // Create subscription record
       const { data: subscription, error: subError } = await supabase
@@ -133,6 +187,38 @@ class SubscriptionService {
     } catch (error) {
       console.error('[SubscriptionService] Create subscription error:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get user's active subscription by user ID (uses service role to bypass RLS)
+   */
+  private async getActiveSubscriptionByUserId(userId: string): Promise<Subscription | null> {
+    try {
+      const supabase = await createServiceRoleSupabaseClient();
+
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No rows returned
+          return null;
+        }
+        console.error('[SubscriptionService] Get active subscription by user ID error:', error);
+        return null;
+      }
+
+      return this.mapSubscription(data);
+    } catch (error) {
+      console.error('[SubscriptionService] Get active subscription by user ID error:', error);
+      return null;
     }
   }
 
@@ -334,17 +420,22 @@ class SubscriptionService {
         throw new Error('Subscription not found');
       }
 
+      // Skip renewal for one-time purchases (no billing cycle)
+      if (!subscription.billing_cycle) {
+        throw new Error('Cannot renew one-time subscription');
+      }
+
       // Calculate new period
       const periodStart = new Date(subscription.current_period_end);
       const periodEnd = this.calculatePeriodEnd(
         periodStart,
-        subscription.billing_cycle
+        subscription.billing_cycle as BillingCycle
       );
 
       // Get token allocation for plan
       const tokenAllocation = await tokenService.getTokenAllocationForPlan(
         subscription.plan_type,
-        subscription.billing_cycle
+        subscription.billing_cycle as BillingCycle
       );
 
       // Update subscription
@@ -429,7 +520,7 @@ class SubscriptionService {
       tokenAllocation: data.token_allocation as number,
       tokensRemaining: data.tokens_remaining as number,
       currency: data.currency as Currency,
-      amountPaid: parseFloat(data.amount_paid as string),
+      amountPaid: data.amount_paid as number,
       paymentGateway: data.payment_gateway as PaymentGateway,
       gatewaySubscriptionId: data.gateway_subscription_id as string | null,
       gatewayCustomerId: data.gateway_customer_id as string | null,
