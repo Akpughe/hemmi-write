@@ -4,7 +4,7 @@ import { createGroq } from "@ai-sdk/groq";
 import { AcademicLevel } from "@/lib/types/document";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
 import { requireAuth } from "@/lib/supabase/server";
-import { checkTokenBalance, deductTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -29,10 +29,10 @@ export async function POST(req: NextRequest) {
     
     console.log(`[Improve] Estimated tokens: ${estimatedTokens}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAT);
     if (tokenCheckError) {
-      console.log(`[Improve] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Improve] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAT})`);
       return tokenCheckError;
     }
 
