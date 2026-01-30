@@ -7,12 +7,30 @@ import { tokenService } from '@/lib/services/tokenService';
 import { NextResponse } from 'next/server';
 
 /**
+ * Minimum token thresholds for different operations
+ * Operations will start if user has at least this many tokens
+ */
+export const MIN_TOKENS = {
+  RESEARCH: 1000,      // Research can process ~1 paper
+  CHAPTER: 2000,       // Chapter generation minimum
+  STRUCTURE: 1000,     // Structure generation
+  CHAT: 500,           // Chat interaction
+  DEFAULT: 1000,       // Default minimum
+} as const;
+
+/**
  * Check if user has enough tokens before generation
+ * Uses "use what you have" approach - only blocks if below minimum threshold
  * Returns null if check passes, otherwise returns error response
+ *
+ * @param userId - User ID
+ * @param estimatedTokens - Estimated tokens (used for logging only)
+ * @param minimumRequired - Minimum tokens needed to start (default 1000)
  */
 export async function checkTokenBalance(
   userId: string,
-  estimatedTokens: number
+  estimatedTokens: number,
+  minimumRequired: number = MIN_TOKENS.DEFAULT
 ): Promise<NextResponse | null> {
   try {
     const balance = await tokenService.getUserTokenBalance(userId);
@@ -23,7 +41,7 @@ export async function checkTokenBalance(
         {
           error: 'INSUFFICIENT_TOKENS',
           message: 'No active subscription. Please subscribe to continue.',
-          required: estimatedTokens,
+          required: minimumRequired,
           available: 0,
           code: 'NO_SUBSCRIPTION',
         },
@@ -31,13 +49,15 @@ export async function checkTokenBalance(
       );
     }
 
-    // Insufficient tokens
-    if (balance.tokens < estimatedTokens) {
+    // Check against minimum required, not estimated total
+    // This allows operations to start and use whatever tokens are available
+    if (balance.tokens < minimumRequired) {
       return NextResponse.json(
         {
           error: 'INSUFFICIENT_TOKENS',
-          message: `Insufficient tokens. This operation requires approximately ${estimatedTokens.toLocaleString()} tokens, but you only have ${balance.tokens.toLocaleString()} remaining.`,
-          required: estimatedTokens,
+          message: `Insufficient tokens. You need at least ${minimumRequired.toLocaleString()} tokens to start this operation. You have ${balance.tokens.toLocaleString()} remaining.`,
+          required: minimumRequired,
+          estimated: estimatedTokens,
           available: balance.tokens,
           code: 'INSUFFICIENT_BALANCE',
         },
@@ -45,7 +65,14 @@ export async function checkTokenBalance(
       );
     }
 
-    // All good
+    // Log if user has less than estimated (operation will proceed but may not complete fully)
+    if (balance.tokens < estimatedTokens) {
+      console.log(
+        `[TokenMiddleware] User has ${balance.tokens} tokens, less than estimated ${estimatedTokens}. Operation will use available tokens.`
+      );
+    }
+
+    // All good - user has at least minimum required
     return null;
   } catch (error) {
     console.error('[TokenMiddleware] Check balance error:', error);
