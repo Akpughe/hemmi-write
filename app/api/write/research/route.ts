@@ -8,9 +8,23 @@ import {
 import {
   createServerSupabaseClient,
   getCurrentUser,
+  requireAuth,
 } from "@/lib/supabase/server";
 import { searchService } from "@/lib/services/searchService";
 import { contentFetchingService } from "@/lib/services/contentFetchingService";
+import { metadataEnrichmentService } from "@/lib/services/metadataEnrichmentService";
+import { getDomainPrestige } from "@/lib/utils/academicSourcePriority";
+import {
+  scoreAndFilterSources,
+  getQualityStatistics,
+  type ScoredSource,
+} from "@/lib/utils/sourceQualityScorer";
+import {
+  checkTokenBalance,
+  deductTokens,
+  estimateResearchTokens,
+  MIN_TOKENS,
+} from "@/lib/middleware/tokenMiddleware";
 
 // Extended request type to include projectId
 interface ExtendedResearchRequest extends ResearchRequest {
@@ -19,6 +33,9 @@ interface ExtendedResearchRequest extends ResearchRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. AUTHENTICATE USER - blocks if not logged in
+    const user = await requireAuth();
+
     const body: ExtendedResearchRequest = await request.json();
     const {
       topic,
@@ -34,23 +51,51 @@ export async function POST(request: NextRequest) {
     if (!topic || !documentType) {
       return NextResponse.json(
         { error: "Topic and document type are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
+
+    // 2. ESTIMATE TOKEN USAGE for this research operation
+    const estimatedTokens = estimateResearchTokens({
+      sourceCount: numSources,
+      depth: "deep", // Comprehensive research with full content fetching
+    });
+
+    console.log(
+      `[Research] User ${user.id.substring(0, 8)}... requesting ${numSources} sources`,
+    );
+    console.log(`[Research] Estimated token cost: ${estimatedTokens} tokens`);
+
+    // 3. CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(
+      user.id,
+      estimatedTokens,
+      MIN_TOKENS.RESEARCH,
+    );
+    if (tokenCheckError) {
+      console.log(
+        `[Research] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.RESEARCH})`,
+      );
+      return tokenCheckError;
+    }
+
+    console.log(
+      `[Research] ✅ Token check passed, proceeding with research...`,
+    );
 
     console.log(`Starting parallel search for topic: ${topic}`);
     if (instructions) {
       console.log(`With instructions: ${instructions}`);
     }
     console.log(
-      `Available providers: ${searchService.getAvailableProviders().join(", ")}`
+      `Available providers: ${searchService.getAvailableProviders().join(", ")}`,
     );
 
     // Calculate dynamic domain limit based on requested source count
     // Formula: ceil(numSources / 5), capped at 5 for diversity
     const dynamicDomainLimit = Math.min(5, Math.ceil(numSources / 5));
     console.log(
-      `Dynamic domain limit: ${dynamicDomainLimit} (for ${numSources} sources)`
+      `Dynamic domain limit: ${dynamicDomainLimit} (for ${numSources} sources)`,
     );
 
     // Use the unified search service for parallel Exa + Perplexity search
@@ -66,7 +111,7 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(
-      `Got ${sources.length} sources after deduplication and diversity enforcement`
+      `Got ${sources.length} sources after deduplication and diversity enforcement`,
     );
 
     // If projectId provided, save sources to database
@@ -97,14 +142,14 @@ export async function POST(request: NextRequest) {
 
           // Map provider to valid source_type
           const getSourceType = (
-            provider?: string
+            provider?: string,
           ): "web" | "academic" | "news" | "blog" => {
             // For now, both EXA and PERPLEXITY are general web search providers
             // Could be enhanced to infer type from URL or metadata in the future
             return "web";
           };
 
-          // Insert new sources
+          // Insert new sources with domain prestige
           const sourcesToInsert = sources.map((source, index) => ({
             project_id: projectId,
             title: source.title,
@@ -118,6 +163,7 @@ export async function POST(request: NextRequest) {
             relevance_score: source.score || null,
             is_selected: source.selected,
             position: startPosition + index,
+            domain_prestige: getDomainPrestige(source.url), // NEW: Add domain prestige
           }));
 
           const { data: insertedSources, error: insertError } = await supabase
@@ -150,12 +196,12 @@ export async function POST(request: NextRequest) {
               // Fetch metadata for all sources, prioritizing by relevance score if available
               const sourcesToFetch = [...insertedSources]
                 .sort(
-                  (a, b) => (b.relevance_score || 0) - (a.relevance_score || 0)
+                  (a, b) => (b.relevance_score || 0) - (a.relevance_score || 0),
                 )
                 .slice(0, numSources);
 
               console.log(
-                `[Content Fetch] Starting for ${sourcesToFetch.length} sources to extract metadata`
+                `[Content Fetch] Starting for ${sourcesToFetch.length} sources to extract metadata`,
               );
 
               // Fetch content in parallel with retry logic
@@ -170,7 +216,7 @@ export async function POST(request: NextRequest) {
                   timeout: 8000,
                   retries: 2,
                   maxWords: 500,
-                }
+                },
               );
 
               // Update database with results
@@ -199,32 +245,6 @@ export async function POST(request: NextRequest) {
                   updateData.authors_structured = result.authorsStructured
                     ? JSON.stringify(result.authorsStructured)
                     : null;
-                  // #region agent log
-                  fetch(
-                    "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        location: "research/route.ts:updateSource",
-                        message: "Updating source with fetched content",
-                        data: {
-                          sourceId: result.sourceId,
-                          hasAuthor: !!result.author,
-                          author: result.author,
-                          hasAuthorsStructured: !!result.authorsStructured,
-                          authorsStructuredLength:
-                            result.authorsStructured?.length,
-                          journalName: result.journalName,
-                          url: result.url?.substring(0, 80),
-                        },
-                        timestamp: Date.now(),
-                        sessionId: "debug-session",
-                        hypothesisId: "B",
-                      }),
-                    }
-                  ).catch(() => {});
-                  // #endregion
 
                   // Update author if extraction found one and DB doesn't have it
                   if (result.author) {
@@ -250,8 +270,266 @@ export async function POST(request: NextRequest) {
 
               const successCount = fetchResults.filter((r) => r.success).length;
               console.log(
-                `[Content Fetch] Success: ${successCount}/${fetchResults.length}`
+                `[Content Fetch] Success: ${successCount}/${fetchResults.length}`,
               );
+
+              // NEW: Enrich metadata via APIs
+              try {
+                console.log(
+                  `[Metadata Enrichment] Starting for ${insertedSources.length} sources`,
+                );
+
+                // Fetch current source data from database for enrichment
+                const { data: sourcesForEnrichment, error: fetchError } =
+                  await supabase
+                    .from("research_sources")
+                    .select("*")
+                    .in(
+                      "id",
+                      insertedSources.map((s) => s.id),
+                    );
+
+                if (fetchError || !sourcesForEnrichment) {
+                  console.error(
+                    "[Metadata Enrichment] Failed to fetch sources:",
+                    fetchError,
+                  );
+                } else {
+                  // Enrich each source
+                  const enrichmentResults = await Promise.allSettled(
+                    sourcesForEnrichment.map((source) =>
+                      metadataEnrichmentService.enrichSource({
+                        id: source.id,
+                        title: source.title,
+                        url: source.url,
+                        author: source.author || undefined,
+                        doi: source.doi || undefined,
+                        journalName: source.journal_name || undefined,
+                        volume: source.volume || undefined,
+                        issue: source.issue || undefined,
+                        pages: source.pages || undefined,
+                        year: source.year || undefined,
+                        publisher: source.publisher || undefined,
+                        publicationType: source.publication_type || undefined,
+                        authorsStructured: source.authors_structured
+                          ? typeof source.authors_structured === "string"
+                            ? JSON.parse(source.authors_structured)
+                            : source.authors_structured
+                          : undefined,
+                        full_content: source.full_content || undefined,
+                      }),
+                    ),
+                  );
+
+                  // Update database with enriched metadata
+                  let enrichedCount = 0;
+                  for (let i = 0; i < enrichmentResults.length; i++) {
+                    const result = enrichmentResults[i];
+                    if (result.status === "fulfilled" && result.value) {
+                      const enriched = result.value;
+                      const sourceId = sourcesForEnrichment[i].id;
+
+                      const updateData: any = {
+                        // Update metadata source and confidence
+                        metadata_source: enriched.metadata_source || null,
+                        metadata_confidence:
+                          enriched.metadata_confidence || null,
+                        citation_count: enriched.citation_count || null,
+                        open_access_url: enriched.open_access_url || null,
+                      };
+
+                      // Update authors if enriched
+                      if (
+                        enriched.authorsStructured &&
+                        enriched.authorsStructured.length > 0
+                      ) {
+                        updateData.authors_structured = JSON.stringify(
+                          enriched.authorsStructured,
+                        );
+                        // Also update author string if not already set
+                        if (
+                          !sourcesForEnrichment[i].author &&
+                          enriched.author
+                        ) {
+                          updateData.author = enriched.author;
+                        }
+                      } else if (
+                        enriched.author &&
+                        !sourcesForEnrichment[i].author
+                      ) {
+                        updateData.author = enriched.author;
+                      }
+
+                      // Update DOI if found
+                      if (enriched.doi && !sourcesForEnrichment[i].doi) {
+                        updateData.doi = enriched.doi;
+                      }
+
+                      // Update journal metadata if enriched and not already set
+                      if (
+                        enriched.journalName &&
+                        !sourcesForEnrichment[i].journal_name
+                      ) {
+                        updateData.journal_name = enriched.journalName;
+                      }
+                      if (enriched.volume && !sourcesForEnrichment[i].volume) {
+                        updateData.volume = enriched.volume;
+                      }
+                      if (enriched.issue && !sourcesForEnrichment[i].issue) {
+                        updateData.issue = enriched.issue;
+                      }
+                      if (enriched.pages && !sourcesForEnrichment[i].pages) {
+                        updateData.pages = enriched.pages;
+                      }
+                      if (enriched.year && !sourcesForEnrichment[i].year) {
+                        updateData.year = enriched.year;
+                      }
+                      if (
+                        enriched.publisher &&
+                        !sourcesForEnrichment[i].publisher
+                      ) {
+                        updateData.publisher = enriched.publisher;
+                      }
+                      if (
+                        enriched.publicationType &&
+                        !sourcesForEnrichment[i].publication_type
+                      ) {
+                        updateData.publication_type = enriched.publicationType;
+                      }
+
+                      // Update venue prestige if enriched
+                      if (
+                        (enriched as any).venue_prestige &&
+                        !(sourcesForEnrichment[i] as any).venue_prestige
+                      ) {
+                        updateData.venue_prestige = (
+                          enriched as any
+                        ).venue_prestige;
+                      }
+
+                      await supabase
+                        .from("research_sources")
+                        .update(updateData)
+                        .eq("id", sourceId);
+
+                      enrichedCount++;
+                    } else if (result.status === "rejected") {
+                      console.error(
+                        `[Metadata Enrichment] Failed for source ${sourcesForEnrichment[i].id}:`,
+                        result.reason,
+                      );
+                    }
+                  }
+
+                  console.log(
+                    `[Metadata Enrichment] Completed: ${enrichedCount}/${sourcesForEnrichment.length} sources enriched`,
+                  );
+                }
+              } catch (enrichError) {
+                console.error(
+                  "[Metadata Enrichment] Non-fatal error:",
+                  enrichError,
+                );
+                // Continue - metadata enrichment is optional
+              }
+
+              // NEW: Quality Scoring & Filtering (Phase 3)
+              try {
+                console.log(
+                  `[Quality Scoring] Starting for ${insertedSources.length} sources`,
+                );
+
+                // Fetch current source data from database for scoring
+                const { data: sourcesForScoring, error: scoringFetchError } =
+                  await supabase
+                    .from("research_sources")
+                    .select("*")
+                    .in(
+                      "id",
+                      insertedSources.map((s) => s.id),
+                    );
+
+                if (scoringFetchError || !sourcesForScoring) {
+                  console.error(
+                    "[Quality Scoring] Failed to fetch sources:",
+                    scoringFetchError,
+                  );
+                } else {
+                  // Convert database sources to ScoredSource format
+                  const sourcesToScore: ScoredSource[] = sourcesForScoring.map(
+                    (source) => ({
+                      id: source.id,
+                      title: source.title,
+                      url: source.url,
+                      excerpt: source.excerpt || undefined,
+                      author: source.author || undefined,
+                      authorsStructured: source.authors_structured
+                        ? typeof source.authors_structured === "string"
+                          ? JSON.parse(source.authors_structured)
+                          : source.authors_structured
+                        : undefined,
+                      doi: source.doi || undefined,
+                      journalName: source.journal_name || undefined,
+                      volume: source.volume || undefined,
+                      issue: source.issue || undefined,
+                      pages: source.pages || undefined,
+                      year: source.year || undefined,
+                      publisher: source.publisher || undefined,
+                      publicationType:
+                        (source.publication_type as ScoredSource["publicationType"]) ||
+                        undefined,
+                      venuePrestige:
+                        (source.venue_prestige as ScoredSource["venuePrestige"]) ||
+                        undefined,
+                      domainPrestige:
+                        (source.domain_prestige as ScoredSource["domainPrestige"]) ||
+                        undefined,
+                      citationCount: source.citation_count || undefined,
+                      score:
+                        source.relevance_score !== null
+                          ? Number(source.relevance_score)
+                          : undefined,
+                    }),
+                  );
+
+                  // Score sources (but don't filter yet - let user see all sources)
+                  const scoredSources = scoreAndFilterSources(sourcesToScore, {
+                    minScore: 0, // Don't filter, just score
+                    sortByScore: false, // Don't sort, preserve original order
+                  });
+
+                  // Get quality statistics
+                  const stats = getQualityStatistics(scoredSources);
+                  console.log(
+                    `[Quality Scoring] Statistics:`,
+                    `Total: ${stats.total}, ` +
+                      `A: ${stats.gradeA}, B: ${stats.gradeB}, C: ${stats.gradeC}, D: ${stats.gradeD}, F: ${stats.gradeF}, ` +
+                      `Avg: ${stats.averageScore}/5, ` +
+                      `High Quality (A/B): ${stats.highQuality}/${stats.total} (${Math.round((stats.highQuality / stats.total) * 100)}%)`,
+                  );
+
+                  // Update database with quality scores
+                  for (const source of scoredSources) {
+                    await supabase
+                      .from("research_sources")
+                      .update({
+                        quality_score: source.qualityScore,
+                        quality_grade: source.qualityGrade,
+                      })
+                      .eq("id", source.id);
+                  }
+
+                  console.log(
+                    `[Quality Scoring] Completed: ${scoredSources.length} sources scored and stored`,
+                  );
+                }
+              } catch (scoringError) {
+                console.error(
+                  "[Quality Scoring] Non-fatal error:",
+                  scoringError,
+                );
+                // Continue - quality scoring is optional
+              }
             } catch (fetchError) {
               console.error("[Content Fetch] Non-fatal error:", fetchError);
               // Continue - generation will use excerpts
@@ -264,6 +542,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // 4. DEDUCT TOKENS after successful research
+    // Calculate actual tokens based on sources found and processed
+    const actualTokens = Math.ceil(savedSources.length * 800); // ~800 tokens per source (search + fetch + process)
+
+    await deductTokens(user.id, actualTokens, "research", {
+      projectId,
+      sourceCount: savedSources.length,
+      numRequested: numSources,
+      documentType,
+      topic,
+    });
+
+    console.log(
+      `[Research] ✅ Success - Deducted ${actualTokens} tokens for ${savedSources.length} sources`,
+    );
+
     const response: ResearchResponse = {
       sources: savedSources,
       query: topic,
@@ -271,6 +565,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error: any) {
+    // Handle authentication errors
+    if (error instanceof Error && error.message === "Unauthorized") {
+      console.log("[Research] ❌ Unauthorized access attempt");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     console.error("Research API error:", error);
     return NextResponse.json(
       {
@@ -278,7 +578,7 @@ export async function POST(request: NextRequest) {
         sources: [],
         query: "",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

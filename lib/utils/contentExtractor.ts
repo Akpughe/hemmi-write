@@ -271,30 +271,6 @@ Return JSON format:
         }`
       );
 
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "contentExtractor.ts:extractAcademicMetadataFromHtml",
-            message: "Extracted academic metadata from HTML",
-            data: {
-              url: url?.substring(0, 80),
-              hasJournalName: !!metadata.journalName,
-              hasAuthorsStructured: !!metadata.authorsStructured,
-              authorsStructuredLength: metadata.authorsStructured?.length,
-              author: metadata.author,
-              authorsStructuredSample: metadata.authorsStructured?.slice(0, 2),
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            hypothesisId: "A",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
       return {
         journalName: metadata.journalName || undefined,
         volume: metadata.volume || undefined,
@@ -311,24 +287,6 @@ Return JSON format:
         "[Content Extract] Failed to parse academic metadata JSON:",
         parseError
       );
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location:
-              "contentExtractor.ts:extractAcademicMetadataFromHtml-parseError",
-            message: "Failed to parse academic metadata JSON",
-            data: { url: url?.substring(0, 80), error: String(parseError) },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            hypothesisId: "A",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
       return {};
     }
   } catch (error: unknown) {

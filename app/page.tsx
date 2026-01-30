@@ -15,6 +15,7 @@ import type { WritingBrief } from "@/lib/types/ui";
 
 import { UserMenu } from "@/app/components/auth/user-menu";
 import { cn } from "@/lib/utils";
+import { DollarSignIcon } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
@@ -192,7 +193,7 @@ export default function HomePage() {
         <Link
           href="/pricing"
           className={cn(
-            "inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
           )}>
           Pricing
         </Link>
@@ -202,7 +203,7 @@ export default function HomePage() {
           <button
             onClick={handleLoginClick}
             className={cn(
-              "inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
             )}>
             Log in
           </button>

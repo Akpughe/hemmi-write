@@ -23,7 +23,11 @@ import {
   FileText,
   Cloud,
   CloudOff,
+  AlertCircle,
+  Search,
 } from "lucide-react";
+import { ResearchStreamView } from "./research-stream-view";
+import { PartialDeepResearchPaper, ResearchPhase } from "@/lib/types/deepResearch";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import {
@@ -34,6 +38,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/app/components/ui/card";
+import { PaywallModal } from "@/app/components/subscription/paywall-modal";
 import {
   mapUIDocumentTypeToEnum,
   mapUIAcademicLevelToEnum,
@@ -75,9 +80,30 @@ interface EditorPanelProps {
   researchCompletedAt?: Date | null;
   canGenerateStructure?: boolean;
   onGenerateStructure?: () => void;
+  onStartResearch?: () => void;
   structurePhase?: "idle" | "loading" | "done" | "error";
   structureError?: string | null;
   structureCompletedAt?: Date | null;
+  autoApproveEnabled?: boolean;
+  // Streaming research state
+  streamingResearch?: {
+    isStreaming: boolean;
+    phase: ResearchPhase;
+    phaseMessage: string;
+    papersFound: PartialDeepResearchPaper[];
+    papersEnriching: Map<string, { paper: PartialDeepResearchPaper; field: string }>;
+    papersComplete: PartialDeepResearchPaper[];
+    papersFailed: PartialDeepResearchPaper[];
+    targetCount: number;
+    completedCount: number;
+    savedCount: number;
+    tokensUsed: number;
+    tokensRemaining?: number;
+    tokenWarning?: boolean;
+    tokenExhausted?: boolean;
+  };
+  onCancelResearch?: () => void;
+  isInlineResearchActive?: boolean;
 }
 
 export function EditorPanel({
@@ -100,12 +126,41 @@ export function EditorPanel({
   researchPhase = "idle",
   researchError = null,
   researchCompletedAt = null,
+  streamingResearch,
+  onCancelResearch,
+  isInlineResearchActive = false,
   canGenerateStructure = false,
   onGenerateStructure,
+  onStartResearch,
   structurePhase = "idle",
   structureError = null,
   structureCompletedAt = null,
+  autoApproveEnabled = false,
 }: EditorPanelProps) {
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
+
+  // Check if error is subscription/token related
+  const isSubscriptionError = (error?: string | null) => {
+    if (!error) return false;
+    const lowerError = error.toLowerCase();
+    return (
+      lowerError.includes('insufficient') ||
+      lowerError.includes('token') ||
+      lowerError.includes('subscription') ||
+      lowerError.includes('payment') ||
+      lowerError.includes('no subscription') ||
+      lowerError.includes('402')
+    );
+  };
+
+  const handlePaywallOpen = (reason: 'insufficient_tokens' | 'no_subscription' = 'insufficient_tokens') => {
+    console.log('🔥 [EditorPanel] handlePaywallOpen called', { reason, currentShowPaywall: showPaywall });
+    setPaywallReason(reason);
+    setShowPaywall(true);
+    console.log('🔥 [EditorPanel] showPaywall set to true');
+  };
+
   const normalizePublicationType = (
     value?: string
   ):
@@ -415,35 +470,6 @@ export function EditorPanel({
               authorsStructured: s.authorsStructured,
             }));
 
-          // #region agent log
-          fetch(
-            "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                location: "editor-panel.tsx:generateReferences",
-                message: "Preparing sources for reference list",
-                data: {
-                  sourceCount: apiSources.length,
-                  sourcesWithAuthor: apiSources.filter((s) => s.author).length,
-                  sourcesWithAuthorsStructured: apiSources.filter(
-                    (s) => s.authorsStructured && s.authorsStructured.length > 0
-                  ).length,
-                  sampleSources: apiSources.slice(0, 3).map((s) => ({
-                    title: s.title?.substring(0, 40),
-                    author: s.author,
-                    hasAuthorsStructured: !!s.authorsStructured,
-                    authorsStructuredSample: s.authorsStructured?.slice?.(0, 1),
-                  })),
-                },
-                timestamp: Date.now(),
-                sessionId: "debug-session",
-                hypothesisId: "D",
-              }),
-            }
-          ).catch(() => {});
-          // #endregion
 
           // Get citation style from brief, default to APA
           const citationStyleMap: Record<string, CitationStyle> = {
@@ -872,6 +898,25 @@ export function EditorPanel({
     }
   }, [setChapterHandlers]);
 
+  // Auto-approve chapters when enabled and in review state
+  useEffect(() => {
+    if (!autoApproveEnabled || !showChapterReview) {
+      return;
+    }
+
+    // Only auto-approve when in chapter mode
+    if (!plan || plan.sections.length === 0) {
+      return;
+    }
+
+    // Auto-approve after brief delay for visual feedback
+    const timer = setTimeout(() => {
+      handleApproveChapter();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [autoApproveEnabled, showChapterReview, handleApproveChapter, plan]);
+
   const [isExporting, setIsExporting] = useState(false);
 
   const handleExport = async (format: "docx" | "pdf") => {
@@ -916,11 +961,37 @@ export function EditorPanel({
     })();
 
     const uniqueDomains = domainCounts.length;
-    const isLoading =
-      researchPhase === "loading" ||
-      (brief.includeSources &&
-        sources.length === 0 &&
-        researchPhase !== "error");
+    // isLoading should only be true when research is actively running
+    // Don't show loading state just because sources are empty and sources are enabled
+    const isLoading = researchPhase === "loading";
+
+    // Use streaming view if streaming research is active OR inline research is in progress
+    // This prevents the view from disappearing during the transition when isStreaming becomes false
+    // but before the completion handler has finished processing
+    if (streamingResearch?.isStreaming || (isInlineResearchActive && streamingResearch)) {
+      return (
+        <main className="flex-1 flex items-center justify-center bg-background p-8">
+          <ResearchStreamView
+            phase={streamingResearch.phase}
+            phaseMessage={streamingResearch.phaseMessage}
+            papersFound={streamingResearch.papersFound}
+            papersEnriching={streamingResearch.papersEnriching}
+            papersComplete={streamingResearch.papersComplete}
+            papersFailed={streamingResearch.papersFailed}
+            targetCount={streamingResearch.targetCount}
+            completedCount={streamingResearch.completedCount}
+            savedCount={streamingResearch.savedCount}
+            tokensUsed={streamingResearch.tokensUsed}
+            tokensRemaining={streamingResearch.tokensRemaining ?? undefined}
+            tokenWarning={streamingResearch.tokenWarning ?? undefined}
+            tokenExhausted={streamingResearch.tokenExhausted ?? undefined}
+            topic={brief.topic}
+            onCancel={onCancelResearch}
+            onUpgrade={() => handlePaywallOpen('insufficient_tokens')}
+          />
+        </main>
+      );
+    }
 
     return (
       <main className="flex-1 flex items-center justify-center bg-background p-8">
@@ -972,14 +1043,29 @@ export function EditorPanel({
                 </div>
               </div>
             ) : researchPhase === "error" ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                <div className="font-medium text-destructive mb-1">
-                  Something went wrong
+              <div className={`rounded-lg border p-4 text-sm ${
+                isSubscriptionError(researchError)
+                  ? 'border-yellow-500/30 bg-yellow-500/5'
+                  : 'border-destructive/30 bg-destructive/5'
+              }`}>
+                <div className={`font-medium mb-2 flex items-center gap-2 ${
+                  isSubscriptionError(researchError) ? 'text-yellow-600' : 'text-destructive'
+                }`}>
+                  <AlertCircle className="w-4 h-4" />
+                  {isSubscriptionError(researchError) ? 'Subscription or tokens required' : 'Something went wrong'}
                 </div>
-                <div className="text-muted-foreground">
+                <div className="text-muted-foreground mb-3">
                   {researchError ||
                     "Please retry research from the left panel (Sources tab)."}
                 </div>
+                {isSubscriptionError(researchError) && (
+                  <button
+                    type="button"
+                    onClick={() => handlePaywallOpen('insufficient_tokens')}
+                    className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background px-4 py-2.5 text-sm font-semibold shadow-sm shadow-foreground/10 transition-all duration-200 hover:bg-foreground/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 mt-3">
+                    Upgrade or top up
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -1036,20 +1122,45 @@ export function EditorPanel({
             )}
           </CardContent>
 
-          {!isLoading && researchPhase !== "error" && (
+            {!isLoading && researchPhase !== "error" && (
             <CardFooter className="justify-between gap-3">
               <div className="text-xs text-muted-foreground">
                 {selectedCount} selected
               </div>
-              <Button
-                onClick={onGenerateStructure}
-                disabled={!canGenerateStructure || selectedCount === 0}
-                className="gap-2">
-                Start generating project structure
-              </Button>
+              {sources.length === 0 ? (
+                <Button
+                  onClick={onStartResearch}
+                  disabled={isInlineResearchActive}
+                  className="gap-2">
+                  {isInlineResearchActive ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      Start Search
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={onGenerateStructure}
+                  disabled={!canGenerateStructure || selectedCount === 0}
+                  className="gap-2">
+                  Start generating project structure
+                </Button>
+              )}
             </CardFooter>
           )}
         </Card>
+
+        <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
       </main>
     );
   }
@@ -1107,14 +1218,29 @@ export function EditorPanel({
                 </div>
               </div>
             ) : structurePhase === "error" ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm">
-                <div className="font-medium text-destructive mb-1">
-                  Something went wrong
+              <div className={`rounded-lg border p-4 text-sm ${
+                isSubscriptionError(structureError)
+                  ? 'border-yellow-500/30 bg-yellow-500/5'
+                  : 'border-destructive/30 bg-destructive/5'
+              }`}>
+                <div className={`font-medium mb-2 flex items-center gap-2 ${
+                  isSubscriptionError(structureError) ? 'text-yellow-600' : 'text-destructive'
+                }`}>
+                  <AlertCircle className="w-4 h-4" />
+                  {isSubscriptionError(structureError) ? 'Subscription or tokens required' : 'Something went wrong'}
                 </div>
-                <div className="text-muted-foreground">
+                <div className="text-muted-foreground mb-3">
                   {structureError ||
                     "Please retry structure generation from the left panel."}
                 </div>
+                {isSubscriptionError(structureError) && (
+                  <button
+                    type="button"
+                    onClick={() => handlePaywallOpen('insufficient_tokens')}
+                    className="inline-flex items-center gap-2 rounded-xl bg-foreground text-background px-4 py-2.5 text-sm font-semibold shadow-sm shadow-foreground/10 transition-all duration-200 hover:bg-foreground/90 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 mt-3">
+                    Upgrade or top up
+                  </button>
+                )}
               </div>
             ) : plan ? (
               <>
@@ -1176,6 +1302,12 @@ export function EditorPanel({
             </CardFooter>
           )}
         </Card>
+
+        <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
       </main>
     );
   }
@@ -1319,7 +1451,7 @@ export function EditorPanel({
 
         {/* Accept/Reject buttons overlay - Fixed at bottom */}
         {showChapterReview && plan && (
-          <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
+          <div className="sticky bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
             <div className="max-w-3xl mx-auto px-8">
               <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
                 <div className="flex items-center justify-between gap-4">
@@ -1360,6 +1492,19 @@ export function EditorPanel({
           </div>
         )}
       </div>
+
+      {/* <button 
+      onClick={() => handlePaywallOpen('insufficient_tokens')}  
+      className="fixed bottom-4 right-4 z-50 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-600">
+      Test Paywall Modal 
+      </button> */}
+
+      {/* Paywall Modal for subscription/token errors */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+      />
     </main>
   );
 }

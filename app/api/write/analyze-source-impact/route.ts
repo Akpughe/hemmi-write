@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, requireAuth } from "@/lib/supabase/server";
+import { checkTokenBalance, deductTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -36,6 +37,9 @@ export interface AnalyzeSourceImpactResponse {
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: AnalyzeSourceImpactRequest = await request.json();
     const { projectId, sourceId, documentType, topic, currentStructure } = body;
 
@@ -45,6 +49,20 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ESTIMATE TOKEN USAGE - analysis is lightweight
+    const estimatedTokens = 1200; // Fixed cost for source impact analysis
+
+    console.log(`[Analyze Source Impact] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAT);
+    if (tokenCheckError) {
+      console.log(`[Analyze Source Impact] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAT})`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Analyze Source Impact] ✅ Token check passed`);
 
     // Fetch source from database
     const supabase = await createServerSupabaseClient();
@@ -181,6 +199,21 @@ Return ONLY valid JSON array, no markdown code blocks, no additional text.`;
           "Analysis failed. Please manually review which sections to update.",
         recommended: false,
       }));
+    }
+
+    // DEDUCT TOKENS after successful analysis
+    const deductSuccess = await deductTokens(user.id, estimatedTokens, 'generate', {
+      operation: 'analyze_source_impact',
+      projectId,
+      sourceTitle: source.title,
+      sectionCount: currentStructure.sections.length,
+      estimatedTokens,
+    });
+
+    if (!deductSuccess) {
+      console.error(`[Analyze Source Impact] ⚠️  Failed to deduct tokens (${estimatedTokens}), but analysis was completed`);
+    } else {
+      console.log(`[Analyze Source Impact] ✅ Deducted ${estimatedTokens} tokens`);
     }
 
     const response: AnalyzeSourceImpactResponse = {

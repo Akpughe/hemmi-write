@@ -187,31 +187,6 @@ function WorkspaceContent() {
           console.error("[Workspace] Failed to parse authors_structured:", e);
         }
       }
-      // #region agent log
-      fetch(
-        "http://127.0.0.1:7242/ingest/6b43ab85-af05-47ef-adb0-433c63dc0d73",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "workspace/page.tsx:mapSources",
-            message: "Mapping source from DB",
-            data: {
-              id: s.id,
-              title: s.title?.substring(0, 40),
-              author: s.author,
-              hasAuthorsStructuredRaw: !!s.authors_structured,
-              authorsStructuredRawType: typeof s.authors_structured,
-              parsedAuthorsStructured: parsedAuthorsStructured?.slice?.(0, 2),
-              journalName: s.journal_name,
-            },
-            timestamp: Date.now(),
-            sessionId: "debug-session",
-            hypothesisId: "C",
-          }),
-        }
-      ).catch(() => {});
-      // #endregion
       return {
         id: s.id,
         title: s.title,

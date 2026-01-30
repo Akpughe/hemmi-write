@@ -20,6 +20,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
+import { Switch } from "@/app/components/ui/switch";
 import { useProfile } from "@/app/settings/hooks/use-profile";
 import { toast } from "sonner";
 import { UserPreferences, UserProfile } from "@/lib/types/user-preferences";
@@ -34,6 +35,7 @@ const writingPreferencesSchema = z.object({
   defaultAcademicLevel: z
     .enum(["HIGH_SCHOOL", "UNDERGRADUATE", "GRADUATE", "DOCTORAL"])
     .optional(),
+  autoApproveChapters: z.boolean().optional(),
 });
 
 type WritingPreferencesFormData = z.infer<typeof writingPreferencesSchema>;
@@ -72,6 +74,7 @@ export function WritingPreferences({ preferences }: WritingPreferencesProps) {
       defaultCitationStyle: preferences?.defaultCitationStyle || undefined,
       defaultWritingStyle: preferences?.defaultWritingStyle || undefined,
       defaultAcademicLevel: preferences?.defaultAcademicLevel || undefined,
+      autoApproveChapters: preferences?.autoApproveChapters || false,
     },
   });
 
@@ -200,6 +203,32 @@ export function WritingPreferences({ preferences }: WritingPreferencesProps) {
                     Complexity and depth of your documents
                   </p>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Auto-Generate Mode */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+            <FormField
+              control={form.control}
+              name="autoApproveChapters"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between">
+                  <div>
+                    <FormLabel className="text-sm font-medium text-foreground">
+                      Auto-Generate Mode
+                    </FormLabel>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Automatically continue to next section without waiting for approval
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

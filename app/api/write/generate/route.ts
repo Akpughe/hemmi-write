@@ -8,7 +8,8 @@ import {
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { AcademicLevel } from "@/lib/types/document";
-import { createServerSupabaseClient, getCurrentUser } from "@/lib/supabase/server";
+import { createServerSupabaseClient, getCurrentUser, requireAuth } from "@/lib/supabase/server";
+import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 // Extended request type to include projectId and structureId
 interface ExtendedGenerateRequest extends GenerateRequest {
@@ -18,6 +19,9 @@ interface ExtendedGenerateRequest extends GenerateRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const body: ExtendedGenerateRequest = await request.json();
     const {
       documentType,
@@ -48,37 +52,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ESTIMATE TOKEN USAGE
+    const estimatedTokens = estimateChapterTokens({
+      targetWordCount: wordCount ?? 3000,
+      sourceCount: sources.length,
+      hasContext: false,
+    });
+
+    console.log(`[Generate Document] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAPTER);
+    if (tokenCheckError) {
+      console.log(`[Generate Document] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAPTER})`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Generate Document] ✅ Token check passed`);
+
     // Determine AI provider
     const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
 
-    // Fetch sources from database to get full_content
+    // Fetch sources from database to get full_content AND enriched metadata
     let enrichedSources = sources;
     if (projectId) {
       try {
         const supabase = await createServerSupabaseClient();
         const { data: dbSources } = await supabase
           .from('research_sources')
-          .select('id, title, url, author, excerpt, full_content')
+          .select('id, title, url, author, excerpt, full_content, content_word_count, authors_structured, doi, journal_name, volume, issue, pages, year, publisher, publication_type')
           .eq('project_id', projectId)
           .eq('is_selected', true)
           .order('relevance_score', { ascending: false });
 
         if (dbSources) {
-          // Merge full_content into sources
+          // Merge full_content AND enriched metadata into sources
           enrichedSources = sources.map(s => {
             const dbSource = dbSources.find((db: any) => db.url === s.url || db.title === s.title);
             return {
               ...s,
+              // Content
               fullContent: dbSource?.full_content || undefined,
-              wordCount: (dbSource as any)?.content_word_count || undefined,
+              wordCount: dbSource?.content_word_count || undefined,
+              // Enriched metadata from APIs
+              author: dbSource?.author || s.author || undefined,
+              authorsStructured: dbSource?.authors_structured
+                ? (typeof dbSource.authors_structured === 'string'
+                    ? JSON.parse(dbSource.authors_structured)
+                    : dbSource.authors_structured)
+                : undefined,
+              doi: dbSource?.doi || undefined,
+              journalName: dbSource?.journal_name || undefined,
+              volume: dbSource?.volume || undefined,
+              issue: dbSource?.issue || undefined,
+              pages: dbSource?.pages || undefined,
+              year: dbSource?.year || undefined,
+              publisher: dbSource?.publisher || undefined,
+              publicationType: dbSource?.publication_type as ResearchSource['publicationType'] || undefined,
             };
           });
 
           const withFullContent = enrichedSources.filter((s: any) => s.fullContent).length;
+          const withAuthors = enrichedSources.filter((s: any) => s.author || s.authorsStructured).length;
           console.log(`[Generate] Using full content for ${withFullContent}/${sources.length} sources`);
+          console.log(`[Generate] Sources with authors: ${withAuthors}/${sources.length}`);
         }
       } catch (error) {
-        console.warn('[Generate] Failed to fetch full content, using excerpts:', error);
+        console.warn('[Generate] Failed to fetch enriched sources, using excerpts:', error);
       }
     }
 
@@ -139,7 +179,6 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
     // Create a ReadableStream for Server-Sent Events
     const encoder = new TextEncoder();
     // Calculate dynamic token limit based on target word count
-    const estimatedTokens = Math.ceil((wordCount ?? 3000) * 1.33 * 1.2);
     const maxTokenLimit = Math.min(estimatedTokens, 16000);
 
     console.log(`[Generate Document] ========================================`);
@@ -169,6 +208,7 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
           let totalWords = 0;
 
           // Stream from AI service
+          let totalTokensUsed = 0;
           for await (const chunk of aiService.streamChatCompletion(
             provider,
             [
@@ -179,6 +219,9 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
             maxTokenLimit
           )) {
             if (chunk.done) {
+              // Capture actual tokens used
+              totalTokensUsed = chunk.tokensUsed ?? 0;
+
               // Check for truncation
               if (chunk.truncated) {
                 console.error(`[Generate Document] ⚠️  TRUNCATION DETECTED!`);
@@ -202,6 +245,21 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
                 console.log(`[Generate Document] Finish reason: ${chunk.finishReason}`);
                 console.log(`[Generate Document] Tokens used: ${chunk.tokensUsed}/${maxTokenLimit}`);
                 console.log(`[Generate Document] Words generated: ${totalWords}`);
+              }
+
+              // DEDUCT TOKENS after successful generation
+              const deductSuccess = await deductTokens(user.id, totalTokensUsed, 'generate', {
+                projectId,
+                wordCount: totalWords,
+                documentType,
+                estimatedTokens,
+                actualTokens: totalTokensUsed,
+              });
+
+              if (!deductSuccess) {
+                console.error(`[Generate Document] ⚠️  Failed to deduct tokens (${totalTokensUsed}), but content was generated`);
+              } else {
+                console.log(`[Generate Document] ✅ Deducted ${totalTokensUsed} tokens`);
               }
 
 
@@ -275,7 +333,13 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
                               return null;
                             }
 
-                            const author = source.author || 'Anonymous';
+                            // Skip sources without authors to avoid "Anonymous" citations
+                            if (!source.author || source.author.trim() === '') {
+                              console.warn(`Skipping source without author: ${source.title}`);
+                              return null;
+                            }
+
+                            const author = source.author;
                             const year = source.publishedDate ? new Date(source.publishedDate).getFullYear() : 'n.d.';
 
                             // Format in-text citation based on style

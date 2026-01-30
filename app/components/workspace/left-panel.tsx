@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Dispatch, SetStateAction, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
   RefreshCw,
@@ -11,8 +12,14 @@ import {
   BookOpen,
   Check,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/app/components/ui/tooltip";
 import type {
   Source,
   DocumentPlan,
@@ -25,6 +32,34 @@ import {
   mapUIAcademicLevelToEnum,
   mapUIWritingStyleToEnum,
 } from "@/lib/utils/documentTypeMapper";
+import { PaywallModal } from "@/app/components/subscription/paywall-modal";
+
+// =============================================================================
+// Thinking Indicator - Claude/ChatGPT style shimmer
+// =============================================================================
+
+function ThinkingShimmer() {
+  return (
+    <div className="flex items-center gap-1">
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="w-1 h-1 rounded-full bg-foreground/40"
+          animate={{
+            opacity: [0.3, 1, 0.3],
+            scale: [0.85, 1, 0.85],
+          }}
+          transition={{
+            duration: 1.2,
+            repeat: Infinity,
+            delay: i * 0.15,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const normalizeUrlForComparison = (rawUrl: string) => {
   if (!rawUrl) return "";
@@ -68,6 +103,8 @@ interface LeftPanelProps {
     completedAt?: string | null;
   }) => void;
   onRegisterGenerateStructure?: (handler: (() => void) | null) => void;
+  onFindMoreSources?: () => void;
+  onStartInlineResearch?: () => void;
 }
 
 export function LeftPanel({
@@ -85,13 +122,24 @@ export function LeftPanel({
   onResearchStatusChange,
   onStructureStatusChange,
   onRegisterGenerateStructure,
+  onFindMoreSources,
+  onStartInlineResearch,
 }: LeftPanelProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
   const [activeTab, setActiveTab] = useState<"sections" | "sources">(
-    plan ? "sections" : "sources"
+    plan ? "sections" : "sources",
   );
   const hasAutoSwitchedToSections = useRef(false);
+
+  // Paywall state
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<
+    "insufficient_tokens" | "no_subscription"
+  >("insufficient_tokens");
+  const [estimatedTokens, setEstimatedTokens] = useState<number | undefined>(
+    undefined,
+  );
 
   // Auto-switch to sections tab when plan is loaded
   useEffect(() => {
@@ -130,6 +178,45 @@ export function LeftPanel({
           projectId: currentProjectId, // Pass projectId
         }),
       });
+
+      // Handle 402 Payment Required - insufficient tokens
+      if (response.status === 402) {
+        const errorData = await response.json();
+        console.log("[Research] Payment required:", errorData);
+
+        setEstimatedTokens(errorData.required);
+        const reason =
+          errorData.code === "NO_SUBSCRIPTION"
+            ? "no_subscription"
+            : "insufficient_tokens";
+        setPaywallReason(reason);
+        console.log("🔥 [LeftPanel] Opening paywall modal", {
+          reason,
+          estimatedTokens: errorData.required,
+        });
+        setShowPaywall(true);
+        console.log("🔥 [LeftPanel] showPaywall set to true");
+
+        onResearchStatusChange?.({
+          phase: "error",
+          error:
+            errorData.message ||
+            "Insufficient tokens. Please subscribe or top up to continue.",
+        });
+
+        setIsSearching(false);
+        return; // Stop execution
+      }
+
+      // Handle 401 Unauthorized
+      if (response.status === 401) {
+        onResearchStatusChange?.({
+          phase: "error",
+          error: "Please log in to continue",
+        });
+        setIsSearching(false);
+        return;
+      }
 
       if (!response.ok) throw new Error("Failed to fetch sources");
 
@@ -199,11 +286,11 @@ export function LeftPanel({
       // Users can manually click "Gather research" if they want to re-run
       if (projectId) {
         console.log(
-          "Skipping auto-research on reload - please use manual trigger"
+          "Skipping auto-research on reload - please use manual trigger",
         );
       } else {
         console.log(
-          "✓ Auto-triggering research (projectId will be created if needed)"
+          "✓ Auto-triggering research (projectId will be created if needed)",
         );
         fetchResearch();
       }
@@ -217,7 +304,7 @@ export function LeftPanel({
 
   const toggleSource = (id: string) => {
     setSources(
-      sources.map((s) => (s.id === id ? { ...s, selected: !s.selected } : s))
+      sources.map((s) => (s.id === id ? { ...s, selected: !s.selected } : s)),
     );
   };
 
@@ -332,7 +419,7 @@ export function LeftPanel({
 
       setSources((prevSources) => {
         const normalizedExisting = new Set(
-          prevSources.map((source) => normalizeUrlForComparison(source.url))
+          prevSources.map((source) => normalizeUrlForComparison(source.url)),
         );
 
         const uniqueNewSources = mappedSources.filter((source) => {
@@ -515,7 +602,7 @@ export function LeftPanel({
           snippet: "PDF extracted from webpage",
           selected: true,
           publishedDate: new Date().toLocaleDateString(),
-        })
+        }),
       );
 
       // Add all sources to the list
@@ -557,7 +644,7 @@ export function LeftPanel({
       {/* Header with Tabs */}
       <div className="shrink-0 border-b border-border">
         <div className="p-4 pb-2">
-          <h2 className="text-sm font-semibold text-foreground mb-1">
+          <h2 className="text-sm font-semibold text-foreground mb-1 line-clamp-3">
             {brief.topic || "Untitled Project"}
           </h2>
           <p className="text-xs text-muted-foreground capitalize">
@@ -569,10 +656,10 @@ export function LeftPanel({
           <button
             onClick={() => setActiveTab("sections")}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium border-b-2 transition-colors",
+              "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold border-b-2 transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]",
               activeTab === "sections"
-                ? "border-accent text-accent"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-foreground/50 hover:text-foreground",
             )}>
             <Layers className="w-3 h-3" />
             SECTIONS
@@ -580,10 +667,10 @@ export function LeftPanel({
           <button
             onClick={() => setActiveTab("sources")}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium border-b-2 transition-colors",
+              "flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold border-b-2 transition-colors ease-[cubic-bezier(0.25,0.1,0.25,1)]",
               activeTab === "sources"
-                ? "border-accent text-accent"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "border-foreground text-foreground"
+                : "border-transparent text-foreground/50 hover:text-foreground",
             )}>
             <BookOpen className="w-3 h-3" />
             SOURCES
@@ -596,101 +683,169 @@ export function LeftPanel({
         {activeTab === "sections" ? (
           <div className="space-y-4">
             {isPlanning ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Loader2 className="w-6 h-6 animate-spin mb-3" />
-                <span className="text-sm">Creating blueprint...</span>
-              </div>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-12 text-foreground/60">
+                <div className="mb-4">
+                  <ThinkingShimmer />
+                </div>
+                <span className="text-sm font-medium">Creating blueprint</span>
+                <span className="text-xs text-foreground/40 mt-1">
+                  Analyzing sources and structure
+                </span>
+              </motion.div>
             ) : plan ? (
               <div className="space-y-2">
-                {plan.sections.map((section, index) => {
-                  const isAbstract = isAbstractSection(section.title);
-                  let displayNumber = index + 1;
-                  if (!isAbstract) {
-                    displayNumber = 1;
-                    for (let i = 0; i < index; i++) {
-                      if (!isAbstractSection(plan.sections[i].title)) {
-                        displayNumber++;
+                <AnimatePresence mode="popLayout">
+                  {plan.sections.map((section, index) => {
+                    const isAbstract = isAbstractSection(section.title);
+                    let displayNumber = index + 1;
+                    if (!isAbstract) {
+                      displayNumber = 1;
+                      for (let i = 0; i < index; i++) {
+                        if (!isAbstractSection(plan.sections[i].title)) {
+                          displayNumber++;
+                        }
                       }
                     }
-                  }
 
-                  return (
-                    <div
-                      key={section.id}
-                      className={cn(
-                        "p-3 rounded-lg border transition-all",
-                        section.status === "complete"
-                          ? "border-green-500/50 bg-green-500/5"
-                          : section.status === "writing"
-                          ? "border-foreground/30 bg-foreground/5"
-                          : section.status === "review"
-                          ? "border-yellow-500/50 bg-yellow-500/5"
-                          : "border-border"
-                      )}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={cn(
-                            "w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
-                            section.status === "complete"
-                              ? "bg-green-500 text-white"
-                              : section.status === "writing"
-                              ? "bg-foreground text-background"
+                    return (
+                      <motion.div
+                        key={section.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{
+                          duration: 0.25,
+                          delay: index * 0.03,
+                          ease: [0.25, 0.1, 0.25, 1],
+                        }}
+                        className={cn(
+                          "p-3 rounded-xl border transition-all duration-200",
+                          section.status === "complete"
+                            ? "border-emerald-500/20 bg-emerald-500/[0.03]"
+                            : section.status === "writing"
+                              ? "border-blue-500/20 bg-blue-500/[0.03]"
                               : section.status === "review"
-                              ? "bg-yellow-500 text-white"
-                              : "bg-muted text-muted-foreground"
-                          )}>
-                          {section.status === "complete" ? (
-                            <Check className="w-3 h-3" />
-                          ) : section.status === "writing" ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : section.status === "review" ? (
-                            <Check className="w-3 h-3" />
-                          ) : isAbstract ? (
-                            <FileText className="w-3 h-3" />
-                          ) : (
-                            displayNumber
-                          )}
-                        </div>
-                        <span className="text-sm font-medium flex-1">
-                          {section.title}
-                        </span>
-                      </div>
-
-                      {/* Key Points */}
-                      {section.keyPoints && section.keyPoints.length > 0 && (
-                        <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                          {section.keyPoints.map((point, idx) => (
-                            <li key={idx} className="flex items-start gap-1">
-                              <ChevronRight className="w-3 h-3 shrink-0 mt-0.5" />
-                              <span>{point}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {/* Review Actions */}
-                      {(section.status === "review" ||
-                        section.status === "complete") &&
-                        chapterHandlers && (
-                          <div className="mt-2 flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => chapterHandlers.reject(index)}
-                              className="p-1 rounded hover:bg-red-100 text-red-500 transition-colors"
-                              title="Regenerate">
-                              <RefreshCw className="w-3 h-3" />
-                            </button>
-                            {section.status === "review" && (
-                              <button
-                                onClick={() => chapterHandlers.approve(index)}
-                                className="px-2 py-1 text-xs font-medium bg-accent hover:bg-accent/90 text-accent-foreground rounded transition-colors">
-                                Accept
-                              </button>
+                                ? "border-amber-500/20 bg-amber-500/[0.03]"
+                                : "border-foreground/5 bg-foreground/[0.02] hover:border-foreground/10",
+                        )}>
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className={cn(
+                              "w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0 transition-all duration-200",
+                              section.status === "complete"
+                                ? "bg-emerald-500 text-white"
+                                : section.status === "writing"
+                                  ? "bg-blue-500 text-white"
+                                  : section.status === "review"
+                                    ? "bg-amber-500 text-white"
+                                    : "bg-foreground/10 text-foreground/60",
+                            )}>
+                            {section.status === "complete" ? (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{
+                                  type: "spring",
+                                  stiffness: 400,
+                                  damping: 15,
+                                }}>
+                                <Check className="w-3 h-3" />
+                              </motion.div>
+                            ) : section.status === "writing" ? (
+                              <ThinkingShimmer />
+                            ) : section.status === "review" ? (
+                              <Check className="w-3 h-3" />
+                            ) : isAbstract ? (
+                              <FileText className="w-3 h-3" />
+                            ) : (
+                              <span className="text-[10px]">
+                                {displayNumber}
+                              </span>
                             )}
                           </div>
-                        )}
-                    </div>
-                  );
-                })}
+                          <span
+                            className={cn(
+                              "text-sm font-medium flex-1 transition-colors",
+                              section.status === "complete"
+                                ? "text-foreground"
+                                : "text-foreground/80",
+                            )}>
+                            {section.title}
+                          </span>
+
+                          {/* Status badge */}
+                          {section.status === "writing" && (
+                            <motion.span
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="text-[10px] font-medium text-blue-500 bg-blue-500/10 px-1.5 py-0.5 rounded-md">
+                              Writing
+                            </motion.span>
+                          )}
+                          {section.status === "review" && (
+                            <motion.span
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="text-[10px] font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
+                              Review
+                            </motion.span>
+                          )}
+                        </div>
+
+                        {/* Key Points */}
+                        <AnimatePresence>
+                          {section.keyPoints &&
+                            section.keyPoints.length > 0 && (
+                              <motion.ul
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-2.5 space-y-1 text-xs text-foreground/50">
+                                {section.keyPoints.map((point, idx) => (
+                                  <motion.li
+                                    key={idx}
+                                    initial={{ opacity: 0, x: -5 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: idx * 0.02 }}
+                                    className="flex items-start gap-1.5">
+                                    <ChevronRight className="w-3 h-3 shrink-0 mt-0.5 text-foreground/30" />
+                                    <span>{point}</span>
+                                  </motion.li>
+                                ))}
+                              </motion.ul>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Review Actions */}
+                        {(section.status === "review" ||
+                          section.status === "complete") &&
+                          chapterHandlers && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="mt-2.5 flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => chapterHandlers.reject(index)}
+                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-foreground/40 hover:text-red-500 transition-all duration-150"
+                                title="Regenerate">
+                                <RefreshCw className="w-3 h-3" />
+                              </button>
+                              {section.status === "review" && (
+                                <button
+                                  onClick={() => chapterHandlers.approve(index)}
+                                  className="px-2.5 py-1 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 rounded-lg transition-all duration-150 active:scale-[0.98]">
+                                  Accept
+                                </button>
+                              )}
+                            </motion.div>
+                          )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
@@ -699,27 +854,35 @@ export function LeftPanel({
             )}
           </div>
         ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-medium text-muted-foreground">
-                {sources.length} Sources
-              </h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                  Sources
+                </span>
+                {sources.length > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-foreground/10 text-[10px] font-semibold text-foreground/70 tabular-nums">
+                    {sources.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
                 {sources.length > 0 && (
                   <button
                     onClick={fetchResearch}
                     disabled={isSearching}
-                    className="inline-flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
                     title="Refresh sources">
                     <RefreshCw
-                      className={cn("w-3 h-3", isSearching && "animate-spin")}
+                      className={cn(
+                        "w-3.5 h-3.5",
+                        isSearching && "animate-spin",
+                      )}
                     />
-                    Refresh
                   </button>
                 )}
-                <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-accent hover:underline">
-                  <Upload className="w-3 h-3" />
-                  Add PDF
+                <label className="cursor-pointer p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150">
+                  <Upload className="w-3.5 h-3.5" />
                   <input
                     type="file"
                     accept=".pdf"
@@ -732,8 +895,8 @@ export function LeftPanel({
             </div>
 
             {/* URL Scraping Section */}
-            <div className="mb-3 p-3 rounded-lg border border-border bg-muted/30">
-              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+            <div className="mb-4 p-3 rounded-xl border border-border/60 bg-muted/20">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70 mb-2 block">
                 Add from URL
               </label>
               <div className="flex gap-2">
@@ -746,33 +909,32 @@ export function LeftPanel({
                       handleScrapeUrl();
                     }
                   }}
-                  placeholder="https://example.com"
+                  placeholder="Paste article or paper URL..."
                   disabled={isScraping}
-                  className="flex-1 px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-3 py-2 text-xs border border-border/60 rounded-lg bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
                 />
-                <Button
+                <button
                   onClick={handleScrapeUrl}
                   disabled={isScraping || !scrapeUrl.trim()}
-                  size="sm"
-                  className="text-xs px-3">
+                  className="px-3 py-2 text-xs font-medium rounded-lg bg-foreground text-background hover:bg-foreground/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-150 flex items-center gap-1.5">
                   {isScraping ? (
                     <>
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                      Scraping
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Adding</span>
                     </>
                   ) : (
-                    "Scrape"
+                    <span>Add</span>
                   )}
-                </Button>
+                </button>
               </div>
               {scrapeError && (
-                <div className="mt-2 text-xs text-red-500 flex items-start gap-1">
+                <div className="mt-2.5 text-[11px] text-red-500 dark:text-red-400 flex items-start gap-1.5">
                   <span className="font-medium">Error:</span>
                   <span>{scrapeError}</span>
                 </div>
               )}
               {scrapeSuccess && (
-                <div className="mt-2 text-xs text-green-600 flex items-start gap-1">
+                <div className="mt-2.5 text-[11px] text-emerald-600 dark:text-emerald-400 flex items-start gap-1.5">
                   <Check className="w-3 h-3 mt-0.5 flex-shrink-0" />
                   <span>{scrapeSuccess}</span>
                 </div>
@@ -780,100 +942,178 @@ export function LeftPanel({
             </div>
 
             {isSearching && (
-              <div className="p-6 rounded-lg border border-dashed border-muted-foreground/30 flex flex-col items-center justify-center text-muted-foreground">
-                <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                <span className="text-sm">Finding sources...</span>
+              <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
+                <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center mb-3">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                </div>
+                <span className="text-xs font-medium">Finding sources...</span>
               </div>
             )}
 
             {!isSearching && sources.length === 0 && (
-              <div className="p-6 rounded-lg border border-dashed border-muted-foreground/30 flex flex-col items-center justify-center text-center">
-                <BookOpen className="w-8 h-8 text-muted-foreground mb-3" />
-                <h4 className="text-sm font-medium text-foreground mb-1">
-                  No Sources Yet
+              <div className="py-10 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mb-4">
+                  <BookOpen className="w-6 h-6 text-muted-foreground/70" />
+                </div>
+                <h4 className="text-sm font-semibold text-foreground mb-1">
+                  No sources yet
                 </h4>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Find research sources to support your writing
+                <p className="text-xs text-muted-foreground/70 mb-5 max-w-[200px]">
+                  Add research sources to support your writing
                 </p>
-                <Button onClick={fetchResearch} size="sm" className="gap-2">
+                <button
+                  onClick={() => onStartInlineResearch?.()}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-foreground text-background hover:bg-foreground/90 transition-all duration-150">
                   <BookOpen className="w-4 h-4" />
                   Find Sources
-                </Button>
+                </button>
               </div>
             )}
 
             {isUploading && (
-              <div className="p-3 rounded-lg border border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground text-xs">
-                <Loader2 className="w-3 h-3 animate-spin mr-2" />
-                Uploading...
+              <div className="py-4 flex items-center justify-center text-muted-foreground text-xs gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Uploading...</span>
               </div>
             )}
 
             {sources.length > 0 &&
-              sources.map((source, index) => (
-                <div
-                  key={`${index}-${source.id}`}
-                  className={cn(
-                    "p-3 rounded-lg border transition-all cursor-pointer group",
-                    source.selected
-                      ? "border-accent/50 bg-accent/5"
-                      : "border-border bg-muted/30 opacity-60"
-                  )}
-                  onClick={() => toggleSource(source.id)}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2">
-                      <div className="mt-0.5 shrink-0">
-                        {source.id.startsWith("pdf-") ? (
-                          <FileText className="w-4 h-4 text-red-400" />
-                        ) : (
-                          <BookOpen className="w-4 h-4 text-blue-400" />
+              sources.map((source, index) => {
+                const displayYear =
+                  source.year ||
+                  (source.publishedDate
+                    ? new Date(source.publishedDate).getFullYear()
+                    : null);
+                const isPdf =
+                  source.id.startsWith("pdf-") || source.url?.endsWith(".pdf");
+                const hasJournal = !!source.journalName;
+
+                return (
+                  <div
+                    key={`${index}-${source.id}`}
+                    className={cn(
+                      "group relative rounded-xl border transition-all duration-200 cursor-pointer",
+                      source.selected
+                        ? "border-foreground/10 bg-foreground/[0.02] hover:border-foreground/20"
+                        : "border-transparent hover:border-border opacity-50 hover:opacity-80",
+                    )}
+                    onClick={() => toggleSource(source.id)}>
+                    <div className="p-3 flex items-start gap-3">
+                      {/* Selection indicator */}
+                      <div
+                        className={cn(
+                          "mt-0.5 shrink-0 w-4 h-4 rounded-full border-[1.5px] flex items-center justify-center transition-all duration-200",
+                          source.selected
+                            ? "border-foreground bg-foreground"
+                            : "border-muted-foreground/30 group-hover:border-muted-foreground/50",
+                        )}>
+                        {source.selected && (
+                          <Check
+                            className="w-2.5 h-2.5 text-background"
+                            strokeWidth={3}
+                          />
                         )}
                       </div>
-                      <div>
-                        <h4 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-accent transition-colors">
-                          {source.title}
-                        </h4>
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {source.snippet}
-                        </p>
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="rounded transition-colors hover:bg-green-100 group shrink-0 self-start cursor-pointer"
-                          title="Open source">
-                          <ExternalLink className="w-3 h-3 text-muted-foreground group-hover:text-green-600" />
-                        </a>
+
+                      <div className="flex-1 min-w-0">
+                        {/* Title with tooltip */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <h4 className="text-[13px] font-medium leading-snug line-clamp-2 text-foreground cursor-default">
+                              {source.title}
+                            </h4>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[280px]">
+                            {source.title}
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {/* Author & Year with tooltip */}
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted-foreground">
+                          {source.author ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate max-w-[120px] cursor-default">
+                                  {source.author}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="bottom"
+                                className="max-w-[240px]">
+                                {source.author}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground/60 italic">
+                              Unknown author
+                            </span>
+                          )}
+                          {displayYear && (
+                            <>
+                              <span className="text-muted-foreground/30">
+                                ·
+                              </span>
+                              <span className="tabular-nums">
+                                {displayYear}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Source type badges */}
+                        <div className="flex items-center gap-1.5 mt-2">
+                          {isPdf && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-500/10 text-[10px] font-medium text-red-600 dark:text-red-400">
+                              <FileText className="w-2.5 h-2.5" />
+                              PDF
+                            </span>
+                          )}
+                          {hasJournal && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-500/10 text-[10px] font-medium text-blue-600 dark:text-blue-400 truncate max-w-[100px] cursor-default">
+                                  {source.journalName}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="bottom"
+                                className="max-w-[240px]">
+                                {source.journalName}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          {source.doi && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                              DOI
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div
-                      className={cn(
-                        "shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                        source.selected
-                          ? "bg-accent border-accent text-accent-foreground"
-                          : "border-muted-foreground/30"
-                      )}>
-                      {source.selected && <Check className="w-3 h-3" />}
+
+                      {/* External link - shows on hover */}
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 p-1.5 -mr-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-muted/80 transition-all duration-150"
+                        title="Open source">
+                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
+                      </a>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
-            {sources.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleLoadMore}
-                disabled={isLoadingMore}
-                className="w-full mt-4 gap-2 border-dashed text-muted-foreground hover:text-foreground">
-                {isLoadingMore ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <BookOpen className="w-4 h-4" />
-                )}
-                Load 5 More Sources
-              </Button>
+            {sources.length > 0 && onFindMoreSources && (
+              <div className="mt-5 pt-4 border-t border-border/40">
+                <button
+                  onClick={onFindMoreSources}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-xs font-medium rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 hover:bg-purple-500/15 hover:border-purple-500/30 transition-all duration-150">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Find with AI Research
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -898,6 +1138,14 @@ export function LeftPanel({
           </Button>
         )}
       </div>
+
+      {/* Paywall Modal - shown when user has insufficient tokens */}
+      <PaywallModal
+        open={showPaywall}
+        onOpenChange={setShowPaywall}
+        reason={paywallReason}
+        estimatedTokens={estimatedTokens}
+      />
     </aside>
   );
 }

@@ -20,6 +20,28 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+### Required API Keys
+- `EXA_API_KEY` - Exa search API key
+- `PERPLEXITY_API_KEY` - Perplexity AI API key
+- `MISTRAL_API_KEY` - Mistral AI API key for content extraction
+- `GROQ_API_KEY` - Groq API key for AI generation
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
+
+### Optional Metadata Enrichment API Keys
+These are optional but recommended for better academic reference quality:
+
+- `CROSSREF_API_EMAIL` - Email for CrossRef API (required for polite requests, defaults to dev@hemmi.com)
+- `OPENALEX_API_EMAIL` - Email for OpenAlex API (optional but recommended, defaults to dev@hemmi.com)
+- `SEMANTIC_SCHOLAR_API_KEY` - Semantic Scholar API key (optional, increases rate limits)
+- `UNPAYWALL_EMAIL` - Email for Unpaywall API (required, defaults to dev@hemmi.com)
+
+Note: All metadata enrichment APIs (CrossRef, OpenAlex, Semantic Scholar, Unpaywall) are FREE and don't require API keys, but providing email addresses ensures polite API usage and higher rate limits.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

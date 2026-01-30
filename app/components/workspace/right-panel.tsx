@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
   Send,
-  Loader2,
   Copy,
   Plus,
   X,
@@ -29,6 +29,33 @@ import { CitedText } from "@/lib/utils/citationParser";
 import { CitationBadge } from "@/app/components/chat/inline-citation";
 import { generateReferenceList, formatReference } from "@/lib/utils/citations";
 import { CitationStyle, ResearchSource } from "@/lib/types/document";
+
+// =============================================================================
+// Thinking Indicator - Claude/ChatGPT style shimmer
+// =============================================================================
+
+function ThinkingShimmer() {
+  return (
+    <div className="flex items-center gap-1">
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-foreground/40"
+          animate={{
+            opacity: [0.3, 1, 0.3],
+            scale: [0.85, 1, 0.85],
+          }}
+          transition={{
+            duration: 1.2,
+            repeat: Infinity,
+            delay: i * 0.15,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 interface Message {
   id: string;
@@ -285,66 +312,69 @@ function ReferencesPreview({
 
   if (researchSources.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-8 text-center bg-linear-to-b from-background to-muted/40">
-        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
-          <Library className="w-8 h-8 text-muted-foreground" />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex flex-col items-center justify-center h-full px-8 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-foreground/5 flex items-center justify-center mb-4">
+          <Library className="w-7 h-7 text-foreground/30" />
         </div>
-        <p className="text-lg font-semibold">No references yet</p>
-        <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-          Select research sources to build your citation list. You&apos;ll see
-          live formatting here once you add material to cite.
+        <p className="text-base font-semibold text-foreground">No references yet</p>
+        <p className="text-sm text-foreground/50 mt-2 max-w-[260px]">
+          Select research sources to build your citation list
         </p>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-linear-to-b from-background via-background to-muted/30">
+    <div className="flex-1 flex flex-col h-full">
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pb-6">
         <div
-          className="sticky top-0 z-20 border-b border-border/60 bg-linear-to-b from-background via-background/95 to-background/60 px-6 pb-5 pt-6 backdrop-blur"
+          className="sticky top-0 z-20 border-b border-foreground/5 bg-background/95 px-6 pb-5 pt-6 backdrop-blur-sm"
           style={{ height: headerHeight }}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center shadow-sm">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
                 <Library className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold">References</p>
+                <p className="text-sm font-semibold text-foreground">References</p>
                 <p
                   className={cn(
-                    "text-xs text-muted-foreground leading-relaxed transition-opacity duration-200",
+                    "text-xs text-foreground/50 leading-relaxed transition-opacity duration-200",
                     headerCollapsed ? "opacity-0" : "opacity-100"
                   )}>
-                  Track cited claims, adjust citation styles, and keep every
-                  reference cleaned up before submission.
+                  Track cited claims and adjust citation styles
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Claims cited
+              <p className="text-[10px] font-medium uppercase tracking-wide text-foreground/40">
+                Cited
               </p>
-              <p className="text-lg font-semibold">
-                {citedClaims}{" "}
-                <span className="text-xs text-muted-foreground">
-                  / {totalClaims}
+              <p className="text-lg font-semibold text-foreground">
+                {citedClaims}
+                <span className="text-xs text-foreground/40 font-normal">
+                  /{totalClaims}
                 </span>
               </p>
             </div>
           </div>
-          <div className="mt-4 h-2 rounded-full bg-muted">
-            <div
-              className="h-2 rounded-full bg-accent transition-all"
-              style={{ width: `${claimProgress}%` }}
+          <div className="mt-4 h-1.5 rounded-full bg-foreground/5 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-emerald-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${claimProgress}%` }}
+              transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
             />
           </div>
         </div>
 
         <div className="px-6 py-5 space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <span className="text-xs uppercase font-semibold text-muted-foreground">
+              <span className="text-[10px] uppercase font-medium tracking-wide text-foreground/40">
                 Citation style
               </span>
               <div className="relative">
@@ -353,140 +383,166 @@ function ReferencesPreview({
                   onChange={(event) =>
                     setStyleOverride(event.target.value as CitationStyle)
                   }
-                  className="w-full appearance-none rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium shadow-inner focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  className="w-full appearance-none rounded-lg border border-foreground/10 bg-foreground/[0.02] px-3 py-2 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/10 transition-all duration-150">
                   {citationStyleOptions.map((style) => (
                     <option key={style} value={style}>
                       {style}
                     </option>
                   ))}
                 </select>
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-foreground/30 text-xs">
                   ▼
                 </span>
               </div>
             </div>
-            <div className="rounded-2xl border border-dashed border-border/80 bg-card px-4 py-3 shadow-inner">
-              <p className="text-2xl font-semibold">{stats.total}</p>
-              <p className="text-xs text-muted-foreground">sources formatted</p>
+            <div className="rounded-lg border border-dashed border-foreground/10 bg-foreground/[0.02] px-4 py-3">
+              <p className="text-2xl font-semibold text-foreground">{stats.total}</p>
+              <p className="text-xs text-foreground/50">sources formatted</p>
               {stats.withAuthor < stats.total && (
-                <p className="mt-2 text-xs font-semibold text-amber-600">
-                  {stats.total - stats.withAuthor} missing author metadata
+                <p className="mt-2 text-xs font-medium text-amber-500">
+                  {stats.total - stats.withAuthor} missing author
                 </p>
               )}
             </div>
           </div>
 
-          {stats.withoutAuthorIds.length > 0 && (
-            <button
-              onClick={handleRefetchMetadata}
-              disabled={isRefetching}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:opacity-60 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400 dark:hover:bg-amber-900/40">
-              <RefreshCw
-                className={cn("w-3 h-3", isRefetching && "animate-spin")}
-              />
-              {isRefetching
-                ? "Fetching metadata..."
-                : `Re-fetch metadata for ${
-                    stats.withoutAuthorIds.length
-                  } source${stats.withoutAuthorIds.length > 1 ? "s" : ""}`}
-            </button>
-          )}
+          <AnimatePresence>
+            {stats.withoutAuthorIds.length > 0 && (
+              <motion.button
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                onClick={handleRefetchMetadata}
+                disabled={isRefetching}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs font-medium text-amber-500 transition-all duration-150 hover:bg-amber-500/15 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]">
+                <RefreshCw
+                  className={cn("w-3 h-3", isRefetching && "animate-spin")}
+                />
+                {isRefetching
+                  ? "Fetching metadata..."
+                  : `Re-fetch metadata for ${
+                      stats.withoutAuthorIds.length
+                    } source${stats.withoutAuthorIds.length > 1 ? "s" : ""}`}
+              </motion.button>
+            )}
+          </AnimatePresence>
 
-          {refetchResults && (
-            <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-2 text-xs flex items-center gap-2 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
-              <Check className="w-3 h-3" />
-              <span className="font-medium">
-                {refetchResults.success} updated, {refetchResults.failed} failed
-              </span>
-            </div>
-          )}
+          <AnimatePresence>
+            {refetchResults && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-2 text-xs flex items-center gap-2 text-emerald-500">
+                <Check className="w-3 h-3" />
+                <span className="font-medium">
+                  {refetchResults.success} updated, {refetchResults.failed} failed
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        <div className="px-6 pb-6 space-y-4">
-          {sortedSources.map((source, index) => {
-            const hasAuthor =
-              source.author ||
-              (source.authorsStructured && source.authorsStructured.length > 0);
-            const formattedRef = formatReference(source, styleOverride);
+        <div className="px-6 pb-6 space-y-3">
+          <AnimatePresence mode="popLayout">
+            {sortedSources.map((source, index) => {
+              const hasAuthor =
+                source.author ||
+                (source.authorsStructured && source.authorsStructured.length > 0);
+              const formattedRef = formatReference(source, styleOverride);
 
-            return (
-              <div
-                key={source.id}
-                className={cn(
-                  "rounded-2xl border bg-card/80 p-4 shadow-sm backdrop-blur transition hover:border-accent/40",
-                  !hasAuthor &&
-                    "border-amber-200 bg-amber-50/60 dark:bg-amber-950/30"
-                )}>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-semibold">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {!hasAuthor && (
-                      <div className="mb-1 flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                        <AlertCircle className="w-3 h-3" />
-                        Missing author metadata
+              return (
+                <motion.div
+                  key={source.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{
+                    duration: 0.2,
+                    delay: index * 0.02,
+                    ease: [0.25, 0.1, 0.25, 1],
+                  }}
+                  className={cn(
+                    "group rounded-xl border p-4 transition-all duration-200",
+                    !hasAuthor
+                      ? "border-amber-500/20 bg-amber-500/[0.03]"
+                      : "border-foreground/5 bg-foreground/[0.02] hover:border-foreground/10"
+                  )}>
+                  <div className="flex items-start gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-foreground/5 flex items-center justify-center text-xs font-medium text-foreground/50">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {!hasAuthor && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="mb-2 flex items-center gap-1.5 text-xs font-medium text-amber-500">
+                          <AlertCircle className="w-3 h-3" />
+                          Missing author metadata
+                        </motion.div>
+                      )}
+                      <div
+                        className="text-sm leading-relaxed wrap-break-word whitespace-pre-wrap prose prose-sm max-w-none text-foreground/80"
+                        dangerouslySetInnerHTML={{ __html: formattedRef || "" }}
+                      />
+                      <div className="mt-3 flex flex-wrap gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          onClick={() => {
+                            if (!formattedRef) return;
+                            // Strip HTML tags from the formatted reference
+                            const plainText = formattedRef
+                              .replace(/<[^>]*>/g, "")
+                              .replace(/&nbsp;/g, " ")
+                              .replace(/&amp;/g, "&")
+                              .replace(/&lt;/g, "<")
+                              .replace(/&gt;/g, ">")
+                              .replace(/&quot;/g, '"')
+                              .replace(/&#39;/g, "'")
+                              .trim();
+                            navigator.clipboard.writeText(plainText);
+                            toast.success("Reference copied to clipboard");
+                          }}
+                          className="inline-flex items-center gap-1 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/60 hover:bg-foreground/10 hover:text-foreground/80 transition-all duration-150"
+                          title="Copy reference">
+                          <Copy className="w-3 h-3" />
+                          Copy
+                        </button>
+                        {source.author && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/50">
+                            <User className="w-3 h-3" />
+                            {source.author.substring(0, 20)}
+                            {source.author.length > 20 ? "..." : ""}
+                          </span>
+                        )}
+                        {source.year && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/50">
+                            <Calendar className="w-3 h-3" />
+                            {source.year}
+                          </span>
+                        )}
+                        {source.journalName && (
+                          <span className="inline-flex items-center rounded-md bg-blue-500/10 px-2 py-1 text-xs text-blue-600 dark:text-blue-400">
+                            Journal
+                          </span>
+                        )}
+                        {source.doi && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 text-xs text-emerald-600 dark:text-emerald-400">
+                            <LinkIcon className="w-3 h-3" />
+                            DOI
+                          </span>
+                        )}
                       </div>
-                    )}
-                    <div
-                      className="text-sm leading-relaxed wrap-break-word whitespace-pre-wrap prose prose-sm max-w-none"
-                      dangerouslySetInnerHTML={{ __html: formattedRef }}
-                    />
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        onClick={() => {
-                          // Strip HTML tags from the formatted reference
-                          const plainText = formattedRef
-                            .replace(/<[^>]*>/g, "")
-                            .replace(/&nbsp;/g, " ")
-                            .replace(/&amp;/g, "&")
-                            .replace(/&lt;/g, "<")
-                            .replace(/&gt;/g, ">")
-                            .replace(/&quot;/g, '"')
-                            .replace(/&#39;/g, "'")
-                            .trim();
-                          navigator.clipboard.writeText(plainText);
-                          toast.success("Reference copied to clipboard");
-                        }}
-                        className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition"
-                        title="Copy reference">
-                        <Copy className="w-3 h-3" />
-                        Copy
-                      </button>
-                      {source.author && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-1 text-xs text-muted-foreground">
-                          <User className="w-3 h-3" />
-                          {source.author.substring(0, 20)}
-                          {source.author.length > 20 ? "..." : ""}
-                        </span>
-                      )}
-                      {source.year && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-1 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          {source.year}
-                        </span>
-                      )}
-                      {source.journalName && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-200">
-                          Journal
-                        </span>
-                      )}
-                      {source.doi && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-200">
-                          <LinkIcon className="w-3 h-3" />
-                          DOI
-                        </span>
-                      )}
                     </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       </div>
 
-      <div className="shrink-0 px-6 py-5 border-t border-border/60 space-y-3">
+      <div className="shrink-0 px-6 py-5 border-t border-foreground/5 space-y-3">
         <button
           onClick={() => {
             const htmlContent = generateReferenceList(
@@ -509,20 +565,20 @@ function ReferencesPreview({
             navigator.clipboard.writeText(plainText);
             toast.success("References copied to clipboard");
           }}
-          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-lg shadow-accent/30 transition hover:bg-accent/90">
+          className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-foreground text-background px-4 py-3 text-sm font-semibold transition-all duration-150 hover:bg-foreground/90 active:scale-[0.98]">
           <Copy className="w-4 h-4" />
           Copy all references
         </button>
-        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-border/80 px-4 py-3 text-xs">
+        <div className="flex items-center gap-3 rounded-xl border border-dashed border-foreground/10 bg-foreground/[0.02] px-4 py-3">
           <div className="flex-1">
-            <p className="text-sm font-semibold text-foreground">
+            <p className="text-sm font-medium text-foreground">
               Before you turn it in
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-foreground/50">
               Use Fact Checker to verify the accuracy of your claims.
             </p>
           </div>
-          <button className="text-accent text-sm font-semibold hover:underline">
+          <button className="text-foreground/40 text-sm font-medium hover:text-foreground transition-all duration-150">
             Open
           </button>
         </div>
@@ -723,93 +779,123 @@ ${input}`
 
   const renderChatView = () => (
     <div className="flex h-full flex-col bg-popover">
-      <div className="border-b border-border/60 px-6 pt-6 pb-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+      <div className="border-b border-foreground/5 px-6 pt-6 pb-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40">
           AI Chat
         </p>
-        <h3 className="mt-3 text-2xl font-semibold leading-snug">
+        <h3 className="mt-3 text-2xl font-semibold leading-snug text-foreground">
           {greetingMessage}
         </h3>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-foreground/60">
           Get tailored suggestions to improve clarity, correctness, and
           citations.
         </p>
       </div>
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
         {visibleMessages.length === 0 && (
-          <div className="rounded-3xl border border-dashed border-border/60 bg-muted/20 px-5 py-6 text-sm text-muted-foreground">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-dashed border-foreground/10 bg-foreground/[0.02] px-5 py-6 text-sm text-foreground/50">
             Ask about your outline, tone, or sources to get started.
-          </div>
+          </motion.div>
         )}
-        {visibleMessages.map((msg) => {
-          const isUser = msg.role === "user";
-          return (
-            <div
-              key={msg.id}
-              className={cn(
-                "flex max-w-full flex-col gap-2",
-                isUser ? "items-end" : "items-start"
-              )}>
-              <div
+        <AnimatePresence mode="popLayout">
+          {visibleMessages.map((msg, index) => {
+            const isUser = msg.role === "user";
+            return (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{
+                  duration: 0.25,
+                  delay: index * 0.02,
+                  ease: [0.25, 0.1, 0.25, 1],
+                }}
                 className={cn(
-                  "w-full max-w-[85%] rounded-3xl px-4 py-3 text-sm shadow-sm",
-                  isUser
-                    ? "bg-accent/20 text-foreground border border-accent/40 rounded-tr-2xl"
-                    : "bg-muted/60 text-foreground border border-border/70 rounded-tl-2xl"
+                  "flex max-w-full flex-col gap-2",
+                  isUser ? "items-end" : "items-start"
                 )}>
-                <MessageContent
-                  content={msg.content}
-                  citations={msg.citations}
-                />
-              </div>
-              {msg.role === "assistant" && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <button
-                    onClick={() => handleCopy(msg.content, msg.id)}
-                    className="rounded-full p-1.5 transition hover:bg-muted"
-                    title="Copy to clipboard">
-                    {copiedId === msg.id ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </button>
-                  {onInsert && (
-                    <button
-                      onClick={() => onInsert(msg.content)}
-                      className="rounded-full p-1.5 transition hover:bg-muted"
-                      title="Add to document">
-                      <Plus className="h-3 w-3" />
-                    </button>
-                  )}
+                <div
+                  className={cn(
+                    "w-full max-w-[85%] rounded-2xl px-4 py-3 text-sm",
+                    isUser
+                      ? "bg-foreground text-background rounded-tr-lg"
+                      : "bg-foreground/[0.03] text-foreground border border-foreground/5 rounded-tl-lg"
+                  )}>
+                  <MessageContent
+                    content={msg.content}
+                    citations={msg.citations}
+                  />
                 </div>
-              )}
-            </div>
-          );
-        })}
-        {isThinking && (
-          <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Hemmi is thinking...</span>
-          </div>
-        )}
+                {msg.role === "assistant" && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="flex items-center gap-1 text-xs">
+                    <button
+                      onClick={() => handleCopy(msg.content, msg.id)}
+                      className="rounded-lg p-1.5 transition-all duration-150 hover:bg-foreground/5 text-foreground/30 hover:text-foreground/60"
+                      title="Copy to clipboard">
+                      {copiedId === msg.id ? (
+                        <Check className="h-3 w-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
+                    {onInsert && (
+                      <button
+                        onClick={() => onInsert(msg.content)}
+                        className="rounded-lg p-1.5 transition-all duration-150 hover:bg-foreground/5 text-foreground/30 hover:text-foreground/60"
+                        title="Add to document">
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+        <AnimatePresence>
+          {isThinking && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-3 rounded-2xl border border-foreground/5 bg-foreground/[0.02] px-4 py-3 text-sm text-foreground/60">
+              <ThinkingShimmer />
+              <span>Hemmi is thinking</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div ref={messagesEndRef} />
       </div>
-      <div className="border-t border-border/60 px-6 py-5">
-        {askAIContext && (
-          <div className="relative mb-4 rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Quote className="h-3 w-3" />
-              Selected Context
-            </div>
-            <p className="italic">&quot;{askAIContext}&quot;</p>
-            <button
-              onClick={onClearContext}
-              className="absolute -right-2 -top-2 rounded-full border border-border bg-background p-1 text-muted-foreground transition hover:bg-muted">
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        )}
+      <div className="border-t border-foreground/5 px-6 py-5">
+        <AnimatePresence>
+          {askAIContext && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -10, height: 0 }}
+              className="relative mb-4 rounded-xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3 text-sm text-foreground/60">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-foreground/40">
+                <Quote className="h-3 w-3" />
+                Selected Context
+              </div>
+              <p className="italic text-foreground/70">&quot;{askAIContext}&quot;</p>
+              <button
+                onClick={onClearContext}
+                className="absolute -right-2 -top-2 rounded-full border border-foreground/10 bg-background p-1.5 text-foreground/40 transition-all duration-150 hover:bg-foreground/5 hover:text-foreground/70">
+                <X className="h-3 w-3" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <form onSubmit={handleSubmit} className="relative">
           <textarea
             ref={inputRef}
@@ -818,13 +904,13 @@ ${input}`
             onKeyDown={handleInputKeyDown}
             placeholder="Ask Hemmi or type '@' for sources..."
             rows={1}
-            className="w-full resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent min-h-[52px]"
+            className="w-full resize-none rounded-xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3 text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20 min-h-[52px] transition-all duration-150"
             disabled={isThinking}
           />
           <button
             type="submit"
             disabled={!input.trim() || isThinking}
-            className="absolute right-3 top-3 rounded-full p-2 text-muted-foreground transition hover:text-accent disabled:opacity-50">
+            className="absolute right-3 top-3 rounded-lg p-2 text-foreground/40 transition-all duration-150 hover:text-foreground hover:bg-foreground/5 disabled:opacity-30 disabled:cursor-not-allowed">
             <Send className="h-4 w-4" />
           </button>
         </form>
@@ -876,16 +962,18 @@ ${input}`
                   key={id}
                   onClick={() => setActiveTab(id)}
                   className={cn(
-                    "relative inline-flex items-center rounded-2xl px-3 py-1.5 text-sm font-medium transition",
+                    "relative inline-flex items-center rounded-xl px-3 py-1.5 text-sm font-semibold transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "active:scale-[0.98]",
                     isActive
-                      ? "bg-accent text-accent-foreground shadow-inner gap-2 pr-4"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40 gap-0 justify-center w-12"
+                      ? "bg-foreground text-background shadow-sm shadow-foreground/10 gap-2 pr-4"
+                      : "text-foreground/50 hover:text-foreground hover:bg-muted/50 gap-0 justify-center w-12"
                   )}
                   title={label}>
                   <Icon className="h-4 w-4" />
                   {isActive && <span>{label}</span>}
                   {id === "references" && selectedSourceCount > 0 && (
-                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-accent/20 text-[11px] font-semibold text-accent">
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground text-background text-[11px] font-semibold">
                       {selectedSourceCount}
                     </span>
                   )}

@@ -13,8 +13,10 @@ import {
 import {
   createServerSupabaseClient,
   getCurrentUser,
+  requireAuth,
 } from "@/lib/supabase/server";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
+import { checkTokenBalance, deductTokens, estimateStructureTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -267,6 +269,9 @@ ${getMinimalHumanizationHint()}`;
 
 export async function POST(req: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const {
       documentType,
       topic,
@@ -289,6 +294,23 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ESTIMATE TOKEN USAGE
+    const estimatedTokens = estimateStructureTokens({
+      documentType,
+      targetWordCount: wordCount || 0,
+    });
+
+    console.log(`[Structure Generation] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.STRUCTURE);
+    if (tokenCheckError) {
+      console.log(`[Structure Generation] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.STRUCTURE})`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Structure Generation] ✅ Token check passed`);
 
     // Construct the prompt
     const isResearchPaper = documentType === "RESEARCH_PAPER";
@@ -387,6 +409,21 @@ export async function POST(req: NextRequest) {
       }),
       prompt,
     });
+
+    // DEDUCT TOKENS after successful generation
+    const deductSuccess = await deductTokens(user.id, estimatedTokens, 'structure', {
+      projectId,
+      documentType,
+      wordCount,
+      sectionCount: result.object.sections.length,
+      estimatedTokens,
+    });
+
+    if (!deductSuccess) {
+      console.error(`[Structure Generation] ⚠️  Failed to deduct tokens (${estimatedTokens}), but structure was generated`);
+    } else {
+      console.log(`[Structure Generation] ✅ Deducted ${estimatedTokens} tokens`);
+    }
     if (isResearchPaper) {
       result.object.sections.push({
         heading: "References",

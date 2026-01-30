@@ -5,6 +5,7 @@ import { AcademicLevel } from "@/lib/types/document";
 import {
   createServerSupabaseClient,
   getCurrentUser,
+  requireAuth,
 } from "@/lib/supabase/server";
 import {
   needsResearch,
@@ -12,6 +13,7 @@ import {
   formatCitationsForPrompt,
 } from "@/lib/services/chatResearch";
 import { ChatCitation } from "@/lib/types/chat";
+import { checkTokenBalance, deductTokens, estimateChatTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -29,6 +31,9 @@ interface ChatMessage {
 
 export async function POST(req: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const { messages, brief, sources, currentContent, projectId } =
       await req.json();
 
@@ -36,6 +41,25 @@ export async function POST(req: NextRequest) {
     const userMessages = messages.filter((m: ChatMessage) => m.role === "user");
     const lastUserMessage = userMessages[userMessages.length - 1];
     const userQuestion = lastUserMessage?.content || "";
+
+    // ESTIMATE TOKEN USAGE
+    const willNeedResearch = needsResearch(userQuestion);
+    const estimatedTokens = estimateChatTokens({
+      messageLength: userQuestion.length,
+      historyLength: messages.length,
+      hasResearch: willNeedResearch,
+    });
+
+    console.log(`[Chat] Estimated tokens: ${estimatedTokens}, Research needed: ${willNeedResearch}`);
+
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAT);
+    if (tokenCheckError) {
+      console.log(`[Chat] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAT})`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Chat] ✅ Token check passed`);
 
     // Save user message to database if projectId provided
     if (projectId && lastUserMessage) {
@@ -114,11 +138,29 @@ INSTRUCTIONS:
       messages,
     });
 
+    // DEDUCT TOKENS after successful chat response
+    const actualTokens = Math.ceil(result.text.length / 4); // Rough estimate from character count
+    const deductSuccess = await deductTokens(user.id, estimatedTokens, 'chat', {
+      projectId,
+      messageLength: userQuestion.length,
+      responseLength: result.text.length,
+      historyLength: messages.length,
+      hasCitations: citations.length > 0,
+      estimatedTokens,
+      actualTokens,
+    });
+
+    if (!deductSuccess) {
+      console.error(`[Chat] ⚠️  Failed to deduct tokens (${estimatedTokens}), but response was generated`);
+    } else {
+      console.log(`[Chat] ✅ Deducted ${estimatedTokens} tokens`);
+    }
+
     // Save assistant response to database if projectId provided
     if (projectId && result.text) {
       try {
-        const user = await getCurrentUser();
-        if (user) {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
           const supabase = await createServerSupabaseClient();
           await supabase.from("chat_messages").insert({
             project_id: projectId,

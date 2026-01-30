@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
+import { requireAuth } from "@/lib/supabase/server";
+import { checkTokenBalance, deductTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -9,6 +11,9 @@ const groq = createGroq({
 
 export async function POST(req: NextRequest) {
   try {
+    // AUTHENTICATE USER
+    const user = await requireAuth();
+
     const { text, context, fullContent, sources } = await req.json();
 
     if (!text) {
@@ -17,6 +22,20 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // ESTIMATE TOKEN USAGE - explanation is lightweight
+    const estimatedTokens = 800; // Small fixed cost for explanation
+    
+    console.log(`[Explain] Estimated tokens: ${estimatedTokens}`);
+
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAT);
+    if (tokenCheckError) {
+      console.log(`[Explain] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAT})`);
+      return tokenCheckError;
+    }
+
+    console.log(`[Explain] ✅ Token check passed`);
 
     const systemPrompt = `You are a knowledgeable tutor and research assistant.
     
@@ -54,6 +73,22 @@ export async function POST(req: NextRequest) {
       system: systemPrompt,
       prompt: `Explain this: "${text}"`,
     });
+
+    // DEDUCT TOKENS after successful explanation
+    const actualTokens = Math.ceil(result.text.length / 4); // Rough estimate from character count
+    const deductSuccess = await deductTokens(user.id, estimatedTokens, 'generate', {
+      operation: 'explain_text',
+      textLength: text.length,
+      explanationLength: result.text.length,
+      estimatedTokens,
+      actualTokens,
+    });
+
+    if (!deductSuccess) {
+      console.error(`[Explain] ⚠️  Failed to deduct tokens (${estimatedTokens}), but text was explained`);
+    } else {
+      console.log(`[Explain] ✅ Deducted ${estimatedTokens} tokens`);
+    }
 
     return NextResponse.json({
       content: result.text,

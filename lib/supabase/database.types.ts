@@ -66,7 +66,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "writing_projects";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       citations: {
@@ -123,7 +123,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "research_sources";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       document_sections: {
@@ -176,7 +176,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "document_structures";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       document_structures: {
@@ -232,7 +232,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "writing_projects";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       document_versions: {
@@ -285,7 +285,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "writing_projects";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       generated_documents: {
@@ -351,7 +351,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "document_structures";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       public_documents: {
@@ -410,19 +410,21 @@ export type Database = {
             isOneToOne: true;
             referencedRelation: "writing_projects";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       research_sources: {
         Row: {
           author: string | null;
           authors_structured: Json | null;
+          citation_count: number | null;
           conference_name: string | null;
           content_char_count: number | null;
           content_fetch_status: string | null;
           content_word_count: number | null;
           created_at: string;
           doi: string | null;
+          domain_prestige: string | null;
           editors: string | null;
           excerpt: string;
           fetch_attempted_at: string | null;
@@ -437,29 +439,37 @@ export type Database = {
           isbn: string | null;
           issue: string | null;
           journal_name: string | null;
+          metadata_confidence: string | null;
+          metadata_source: string | null;
+          open_access_url: string | null;
           pages: string | null;
           position: number | null;
           project_id: string;
           publication_type: string | null;
           published_date: string | null;
           publisher: string | null;
+          quality_grade: string | null;
+          quality_score: number | null;
           relevance_score: number | null;
           source_type: string | null;
           title: string;
           updated_at: string;
           url: string;
+          venue_prestige: string | null;
           volume: string | null;
           year: number | null;
         };
         Insert: {
           author?: string | null;
           authors_structured?: Json | null;
+          citation_count?: number | null;
           conference_name?: string | null;
           content_char_count?: number | null;
           content_fetch_status?: string | null;
           content_word_count?: number | null;
           created_at?: string;
           doi?: string | null;
+          domain_prestige?: string | null;
           editors?: string | null;
           excerpt: string;
           fetch_attempted_at?: string | null;
@@ -474,29 +484,37 @@ export type Database = {
           isbn?: string | null;
           issue?: string | null;
           journal_name?: string | null;
+          metadata_confidence?: string | null;
+          metadata_source?: string | null;
+          open_access_url?: string | null;
           pages?: string | null;
           position?: number | null;
           project_id: string;
           publication_type?: string | null;
           published_date?: string | null;
           publisher?: string | null;
+          quality_grade?: string | null;
+          quality_score?: number | null;
           relevance_score?: number | null;
           source_type?: string | null;
           title: string;
           updated_at?: string;
           url: string;
+          venue_prestige?: string | null;
           volume?: string | null;
           year?: number | null;
         };
         Update: {
           author?: string | null;
           authors_structured?: Json | null;
+          citation_count?: number | null;
           conference_name?: string | null;
           content_char_count?: number | null;
           content_fetch_status?: string | null;
           content_word_count?: number | null;
           created_at?: string;
           doi?: string | null;
+          domain_prestige?: string | null;
           editors?: string | null;
           excerpt?: string;
           fetch_attempted_at?: string | null;
@@ -511,17 +529,23 @@ export type Database = {
           isbn?: string | null;
           issue?: string | null;
           journal_name?: string | null;
+          metadata_confidence?: string | null;
+          metadata_source?: string | null;
+          open_access_url?: string | null;
           pages?: string | null;
           position?: number | null;
           project_id?: string;
           publication_type?: string | null;
           published_date?: string | null;
           publisher?: string | null;
+          quality_grade?: string | null;
+          quality_score?: number | null;
           relevance_score?: number | null;
           source_type?: string | null;
           title?: string;
           updated_at?: string;
           url?: string;
+          venue_prestige?: string | null;
           volume?: string | null;
           year?: number | null;
         };
@@ -532,7 +556,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "writing_projects";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       shared_links: {
@@ -585,7 +609,7 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "writing_projects";
             referencedColumns: ["id"];
-          }
+          },
         ];
       };
       user_profiles: {
@@ -684,6 +708,193 @@ export type Database = {
         };
         Relationships: [];
       };
+      subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          plan_type: string;
+          billing_cycle: string | null;
+          token_allocation: number;
+          tokens_remaining: number;
+          currency: string;
+          amount_paid: number;
+          payment_gateway: string;
+          gateway_subscription_id: string | null;
+          gateway_customer_id: string | null;
+          status: "active" | "cancelled" | "expired" | "past_due";
+          auto_renew: boolean;
+          current_period_start: string;
+          current_period_end: string;
+          cancelled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          plan_type: string;
+          billing_cycle?: string | null;
+          token_allocation: number;
+          tokens_remaining: number;
+          currency: string;
+          amount_paid: number;
+          payment_gateway: string;
+          gateway_subscription_id?: string | null;
+          gateway_customer_id?: string | null;
+          status?: "active" | "cancelled" | "expired" | "past_due";
+          auto_renew?: boolean;
+          current_period_start: string;
+          current_period_end: string;
+          cancelled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          plan_type?: string;
+          billing_cycle?: string | null;
+          token_allocation?: number;
+          tokens_remaining?: number;
+          currency?: string;
+          amount_paid?: number;
+          payment_gateway?: string;
+          gateway_subscription_id?: string | null;
+          gateway_customer_id?: string | null;
+          status?: "active" | "cancelled" | "expired" | "past_due";
+          auto_renew?: boolean;
+          current_period_start?: string;
+          current_period_end?: string;
+          cancelled_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "user_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      payment_history: {
+        Row: {
+          id: string;
+          user_id: string;
+          subscription_id: string;
+          transaction_id: string;
+          payment_gateway: string;
+          amount: number;
+          currency: string;
+          tokens_purchased: number;
+          payment_type: string;
+          status: string;
+          failure_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          subscription_id: string;
+          transaction_id: string;
+          payment_gateway: string;
+          amount: number;
+          currency: string;
+          tokens_purchased: number;
+          payment_type: string;
+          status: string;
+          failure_reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          subscription_id?: string;
+          transaction_id?: string;
+          payment_gateway?: string;
+          amount?: number;
+          currency?: string;
+          tokens_purchased?: number;
+          payment_type?: string;
+          status?: string;
+          failure_reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "user_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payment_history_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      token_usage: {
+        Row: {
+          id: string;
+          user_id: string;
+          tokens_used: number;
+          feature: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          tokens_used: number;
+          feature: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          tokens_used?: number;
+          feature?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "token_usage_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "user_profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      pricing_config: {
+        Row: {
+          id: string;
+          key: string;
+          value: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          key: string;
+          value: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          key?: string;
+          value?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -693,6 +904,30 @@ export type Database = {
       increment_share_view: {
         Args: { share_token_param: string };
         Returns: undefined;
+      };
+      get_user_subscription: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          subscription_id: string;
+          user_id: string;
+          plan_type: string;
+          billing_cycle: string | null;
+          token_allocation: number;
+          tokens_remaining: number;
+          status: string;
+          current_period_end: string;
+          auto_renew: boolean;
+        }>;
+      };
+      deduct_user_tokens: {
+        Args: {
+          p_user_id: string;
+          p_tokens: number;
+          p_operation_type: string;
+          p_metadata?: Json | null;
+          p_project_id?: string | null;
+        };
+        Returns: boolean;
       };
     };
     Enums: {
@@ -720,7 +955,7 @@ export type Tables<
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -731,14 +966,14 @@ export type Tables<
     ? R
     : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-      DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-      DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R;
-    }
-    ? R
-    : never
-  : never;
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R;
+      }
+      ? R
+      : never
+    : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
@@ -748,7 +983,7 @@ export type TablesInsert<
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -758,12 +993,12 @@ export type TablesInsert<
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Insert: infer I;
-    }
-    ? I
-    : never
-  : never;
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I;
+      }
+      ? I
+      : never
+    : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
@@ -773,7 +1008,7 @@ export type TablesUpdate<
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -783,12 +1018,12 @@ export type TablesUpdate<
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Update: infer U;
-    }
-    ? U
-    : never
-  : never;
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U;
+      }
+      ? U
+      : never
+    : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
@@ -798,14 +1033,14 @@ export type Enums<
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never;
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
@@ -815,14 +1050,14 @@ export type CompositeTypes<
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never;
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never;
 
 export const Constants = {
   graphql_public: {

@@ -11,6 +11,38 @@ interface ProjectsTabsProps {
   onBrowseAll?: () => void;
 }
 
+// Shared tab button styles - extracted for consistency
+const tabBaseStyles = cn(
+  // Layout
+  "relative inline-flex flex-1 sm:flex-none items-center justify-center",
+  // Sizing
+  "px-5 py-2.5 sm:px-6 sm:py-3",
+  // Typography - slightly refined
+  "text-xs sm:text-sm font-semibold uppercase tracking-[0.12em]",
+  // Shape
+  "rounded-full",
+  // Transitions - cubic-bezier for Apple-like feel
+  "transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+  // Focus state - clean, accessible
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+);
+
+// Active state - confident, not whispered
+const tabActiveStyles = cn(
+  "bg-foreground text-background",
+  "shadow-sm shadow-foreground/10"
+);
+
+// Inactive state - good contrast, inviting hover
+const tabInactiveStyles = cn(
+  // Default: strong enough contrast (foreground/60 is ~0.58 lightness in dark, clear hierarchy)
+  "text-foreground/60",
+  // Hover: solid muted background, full foreground text
+  "hover:bg-muted hover:text-foreground",
+  // Active (pressed) state
+  "active:scale-[0.98]"
+);
+
 export function ProjectsTabs({
   activeTab,
   onTabChange,
@@ -22,17 +54,15 @@ export function ProjectsTabs({
       <div
         role="tablist"
         aria-label="Projects"
-        className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 sm:gap-6">
+        className="inline-flex w-full sm:w-auto items-center justify-between sm:justify-start gap-1.5 sm:gap-2 p-1 rounded-full bg-muted/50">
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "recent"}
           onClick={() => onTabChange("recent")}
           className={cn(
-            "relative inline-flex flex-1 sm:flex-none items-center justify-center rounded-full px-6 py-3 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            activeTab === "recent"
-              ? "bg-accent/15 text-foreground shadow-sm shadow-accent/15 ring-1 ring-accent/25"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            tabBaseStyles,
+            activeTab === "recent" ? tabActiveStyles : tabInactiveStyles
           )}>
           <span>Recently viewed</span>
         </button>
@@ -43,10 +73,8 @@ export function ProjectsTabs({
           aria-selected={activeTab === "my-projects"}
           onClick={() => onTabChange("my-projects")}
           className={cn(
-            "relative inline-flex flex-1 sm:flex-none items-center justify-center rounded-full px-6 py-3 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            activeTab === "my-projects"
-              ? "bg-accent/15 text-foreground shadow-sm shadow-accent/15 ring-1 ring-accent/25"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            tabBaseStyles,
+            activeTab === "my-projects" ? tabActiveStyles : tabInactiveStyles
           )}>
           <span>My projects</span>
         </button>
@@ -57,10 +85,8 @@ export function ProjectsTabs({
           aria-selected={activeTab === "archived"}
           onClick={() => onTabChange("archived")}
           className={cn(
-            "relative inline-flex flex-1 sm:flex-none items-center justify-center rounded-full px-6 py-3 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            activeTab === "archived"
-              ? "bg-accent/15 text-foreground shadow-sm shadow-accent/15 ring-1 ring-accent/25"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            tabBaseStyles,
+            activeTab === "archived" ? tabActiveStyles : tabInactiveStyles
           )}>
           <span>Archived</span>
         </button>
@@ -71,9 +97,9 @@ export function ProjectsTabs({
         <button
           type="button"
           onClick={onBrowseAll}
-          className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background group">
+          className="inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background group">
           <span>Browse all</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          <ArrowRight className="w-4 h-4 transition-transform duration-300 ease-out group-hover:translate-x-0.5" />
         </button>
       )}
     </div>
