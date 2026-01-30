@@ -33,7 +33,11 @@ function WorkspaceContent() {
   const projectId = searchParams.get("projectId");
   const { session, isLoading: isSessionLoading } = useSupabase();
 
-  console.log("[WorkspaceContent] Mounted:", { projectId, isSessionLoading, hasSession: !!session });
+  console.log("[WorkspaceContent] Mounted:", {
+    projectId,
+    isSessionLoading,
+    hasSession: !!session,
+  });
 
   // Use React Query to fetch project data (only when projectId exists and session is ready)
   const {
@@ -104,24 +108,69 @@ function WorkspaceContent() {
         tone: structure.tone,
         tableOfContents: structure.table_of_contents,
         sections:
-          structure.sections?.map((s: any) => {
-            const rawKeyPoints = s.key_points || s.keyPoints;
-            let keyPoints: string[] = [];
+          structure.sections
+            ?.map((s: any) => {
+              const rawKeyPoints = s.key_points || s.keyPoints;
+              let keyPoints: string[] = [];
 
-            if (Array.isArray(rawKeyPoints)) {
-              keyPoints = rawKeyPoints;
-            } else if (rawKeyPoints && Array.isArray(rawKeyPoints.points)) {
-              keyPoints = rawKeyPoints.points;
-            }
+              if (Array.isArray(rawKeyPoints)) {
+                keyPoints = rawKeyPoints;
+              } else if (rawKeyPoints && Array.isArray(rawKeyPoints.points)) {
+                keyPoints = rawKeyPoints.points;
+              }
 
-            return {
-              id: s.id,
-              title: s.heading,
-              keyPoints: keyPoints,
-              estimatedWordCount: s.estimated_word_count || undefined,
-              status: "complete",
-            };
-          }) || [],
+              return {
+                id: s.id,
+                title: s.heading,
+                keyPoints: keyPoints,
+                estimatedWordCount: s.estimated_word_count || undefined,
+                status: (s.status || "pending") as
+                  | "pending"
+                  | "writing"
+                  | "review"
+                  | "complete",
+              };
+            })
+            .sort((a: any, b: any) => {
+              const titleA = (a.title || "").trim();
+              const titleB = (b.title || "").trim();
+              const lowerA = titleA.toLowerCase();
+              const lowerB = titleB.toLowerCase();
+
+              // Abstract always first
+              if (lowerA.includes("abstract")) return -1;
+              if (lowerB.includes("abstract")) return 1;
+
+              // References/Bibliography always last
+              const isRefA =
+                lowerA.includes("reference") ||
+                lowerA.includes("works cited") ||
+                lowerA.includes("bibliography");
+              const isRefB =
+                lowerB.includes("reference") ||
+                lowerB.includes("works cited") ||
+                lowerB.includes("bibliography");
+
+              if (isRefA && !isRefB) return 1;
+              if (!isRefA && isRefB) return -1;
+
+              // Extract chapter numbers for numerical sort
+              const getNumber = (str: string) => {
+                const match =
+                  str.match(/^(?:chapter|section)\s+(\d+)/i) ||
+                  str.match(/^(\d+)\./);
+                return match ? parseInt(match[1], 10) : 9999;
+              };
+
+              const numA = getNumber(titleA);
+              const numB = getNumber(titleB);
+
+              if (numA !== 9999 || numB !== 9999) {
+                return numA - numB;
+              }
+
+              return 0;
+            }) || [],
       };
     }
 
@@ -214,7 +263,9 @@ function WorkspaceContent() {
       hasSession: !!session,
     });
     if (!isSessionLoading && projectId && !session) {
-      console.log("[WorkspacePage] Project requires authentication - redirecting to home");
+      console.log(
+        "[WorkspacePage] Project requires authentication - redirecting to home"
+      );
       router.push("/");
     }
   }, [projectId, session, isSessionLoading, router]);

@@ -14,6 +14,7 @@ import {
   createServerSupabaseClient,
   getCurrentUser,
 } from "@/lib/supabase/server";
+import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -257,7 +258,9 @@ IMPORTANT:`;
 
   basePrompt += `
 - Make sure the structure flows logically
-- Return ONLY valid JSON, no markdown formatting or extra text`;
+- Return ONLY valid JSON, no markdown formatting or extra text
+
+${getMinimalHumanizationHint()}`;
 
   return basePrompt;
 }
@@ -519,12 +522,15 @@ export async function POST(req: NextRequest) {
                 estimated_word_count:
                   (section as any).estimatedWordCount || null,
                 section_number: null,
+                status: "pending",
               })
             );
 
-            const { error: sectionsError } = await supabase
-              .from("document_sections")
-              .insert(sectionsToInsert);
+            const { data: insertedSections, error: sectionsError } =
+              await supabase
+                .from("document_sections")
+                .insert(sectionsToInsert)
+                .select("id, position");
 
             if (sectionsError) {
               console.error(
@@ -563,7 +569,17 @@ export async function POST(req: NextRequest) {
             savedStructure = {
               ...structureResult,
               id: insertedStructure.id,
-            } as typeof structureResult & { id: string };
+              // Map section IDs if available
+              sections: structureResult.sections.map((section, idx) => {
+                const inserted = insertedSections?.find(
+                  (s) => s.position === idx
+                );
+                return {
+                  ...section,
+                  id: inserted?.id,
+                };
+              }),
+            } as typeof structureResult & { id: string; sections: any[] };
 
             console.log(
               `Saved structure to database with ID: ${insertedStructure.id}`

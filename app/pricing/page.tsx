@@ -70,7 +70,7 @@ export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("yearly");
 
   return (
-    <main className="relative min-h-screen bg-[#F4F1EB] px-4 py-10">
+    <main className="relative min-h-screen bg-surface-warm px-4 py-10">
       <Link
         href="/"
         className="absolute right-6 top-6 rounded-full bg-transparent p-2 text-foreground/70 transition hover:text-foreground">

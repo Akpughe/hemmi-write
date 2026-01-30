@@ -11,6 +11,7 @@ export interface Project {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  is_archived: boolean;
 }
 
 interface ProjectsResponse {
@@ -27,6 +28,7 @@ interface UseProjectsOptions {
   status?: "in_progress" | "complete";
   limit?: number;
   page?: number;
+  archived?: boolean;
 }
 
 /**
@@ -36,15 +38,16 @@ export function useProjects(options: UseProjectsOptions = {}) {
   const { status, limit = 10, page = 1 } = options;
 
   return useQuery({
-    queryKey: ["projects", { status, limit, page }],
+    queryKey: ["projects", { status, limit, page, archived: options.archived }],
     queryFn: async (): Promise<ProjectsResponse> => {
       const params = new URLSearchParams();
       if (status) params.append("status", status);
+      if (options.archived) params.append("archived", "true");
       params.append("limit", String(limit));
       params.append("page", String(page));
 
       const response = await fetch(`/api/projects?${params.toString()}`);
-      
+
       if (!response.ok) {
         if (response.status === 401) {
           // Not authenticated - return empty list
@@ -69,9 +72,9 @@ export function useProject(projectId: string | null) {
     queryKey: ["project", projectId],
     queryFn: async () => {
       if (!projectId) return null;
-      
+
       const response = await fetch(`/api/projects/${projectId}`);
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch project");
       }
@@ -142,6 +145,40 @@ export function useDeleteProject() {
 
       if (!response.ok) {
         throw new Error("Failed to delete project");
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+}
+
+/**
+ * Hook to archive/unarchive a project
+ */
+export function useArchiveProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      projectId,
+      archived,
+    }: {
+      projectId: string;
+      archived: boolean;
+    }) => {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_archived: archived }),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to ${archived ? "archive" : "unarchive"} project`
+        );
       }
 
       return response.json();

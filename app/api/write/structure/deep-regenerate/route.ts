@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import Groq from 'groq-sdk';
+import { NextRequest, NextResponse } from "next/server";
+import Groq from "groq-sdk";
 import {
   DeepRegenerateRequest,
   DeepRegenerateResponse,
@@ -7,11 +7,15 @@ import {
   ResearchSource,
   TargetedSearchResult,
   DOCUMENT_TYPE_CONFIGS,
-} from '@/lib/types/document';
+} from "@/lib/types/document";
 // Removed analyzeFeedback import - quality checking functionality disabled
-import { conductTargetedResearch } from '@/lib/utils/targetedResearch';
-import { formatSourcesForPrompt } from '@/lib/utils/documentStructure';
-import { createServerSupabaseClient, getCurrentUser } from '@/lib/supabase/server';
+import { conductTargetedResearch } from "@/lib/utils/targetedResearch";
+import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
+import {
+  createServerSupabaseClient,
+  getCurrentUser,
+} from "@/lib/supabase/server";
+import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -38,13 +42,16 @@ export async function POST(request: NextRequest) {
 
     if (!documentType || !topic || !userFeedback || !currentStructure) {
       return NextResponse.json(
-        { error: 'Document type, topic, feedback, and current structure are required' },
+        {
+          error:
+            "Document type, topic, feedback, and current structure are required",
+        },
         { status: 400 }
       );
     }
 
     // PHASE 1: Analyze feedback (disabled - quality checking removed)
-    console.log('Phase 1: Analyzing feedback...');
+    console.log("Phase 1: Analyzing feedback...");
     const feedbackAnalysis = {
       intents: [],
       specificRequests: [userFeedback],
@@ -53,18 +60,21 @@ export async function POST(request: NextRequest) {
       requiresNewSources: false,
     };
 
-    console.log('Feedback analysis:', {
+    console.log("Feedback analysis:", {
       intents: feedbackAnalysis.intents,
       queries: feedbackAnalysis.searchQueries,
       requiresNewSources: feedbackAnalysis.requiresNewSources,
     });
 
     // PHASE 2: Conduct targeted research if needed
-    console.log('Phase 2: Conducting targeted research...');
+    console.log("Phase 2: Conducting targeted research...");
     let researchConducted: TargetedSearchResult[] = [];
     let newSourcesAdded: ResearchSource[] = [];
 
-    if (feedbackAnalysis.requiresNewSources && feedbackAnalysis.searchQueries.length > 0) {
+    if (
+      feedbackAnalysis.requiresNewSources &&
+      feedbackAnalysis.searchQueries.length > 0
+    ) {
       const existingUrls = existingSources.map((s) => s.url);
 
       researchConducted = await conductTargetedResearch(
@@ -80,15 +90,17 @@ export async function POST(request: NextRequest) {
 
       console.log(`Found ${newSourcesAdded.length} new sources`);
     } else {
-      console.log('No new sources needed');
+      console.log("No new sources needed");
     }
 
     // PHASE 3: Combine sources
     const allSources = [...existingSources, ...newSourcesAdded];
-    console.log(`Total sources: ${allSources.length} (${existingSources.length} original + ${newSourcesAdded.length} new)`);
+    console.log(
+      `Total sources: ${allSources.length} (${existingSources.length} original + ${newSourcesAdded.length} new)`
+    );
 
     // PHASE 4: Regenerate structure with full context
-    console.log('Phase 4: Regenerating structure...');
+    console.log("Phase 4: Regenerating structure...");
     const newStructure = await regenerateStructure(
       documentType,
       topic,
@@ -100,7 +112,7 @@ export async function POST(request: NextRequest) {
     );
 
     // PHASE 5: Generate summary of changes
-    console.log('Phase 5: Generating changes summary...');
+    console.log("Phase 5: Generating changes summary...");
     const changesSummary = await generateChangesSummary(
       currentStructure,
       newStructure,
@@ -120,7 +132,7 @@ export async function POST(request: NextRequest) {
         const user = await getCurrentUser();
         if (user) {
           const supabase = await createServerSupabaseClient();
-          
+
           // Save new sources if any
           if (newSourcesAdded.length > 0) {
             const sourcesToInsert = newSourcesAdded.map((source, index) => ({
@@ -132,91 +144,118 @@ export async function POST(request: NextRequest) {
               excerpt: source.excerpt,
               full_content: null,
               highlights: null,
-              source_type: 'web' as const,
+              source_type: "web" as const,
               relevance_score: source.score || null,
               is_selected: true,
               position: existingSources.length + index,
             }));
-            
-            await supabase
-              .from('research_sources')
-              .insert(sourcesToInsert);
-            
-            console.log(`Saved ${newSourcesAdded.length} new sources to database`);
+
+            await supabase.from("research_sources").insert(sourcesToInsert);
+
+            console.log(
+              `Saved ${newSourcesAdded.length} new sources to database`
+            );
           }
-          
+
           // Mark existing current structure as not current
           await supabase
-            .from('document_structures')
+            .from("document_structures")
             .update({ is_current: false })
-            .eq('project_id', projectId)
-            .eq('is_current', true);
-          
+            .eq("project_id", projectId)
+            .eq("is_current", true);
+
           // Get next version number
           const { count } = await supabase
-            .from('document_structures')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', projectId);
-          
+            .from("document_structures")
+            .select("*", { count: "exact", head: true })
+            .eq("project_id", projectId);
+
           const nextVersion = (count || 0) + 1;
-          
+
           // Insert new structure with regeneration report
-          const { data: insertedStructure, error: structureError } = await supabase
-            .from('document_structures')
-            .insert({
-              project_id: projectId,
-              version: nextVersion,
-              title: newStructure.title,
-              approach: newStructure.approach,
-              tone: newStructure.tone,
-              table_of_contents: null,
-              estimated_word_count: newStructure.estimatedWordCount || wordCount,
-              is_current: true,
-              is_approved: false,
-              regeneration_report: JSON.parse(JSON.stringify(regenerationReport)),
-            })
-            .select()
-            .single();
-          
-          if (structureError) {
-            console.error('Failed to save structure:', structureError);
-          } else if (insertedStructure) {
-            // Insert sections
-            const sectionsToInsert = newStructure.sections.map((section, index) => ({
-              structure_id: insertedStructure.id,
-              heading: section.heading,
-              description: (section as any).description || '',
-              key_points: { points: section.keyPoints || [] },
-              position: index,
-              estimated_word_count: (section as any).estimatedWordCount || null,
-              section_number: null,
-            }));
-            
+          const { data: insertedStructure, error: structureError } =
             await supabase
-              .from('document_sections')
-              .insert(sectionsToInsert);
-            
-            // Create version snapshot
-            await supabase
-              .from('document_versions')
+              .from("document_structures")
               .insert({
                 project_id: projectId,
-                version_number: nextVersion,
-                version_name: `Regenerated Structure v${nextVersion}`,
-                description: `Regenerated based on feedback: ${userFeedback.substring(0, 100)}...`,
-                structure_snapshot: JSON.parse(JSON.stringify(newStructure)),
-                sources_snapshot: JSON.parse(JSON.stringify(allSources)),
-                content_snapshot: null,
-                checkpoint_type: 'structure_regeneration',
-                word_count: null,
-                created_by: user.id,
-              });
-            
-            console.log(`Saved regenerated structure with ID: ${insertedStructure.id}`);
+                version: nextVersion,
+                title: newStructure.title,
+                approach: newStructure.approach,
+                tone: newStructure.tone,
+                table_of_contents: null,
+                estimated_word_count:
+                  newStructure.estimatedWordCount || wordCount,
+                is_current: true,
+                is_approved: false,
+                regeneration_report: JSON.parse(
+                  JSON.stringify(regenerationReport)
+                ),
+              })
+              .select()
+              .single();
+
+          if (structureError) {
+            console.error("Failed to save structure:", structureError);
+          } else if (insertedStructure) {
+            // Insert sections
+            const sectionsToInsert = newStructure.sections.map(
+              (section, index) => ({
+                structure_id: insertedStructure.id,
+                heading: section.heading,
+                description: (section as any).description || "",
+                key_points: { points: section.keyPoints || [] },
+                position: index,
+                estimated_word_count:
+                  (section as any).estimatedWordCount || null,
+                section_number: null,
+              })
+            );
+
+            // Insert sections
+            const { data: insertedSections } = await supabase
+              .from("document_sections")
+              .insert(sectionsToInsert)
+              .select("id, position");
+
+            // Map IDs back to newStructure
+            if (insertedSections) {
+              newStructure.sections = newStructure.sections.map(
+                (section, index) => {
+                  const inserted = insertedSections.find(
+                    (s) => s.position === index
+                  );
+                  return {
+                    ...section,
+                    id: inserted?.id,
+                  };
+                }
+              );
+            }
+
+            // Create version snapshot
+            await supabase.from("document_versions").insert({
+              project_id: projectId,
+              version_number: nextVersion,
+              version_name: `Regenerated Structure v${nextVersion}`,
+              description: `Regenerated based on feedback: ${userFeedback.substring(
+                0,
+                100
+              )}...`,
+              structure_snapshot: JSON.parse(JSON.stringify(newStructure)),
+              sources_snapshot: JSON.parse(JSON.stringify(allSources)),
+              content_snapshot: null,
+              checkpoint_type: "structure_regeneration",
+              word_count: null,
+              created_by: user.id,
+            });
+
+            console.log(
+              `Saved regenerated structure with ID: ${insertedStructure.id}`
+            );
           }
         }
       } catch (dbError) {
-        console.error('Database operation failed:', dbError);
+        console.error("Database operation failed:", dbError);
       }
     }
 
@@ -226,14 +265,11 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response);
-
   } catch (error: unknown) {
-    console.error('Deep regeneration error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to regenerate structure';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    console.error("Deep regeneration error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Failed to regenerate structure";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
@@ -249,7 +285,8 @@ async function regenerateStructure(
   currentStructure: DocumentStructure,
   feedbackAnalysis: any
 ): Promise<DocumentStructure> {
-  const config = DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
+  const config =
+    DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
 
   const sourcesText = formatSourcesForPrompt(
     sources.map((s) => ({
@@ -265,21 +302,25 @@ DOCUMENT CONTEXT:
 Topic: "${topic}"
 Document Type: ${config.label}
 Target Word Count: ${wordCount} words
-${instructions ? `Additional Instructions: ${instructions}` : ''}
+${instructions ? `Additional Instructions: ${instructions}` : ""}
 
 CURRENT STRUCTURE:
 Title: ${currentStructure.title}
 Approach: ${currentStructure.approach}
 Tone: ${currentStructure.tone}
 Sections:
-${currentStructure.sections.map((s, i) => `${i + 1}. ${s.heading}
+${currentStructure.sections
+  .map(
+    (s, i) => `${i + 1}. ${s.heading}
    ${s.description}
-   Key Points: ${s.keyPoints.join(', ')}`).join('\n')}
+   Key Points: ${s.keyPoints.join(", ")}`
+  )
+  .join("\n")}
 
 USER FEEDBACK ANALYSIS:
-- User Intents: ${feedbackAnalysis.intents.join(', ')}
-- Specific Requests: ${feedbackAnalysis.specificRequests.join('; ')}
-- Knowledge Gaps Identified: ${feedbackAnalysis.knowledgeGaps.join('; ')}
+- User Intents: ${feedbackAnalysis.intents.join(", ")}
+- Specific Requests: ${feedbackAnalysis.specificRequests.join("; ")}
+- Knowledge Gaps Identified: ${feedbackAnalysis.knowledgeGaps.join("; ")}
 
 AVAILABLE SOURCES (${sources.length} total):
 ${sourcesText}
@@ -310,32 +351,38 @@ IMPORTANT:
 - Change tone/approach if requested
 - Use the new sources to support requested changes
 - Make sure changes are VISIBLE and MEANINGFUL
-- Return ONLY valid JSON, no markdown formatting`;
+- Return ONLY valid JSON, no markdown formatting
+
+${getMinimalHumanizationHint()}`;
 
   const completion = await groq.chat.completions.create({
     messages: [
       {
-        role: 'system',
-        content: 'You are an expert academic writer who revises document structures based on feedback. Always respond with valid JSON only.',
+        role: "system",
+        content:
+          "You are an expert academic writer who revises document structures based on feedback. Always respond with valid JSON only.",
       },
       {
-        role: 'user',
+        role: "user",
         content: prompt,
       },
     ],
-    model: 'openai/gpt-oss-120b',
+    model: "openai/gpt-oss-120b",
     temperature: 0.7,
     max_tokens: 2000,
   });
 
-  const responseText = completion.choices[0]?.message?.content || '';
+  const responseText = completion.choices[0]?.message?.content || "";
 
   try {
-    const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const jsonText = responseText
+      .replace(/```json\n?/g, "")
+      .replace(/```\n?/g, "")
+      .trim();
     return JSON.parse(jsonText);
   } catch (parseError) {
-    console.error('Failed to parse regenerated structure:', responseText);
-    throw new Error('Failed to parse structure from AI response');
+    console.error("Failed to parse regenerated structure:", responseText);
+    throw new Error("Failed to parse structure from AI response");
   }
 }
 
@@ -353,16 +400,16 @@ OLD STRUCTURE:
 Title: ${oldStructure.title}
 Approach: ${oldStructure.approach}
 Tone: ${oldStructure.tone}
-Sections: ${oldStructure.sections.map(s => s.heading).join(', ')}
+Sections: ${oldStructure.sections.map((s) => s.heading).join(", ")}
 
 NEW STRUCTURE:
 Title: ${newStructure.title}
 Approach: ${newStructure.approach}
 Tone: ${newStructure.tone}
-Sections: ${newStructure.sections.map(s => s.heading).join(', ')}
+Sections: ${newStructure.sections.map((s) => s.heading).join(", ")}
 
 USER REQUESTED:
-${feedbackAnalysis.specificRequests.join(', ')}
+${feedbackAnalysis.specificRequests.join(", ")}
 
 Write a brief summary (3-5 bullet points) of the key changes made to address the feedback.
 Start each point with a dash (-). Be specific and concise.`;
@@ -370,18 +417,22 @@ Start each point with a dash (-). Be specific and concise.`;
   const completion = await groq.chat.completions.create({
     messages: [
       {
-        role: 'system',
-        content: 'You are concise and specific. Return only the bullet-pointed summary.',
+        role: "system",
+        content:
+          "You are concise and specific. Return only the bullet-pointed summary.",
       },
       {
-        role: 'user',
+        role: "user",
         content: prompt,
       },
     ],
-    model: 'openai/gpt-oss-120b',
+    model: "openai/gpt-oss-120b",
     temperature: 0.3,
     max_tokens: 300,
   });
 
-  return completion.choices[0]?.message?.content || 'Structure regenerated based on feedback.';
+  return (
+    completion.choices[0]?.message?.content ||
+    "Structure regenerated based on feedback."
+  );
 }

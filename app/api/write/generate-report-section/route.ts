@@ -9,6 +9,12 @@ import {
   ACADEMIC_LEVEL_CONFIGS,
 } from "@/lib/types/document";
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
+import {
+  buildReportSectionHumanizationContext,
+  getMinimalHumanizationHint,
+  buildEmDashWarning,
+  buildChatGPTFingerprintWarning,
+} from "@/lib/utils/humanizationPrompt";
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 
@@ -127,7 +133,13 @@ WRITING REQUIREMENTS (BUSINESS MODE):
    - Minimal, non-intrusive (e.g., "According to [Source]...")
    - Focus on the insight, not the source
 
-CRITICAL: Write ONLY this section in HTML format (NOT markdown). Focus on clarity and impact.`;
+CRITICAL: Write ONLY this section in HTML format (NOT markdown). Focus on clarity and impact.
+
+${buildReportSectionHumanizationContext()}
+
+${buildEmDashWarning(targetWordCount)}
+
+${buildChatGPTFingerprintWarning()}`;
     }
   } else {
     // --- ACADEMIC REPORT MODE ---
@@ -149,7 +161,13 @@ ABSTRACT REQUIREMENTS:
 - Passive voice where appropriate for objectivity
 
 STRUCTURE (USE HTML FORMAT):
-Single paragraph wrapped in <p> tags summarizing the entire report.`;
+Single paragraph wrapped in <p> tags summarizing the entire report.
+
+${getMinimalHumanizationHint()}
+
+${buildEmDashWarning(targetWordCount)}
+
+${buildChatGPTFingerprintWarning()}`;
     } else {
       prompt = `You are writing Section ${
         sectionIndex + 1
@@ -194,7 +212,13 @@ WRITING REQUIREMENTS (ACADEMIC MODE - USE HTML NOT MARKDOWN):
    - Cite sources for all claims and data
    - ${levelConfig.citationsPerSection} citations per major point
 
-CRITICAL: Write ONLY this section in HTML format (NOT markdown). Maintain high academic rigor.`;
+CRITICAL: Write ONLY this section in HTML format (NOT markdown). Maintain high academic rigor.
+
+${buildReportSectionHumanizationContext()}
+
+${buildEmDashWarning(targetWordCount)}
+
+${buildChatGPTFingerprintWarning()}`;
     }
   }
 
@@ -208,13 +232,17 @@ function getSystemMessage(academicLevel: AcademicLevel): string {
 - Clear, concise, and impactful
 - Data-driven and objective
 - Structured for easy reading (headings, bullets)
-- Focused on actionable insights and recommendations`;
+- Focused on actionable insights and recommendations
+
+${buildReportSectionHumanizationContext()}`;
   } else {
     return `You are an expert academic researcher and writer. Your writing is:
 - Formal, objective, and rigorous
 - Thoroughly cited and evidence-based
 - Structured with clear logical flow
-- Appropriate for a ${academicLevel.toLowerCase()} university setting`;
+- Appropriate for a ${academicLevel.toLowerCase()} university setting
+
+${getMinimalHumanizationHint()}`;
   }
 }
 

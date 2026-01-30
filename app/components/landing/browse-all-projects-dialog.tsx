@@ -5,28 +5,36 @@ import { useProjects } from "@/lib/hooks/use-projects";
 import { ProjectCard } from "./project-card";
 import { ProjectsTabs } from "./projects-tabs";
 import { Skeleton } from "@/app/components/ui/skeleton";
-import { BrowseAllProjectsDialog } from "./browse-all-projects-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 
-export function ProjectsSection() {
+interface BrowseAllProjectsDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function BrowseAllProjectsDialog({
+  isOpen,
+  onClose,
+}: BrowseAllProjectsDialogProps) {
   const [activeTab, setActiveTab] = useState<
     "recent" | "my-projects" | "archived"
   >("recent");
-  const [isBrowseAllOpen, setIsBrowseAllOpen] = useState(false);
 
-  // Fetch projects based on active tab
+  // Fetch all projects (no limit or higher limit)
   const { data, isLoading, error } = useProjects({
-    limit: 6,
+    limit: 50, // Show up to 50 projects
     archived: activeTab === "archived",
     // For now, "recent" shows all, "my-projects" could filter in the future
   });
 
   const projects = data?.projects || [];
-  const skeletonKeys = ["s1", "s2", "s3"];
-
-  // Don't render if no projects and not loading
-  if (!isLoading && projects.length === 0) {
-    return null;
-  }
+  const skeletonKeys = Array.from({ length: 6 }, (_, i) => `s${i + 1}`);
 
   let content: React.ReactNode;
   if (isLoading) {
@@ -63,6 +71,12 @@ export function ProjectsSection() {
         Failed to load projects
       </div>
     );
+  } else if (projects.length === 0) {
+    content = (
+      <div className="text-center py-10 text-muted-foreground">
+        No projects found
+      </div>
+    );
   } else {
     content = (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -74,34 +88,23 @@ export function ProjectsSection() {
   }
 
   return (
-    <section className="w-full max-w-6xl mx-auto px-4 pb-12 pt-4">
-      {/* Tabs */}
-      <div className="mb-6 flex flex-col gap-2">
-        <div className="flex items-end justify-between gap-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">Projects</h2>
-            <p className="text-sm text-muted-foreground">
-              Pick up where you left off.
-            </p>
-          </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-6xl max-h-[90vh] !grid-rows-[auto_1fr]">
+        <DialogHeader>
+          <DialogTitle>All Projects</DialogTitle>
+          <DialogDescription>
+            Browse and manage all your writing projects
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col min-h-0 space-y-6 overflow-hidden">
+          {/* Tabs */}
+          <ProjectsTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+          {/* Projects grid */}
+          <div className="flex-1 overflow-y-auto pr-2 -mr-2">{content}</div>
         </div>
-        <ProjectsTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          onBrowseAll={() => {
-            setIsBrowseAllOpen(true);
-          }}
-        />
-      </div>
-
-      {/* Projects grid */}
-      {content}
-
-      {/* Browse all dialog */}
-      <BrowseAllProjectsDialog
-        isOpen={isBrowseAllOpen}
-        onClose={() => setIsBrowseAllOpen(false)}
-      />
-    </section>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -14,6 +14,7 @@ import { useSupabase } from "@/lib/context/SupabaseContext";
 import type { WritingBrief } from "@/lib/types/ui";
 
 import { UserMenu } from "@/app/components/auth/user-menu";
+import { cn } from "@/lib/utils";
 
 export default function HomePage() {
   const router = useRouter();
@@ -187,18 +188,24 @@ export default function HomePage() {
       </div>
 
       {/* Header Actions */}
-      <div className="absolute top-6 right-6 flex items-center gap-4 z-10">
-        <Button variant="ghost" asChild>
-          <Link href="/pricing" className="text-sm font-semibold">
-            Pricing
-          </Link>
-        </Button>
+      <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+        <Link
+          href="/pricing"
+          className={cn(
+            "inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          )}>
+          Pricing
+        </Link>
         {session ? (
           <UserMenu session={session} />
         ) : (
-          <Button variant="ghost" onClick={handleLoginClick}>
+          <button
+            onClick={handleLoginClick}
+            className={cn(
+              "inline-flex items-center justify-center rounded-full px-4 py-2 text-xs sm:text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground transition-all duration-200 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}>
             Log in
-          </Button>
+          </button>
         )}
         <ThemeToggle />
       </div>

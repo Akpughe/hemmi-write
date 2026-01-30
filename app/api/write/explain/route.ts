@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText } from "ai";
 import { createGroq } from "@ai-sdk/groq";
+import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
     - Reference the provided sources if they contain relevant information.
     - Keep the explanation concise (under 150 words) unless the topic requires more depth.
     - Do not be conversational, just provide the explanation.
+    
+    ${getMinimalHumanizationHint()}
     `;
 
     const result = await generateText({

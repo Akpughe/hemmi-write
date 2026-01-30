@@ -46,13 +46,12 @@ export function DocumentTypeSelector({
             key={type.id}
             onClick={() => onSelect(type.id)}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-200",
-              "text-sm font-medium",
+              "relative inline-flex items-center justify-center rounded-full px-5 py-2.5 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background gap-2",
               isSelected
-                ? "bg-foreground text-background border-foreground"
-                : "bg-transparent text-muted-foreground border-border hover:border-foreground/50 hover:text-foreground"
+                ? "bg-accent/15 text-foreground shadow-sm shadow-accent/15 ring-1 ring-accent/25"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}>
-            <Icon className="w-4 h-4" />
+            <Icon className="w-3.5 h-3.5" />
             <span>{type.label}</span>
           </button>
         );

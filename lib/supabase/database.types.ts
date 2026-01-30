@@ -4,813 +4,825 @@ export type Json =
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[]
+  | Json[];
 
 export type Database = {
   graphql_public: {
     Tables: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
       graphql: {
         Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
     Enums: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       chat_messages: {
         Row: {
-          content: string
-          context: Json | null
-          created_at: string
-          id: string
-          project_id: string
-          role: string
-        }
+          content: string;
+          context: Json | null;
+          created_at: string;
+          id: string;
+          project_id: string;
+          role: string;
+        };
         Insert: {
-          content: string
-          context?: Json | null
-          created_at?: string
-          id?: string
-          project_id: string
-          role: string
-        }
+          content: string;
+          context?: Json | null;
+          created_at?: string;
+          id?: string;
+          project_id: string;
+          role: string;
+        };
         Update: {
-          content?: string
-          context?: Json | null
-          created_at?: string
-          id?: string
-          project_id?: string
-          role?: string
-        }
+          content?: string;
+          context?: Json | null;
+          created_at?: string;
+          id?: string;
+          project_id?: string;
+          role?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "chat_messages_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "chat_messages_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       citations: {
         Row: {
-          citation_style: string
-          created_at: string
-          id: string
-          in_text_format: string
-          marker: string
-          position: number | null
-          project_id: string
-          reference_format: string
-          source_id: string
-          updated_at: string
-          used_in_sections: Json | null
-        }
+          citation_style: string;
+          created_at: string;
+          id: string;
+          in_text_format: string;
+          marker: string;
+          position: number | null;
+          project_id: string;
+          reference_format: string;
+          source_id: string;
+          updated_at: string;
+          used_in_sections: Json | null;
+        };
         Insert: {
-          citation_style: string
-          created_at?: string
-          id?: string
-          in_text_format: string
-          marker: string
-          position?: number | null
-          project_id: string
-          reference_format: string
-          source_id: string
-          updated_at?: string
-          used_in_sections?: Json | null
-        }
+          citation_style: string;
+          created_at?: string;
+          id?: string;
+          in_text_format: string;
+          marker: string;
+          position?: number | null;
+          project_id: string;
+          reference_format: string;
+          source_id: string;
+          updated_at?: string;
+          used_in_sections?: Json | null;
+        };
         Update: {
-          citation_style?: string
-          created_at?: string
-          id?: string
-          in_text_format?: string
-          marker?: string
-          position?: number | null
-          project_id?: string
-          reference_format?: string
-          source_id?: string
-          updated_at?: string
-          used_in_sections?: Json | null
-        }
+          citation_style?: string;
+          created_at?: string;
+          id?: string;
+          in_text_format?: string;
+          marker?: string;
+          position?: number | null;
+          project_id?: string;
+          reference_format?: string;
+          source_id?: string;
+          updated_at?: string;
+          used_in_sections?: Json | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "citations_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
+            foreignKeyName: "citations_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "citations_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "research_sources"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "citations_source_id_fkey";
+            columns: ["source_id"];
+            isOneToOne: false;
+            referencedRelation: "research_sources";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       document_sections: {
         Row: {
-          created_at: string
-          description: string
-          estimated_word_count: number | null
-          heading: string
-          id: string
-          key_points: Json
-          position: number
-          section_number: string | null
-          structure_id: string
-          updated_at: string
-        }
+          completed_at: string | null;
+          created_at: string;
+          description: string;
+          estimated_word_count: number | null;
+          heading: string;
+          id: string;
+          key_points: Json;
+          position: number;
+          section_number: string | null;
+          status: string;
+          structure_id: string;
+          updated_at: string;
+        };
         Insert: {
-          created_at?: string
-          description: string
-          estimated_word_count?: number | null
-          heading: string
-          id?: string
-          key_points: Json
-          position: number
-          section_number?: string | null
-          structure_id: string
-          updated_at?: string
-        }
+          completed_at?: string | null;
+          created_at?: string;
+          description: string;
+          estimated_word_count?: number | null;
+          heading: string;
+          id?: string;
+          key_points: Json;
+          position: number;
+          section_number?: string | null;
+          status?: string;
+          structure_id: string;
+          updated_at?: string;
+        };
         Update: {
-          created_at?: string
-          description?: string
-          estimated_word_count?: number | null
-          heading?: string
-          id?: string
-          key_points?: Json
-          position?: number
-          section_number?: string | null
-          structure_id?: string
-          updated_at?: string
-        }
+          completed_at?: string | null;
+          created_at?: string;
+          description?: string;
+          estimated_word_count?: number | null;
+          heading?: string;
+          id?: string;
+          key_points?: Json;
+          position?: number;
+          section_number?: string | null;
+          status?: string;
+          structure_id?: string;
+          updated_at?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "document_sections_structure_id_fkey"
-            columns: ["structure_id"]
-            isOneToOne: false
-            referencedRelation: "document_structures"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "document_sections_structure_id_fkey";
+            columns: ["structure_id"];
+            isOneToOne: false;
+            referencedRelation: "document_structures";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       document_structures: {
         Row: {
-          approach: string
-          created_at: string
-          estimated_word_count: number | null
-          id: string
-          is_approved: boolean
-          is_current: boolean
-          project_id: string
-          regeneration_report: Json | null
-          table_of_contents: Json | null
-          title: string
-          tone: string
-          updated_at: string
-          version: number
-        }
+          approach: string;
+          created_at: string;
+          estimated_word_count: number | null;
+          id: string;
+          is_approved: boolean;
+          is_current: boolean;
+          project_id: string;
+          regeneration_report: Json | null;
+          table_of_contents: Json | null;
+          title: string;
+          tone: string;
+          updated_at: string;
+          version: number;
+        };
         Insert: {
-          approach: string
-          created_at?: string
-          estimated_word_count?: number | null
-          id?: string
-          is_approved?: boolean
-          is_current?: boolean
-          project_id: string
-          regeneration_report?: Json | null
-          table_of_contents?: Json | null
-          title: string
-          tone: string
-          updated_at?: string
-          version?: number
-        }
+          approach: string;
+          created_at?: string;
+          estimated_word_count?: number | null;
+          id?: string;
+          is_approved?: boolean;
+          is_current?: boolean;
+          project_id: string;
+          regeneration_report?: Json | null;
+          table_of_contents?: Json | null;
+          title: string;
+          tone: string;
+          updated_at?: string;
+          version?: number;
+        };
         Update: {
-          approach?: string
-          created_at?: string
-          estimated_word_count?: number | null
-          id?: string
-          is_approved?: boolean
-          is_current?: boolean
-          project_id?: string
-          regeneration_report?: Json | null
-          table_of_contents?: Json | null
-          title?: string
-          tone?: string
-          updated_at?: string
-          version?: number
-        }
+          approach?: string;
+          created_at?: string;
+          estimated_word_count?: number | null;
+          id?: string;
+          is_approved?: boolean;
+          is_current?: boolean;
+          project_id?: string;
+          regeneration_report?: Json | null;
+          table_of_contents?: Json | null;
+          title?: string;
+          tone?: string;
+          updated_at?: string;
+          version?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "document_structures_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "document_structures_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       document_versions: {
         Row: {
-          checkpoint_type: string
-          content_snapshot: string | null
-          created_at: string
-          created_by: string | null
-          description: string | null
-          id: string
-          project_id: string
-          sources_snapshot: Json
-          structure_snapshot: Json
-          version_name: string | null
-          version_number: number
-          word_count: number | null
-        }
+          checkpoint_type: string;
+          content_snapshot: string | null;
+          created_at: string;
+          created_by: string | null;
+          description: string | null;
+          id: string;
+          project_id: string;
+          sources_snapshot: Json;
+          structure_snapshot: Json;
+          version_name: string | null;
+          version_number: number;
+          word_count: number | null;
+        };
         Insert: {
-          checkpoint_type: string
-          content_snapshot?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          project_id: string
-          sources_snapshot: Json
-          structure_snapshot: Json
-          version_name?: string | null
-          version_number: number
-          word_count?: number | null
-        }
+          checkpoint_type: string;
+          content_snapshot?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          project_id: string;
+          sources_snapshot: Json;
+          structure_snapshot: Json;
+          version_name?: string | null;
+          version_number: number;
+          word_count?: number | null;
+        };
         Update: {
-          checkpoint_type?: string
-          content_snapshot?: string | null
-          created_at?: string
-          created_by?: string | null
-          description?: string | null
-          id?: string
-          project_id?: string
-          sources_snapshot?: Json
-          structure_snapshot?: Json
-          version_name?: string | null
-          version_number?: number
-          word_count?: number | null
-        }
+          checkpoint_type?: string;
+          content_snapshot?: string | null;
+          created_at?: string;
+          created_by?: string | null;
+          description?: string | null;
+          id?: string;
+          project_id?: string;
+          sources_snapshot?: Json;
+          structure_snapshot?: Json;
+          version_name?: string | null;
+          version_number?: number;
+          word_count?: number | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "document_versions_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "document_versions_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       generated_documents: {
         Row: {
-          block_info: Json | null
-          character_count: number | null
-          completed_at: string | null
-          content: string
-          created_at: string
-          generation_completed: boolean
-          generation_method: string | null
-          id: string
-          is_current: boolean
-          project_id: string
-          references_text: string | null
-          structure_id: string | null
-          updated_at: string
-          word_count: number | null
-        }
+          block_info: Json | null;
+          character_count: number | null;
+          completed_at: string | null;
+          content: string;
+          created_at: string;
+          generation_completed: boolean;
+          generation_method: string | null;
+          id: string;
+          is_current: boolean;
+          project_id: string;
+          references_text: string | null;
+          structure_id: string | null;
+          updated_at: string;
+          word_count: number | null;
+        };
         Insert: {
-          block_info?: Json | null
-          character_count?: number | null
-          completed_at?: string | null
-          content: string
-          created_at?: string
-          generation_completed?: boolean
-          generation_method?: string | null
-          id?: string
-          is_current?: boolean
-          project_id: string
-          references_text?: string | null
-          structure_id?: string | null
-          updated_at?: string
-          word_count?: number | null
-        }
+          block_info?: Json | null;
+          character_count?: number | null;
+          completed_at?: string | null;
+          content: string;
+          created_at?: string;
+          generation_completed?: boolean;
+          generation_method?: string | null;
+          id?: string;
+          is_current?: boolean;
+          project_id: string;
+          references_text?: string | null;
+          structure_id?: string | null;
+          updated_at?: string;
+          word_count?: number | null;
+        };
         Update: {
-          block_info?: Json | null
-          character_count?: number | null
-          completed_at?: string | null
-          content?: string
-          created_at?: string
-          generation_completed?: boolean
-          generation_method?: string | null
-          id?: string
-          is_current?: boolean
-          project_id?: string
-          references_text?: string | null
-          structure_id?: string | null
-          updated_at?: string
-          word_count?: number | null
-        }
+          block_info?: Json | null;
+          character_count?: number | null;
+          completed_at?: string | null;
+          content?: string;
+          created_at?: string;
+          generation_completed?: boolean;
+          generation_method?: string | null;
+          id?: string;
+          is_current?: boolean;
+          project_id?: string;
+          references_text?: string | null;
+          structure_id?: string | null;
+          updated_at?: string;
+          word_count?: number | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "generated_documents_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
+            foreignKeyName: "generated_documents_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "generated_documents_structure_id_fkey"
-            columns: ["structure_id"]
-            isOneToOne: false
-            referencedRelation: "document_structures"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "generated_documents_structure_id_fkey";
+            columns: ["structure_id"];
+            isOneToOne: false;
+            referencedRelation: "document_structures";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       public_documents: {
         Row: {
-          description: string | null
-          display_title: string
-          featured: boolean
-          id: string
-          is_active: boolean
-          like_count: number
-          moderation_notes: string | null
-          moderation_status: string
-          project_id: string
-          published_at: string
-          published_by: string
-          tags: Json | null
-          updated_at: string
-          view_count: number
-        }
+          description: string | null;
+          display_title: string;
+          featured: boolean;
+          id: string;
+          is_active: boolean;
+          like_count: number;
+          moderation_notes: string | null;
+          moderation_status: string;
+          project_id: string;
+          published_at: string;
+          published_by: string;
+          tags: Json | null;
+          updated_at: string;
+          view_count: number;
+        };
         Insert: {
-          description?: string | null
-          display_title: string
-          featured?: boolean
-          id?: string
-          is_active?: boolean
-          like_count?: number
-          moderation_notes?: string | null
-          moderation_status?: string
-          project_id: string
-          published_at?: string
-          published_by: string
-          tags?: Json | null
-          updated_at?: string
-          view_count?: number
-        }
+          description?: string | null;
+          display_title: string;
+          featured?: boolean;
+          id?: string;
+          is_active?: boolean;
+          like_count?: number;
+          moderation_notes?: string | null;
+          moderation_status?: string;
+          project_id: string;
+          published_at?: string;
+          published_by: string;
+          tags?: Json | null;
+          updated_at?: string;
+          view_count?: number;
+        };
         Update: {
-          description?: string | null
-          display_title?: string
-          featured?: boolean
-          id?: string
-          is_active?: boolean
-          like_count?: number
-          moderation_notes?: string | null
-          moderation_status?: string
-          project_id?: string
-          published_at?: string
-          published_by?: string
-          tags?: Json | null
-          updated_at?: string
-          view_count?: number
-        }
+          description?: string | null;
+          display_title?: string;
+          featured?: boolean;
+          id?: string;
+          is_active?: boolean;
+          like_count?: number;
+          moderation_notes?: string | null;
+          moderation_status?: string;
+          project_id?: string;
+          published_at?: string;
+          published_by?: string;
+          tags?: Json | null;
+          updated_at?: string;
+          view_count?: number;
+        };
         Relationships: [
           {
-            foreignKeyName: "public_documents_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: true
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "public_documents_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: true;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       research_sources: {
         Row: {
-          author: string | null
-          authors_structured: Json | null
-          conference_name: string | null
-          content_char_count: number | null
-          content_fetch_status: string | null
-          content_word_count: number | null
-          created_at: string
-          doi: string | null
-          editors: string | null
-          excerpt: string
-          fetch_attempted_at: string | null
-          fetch_completed_at: string | null
-          fetch_duration_ms: number | null
-          fetch_error: string | null
-          fetched_at: string
-          full_content: string | null
-          highlights: Json | null
-          id: string
-          is_selected: boolean
-          isbn: string | null
-          issue: string | null
-          journal_name: string | null
-          pages: string | null
-          position: number | null
-          project_id: string
-          publication_type: string | null
-          published_date: string | null
-          publisher: string | null
-          relevance_score: number | null
-          source_type: string | null
-          title: string
-          updated_at: string
-          url: string
-          volume: string | null
-          year: number | null
-        }
+          author: string | null;
+          authors_structured: Json | null;
+          conference_name: string | null;
+          content_char_count: number | null;
+          content_fetch_status: string | null;
+          content_word_count: number | null;
+          created_at: string;
+          doi: string | null;
+          editors: string | null;
+          excerpt: string;
+          fetch_attempted_at: string | null;
+          fetch_completed_at: string | null;
+          fetch_duration_ms: number | null;
+          fetch_error: string | null;
+          fetched_at: string;
+          full_content: string | null;
+          highlights: Json | null;
+          id: string;
+          is_selected: boolean;
+          isbn: string | null;
+          issue: string | null;
+          journal_name: string | null;
+          pages: string | null;
+          position: number | null;
+          project_id: string;
+          publication_type: string | null;
+          published_date: string | null;
+          publisher: string | null;
+          relevance_score: number | null;
+          source_type: string | null;
+          title: string;
+          updated_at: string;
+          url: string;
+          volume: string | null;
+          year: number | null;
+        };
         Insert: {
-          author?: string | null
-          authors_structured?: Json | null
-          conference_name?: string | null
-          content_char_count?: number | null
-          content_fetch_status?: string | null
-          content_word_count?: number | null
-          created_at?: string
-          doi?: string | null
-          editors?: string | null
-          excerpt: string
-          fetch_attempted_at?: string | null
-          fetch_completed_at?: string | null
-          fetch_duration_ms?: number | null
-          fetch_error?: string | null
-          fetched_at?: string
-          full_content?: string | null
-          highlights?: Json | null
-          id?: string
-          is_selected?: boolean
-          isbn?: string | null
-          issue?: string | null
-          journal_name?: string | null
-          pages?: string | null
-          position?: number | null
-          project_id: string
-          publication_type?: string | null
-          published_date?: string | null
-          publisher?: string | null
-          relevance_score?: number | null
-          source_type?: string | null
-          title: string
-          updated_at?: string
-          url: string
-          volume?: string | null
-          year?: number | null
-        }
+          author?: string | null;
+          authors_structured?: Json | null;
+          conference_name?: string | null;
+          content_char_count?: number | null;
+          content_fetch_status?: string | null;
+          content_word_count?: number | null;
+          created_at?: string;
+          doi?: string | null;
+          editors?: string | null;
+          excerpt: string;
+          fetch_attempted_at?: string | null;
+          fetch_completed_at?: string | null;
+          fetch_duration_ms?: number | null;
+          fetch_error?: string | null;
+          fetched_at?: string;
+          full_content?: string | null;
+          highlights?: Json | null;
+          id?: string;
+          is_selected?: boolean;
+          isbn?: string | null;
+          issue?: string | null;
+          journal_name?: string | null;
+          pages?: string | null;
+          position?: number | null;
+          project_id: string;
+          publication_type?: string | null;
+          published_date?: string | null;
+          publisher?: string | null;
+          relevance_score?: number | null;
+          source_type?: string | null;
+          title: string;
+          updated_at?: string;
+          url: string;
+          volume?: string | null;
+          year?: number | null;
+        };
         Update: {
-          author?: string | null
-          authors_structured?: Json | null
-          conference_name?: string | null
-          content_char_count?: number | null
-          content_fetch_status?: string | null
-          content_word_count?: number | null
-          created_at?: string
-          doi?: string | null
-          editors?: string | null
-          excerpt?: string
-          fetch_attempted_at?: string | null
-          fetch_completed_at?: string | null
-          fetch_duration_ms?: number | null
-          fetch_error?: string | null
-          fetched_at?: string
-          full_content?: string | null
-          highlights?: Json | null
-          id?: string
-          is_selected?: boolean
-          isbn?: string | null
-          issue?: string | null
-          journal_name?: string | null
-          pages?: string | null
-          position?: number | null
-          project_id?: string
-          publication_type?: string | null
-          published_date?: string | null
-          publisher?: string | null
-          relevance_score?: number | null
-          source_type?: string | null
-          title?: string
-          updated_at?: string
-          url?: string
-          volume?: string | null
-          year?: number | null
-        }
+          author?: string | null;
+          authors_structured?: Json | null;
+          conference_name?: string | null;
+          content_char_count?: number | null;
+          content_fetch_status?: string | null;
+          content_word_count?: number | null;
+          created_at?: string;
+          doi?: string | null;
+          editors?: string | null;
+          excerpt?: string;
+          fetch_attempted_at?: string | null;
+          fetch_completed_at?: string | null;
+          fetch_duration_ms?: number | null;
+          fetch_error?: string | null;
+          fetched_at?: string;
+          full_content?: string | null;
+          highlights?: Json | null;
+          id?: string;
+          is_selected?: boolean;
+          isbn?: string | null;
+          issue?: string | null;
+          journal_name?: string | null;
+          pages?: string | null;
+          position?: number | null;
+          project_id?: string;
+          publication_type?: string | null;
+          published_date?: string | null;
+          publisher?: string | null;
+          relevance_score?: number | null;
+          source_type?: string | null;
+          title?: string;
+          updated_at?: string;
+          url?: string;
+          volume?: string | null;
+          year?: number | null;
+        };
         Relationships: [
           {
-            foreignKeyName: "research_sources_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "research_sources_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       shared_links: {
         Row: {
-          created_at: string
-          created_by: string
-          current_views: number
-          expires_at: string | null
-          id: string
-          is_active: boolean
-          last_accessed_at: string | null
-          max_views: number | null
-          password_hash: string | null
-          permissions: string
-          project_id: string
-          share_token: string
-        }
+          created_at: string;
+          created_by: string;
+          current_views: number;
+          expires_at: string | null;
+          id: string;
+          is_active: boolean;
+          last_accessed_at: string | null;
+          max_views: number | null;
+          password_hash: string | null;
+          permissions: string;
+          project_id: string;
+          share_token: string;
+        };
         Insert: {
-          created_at?: string
-          created_by: string
-          current_views?: number
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          last_accessed_at?: string | null
-          max_views?: number | null
-          password_hash?: string | null
-          permissions?: string
-          project_id: string
-          share_token: string
-        }
+          created_at?: string;
+          created_by: string;
+          current_views?: number;
+          expires_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          last_accessed_at?: string | null;
+          max_views?: number | null;
+          password_hash?: string | null;
+          permissions?: string;
+          project_id: string;
+          share_token: string;
+        };
         Update: {
-          created_at?: string
-          created_by?: string
-          current_views?: number
-          expires_at?: string | null
-          id?: string
-          is_active?: boolean
-          last_accessed_at?: string | null
-          max_views?: number | null
-          password_hash?: string | null
-          permissions?: string
-          project_id?: string
-          share_token?: string
-        }
+          created_at?: string;
+          created_by?: string;
+          current_views?: number;
+          expires_at?: string | null;
+          id?: string;
+          is_active?: boolean;
+          last_accessed_at?: string | null;
+          max_views?: number | null;
+          password_hash?: string | null;
+          permissions?: string;
+          project_id?: string;
+          share_token?: string;
+        };
         Relationships: [
           {
-            foreignKeyName: "shared_links_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "writing_projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+            foreignKeyName: "shared_links_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "writing_projects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       user_profiles: {
         Row: {
-          avatar_url: string | null
-          created_at: string
-          email: string
-          full_name: string | null
-          id: string
-          preferences: Json | null
-          updated_at: string
-        }
+          avatar_url: string | null;
+          created_at: string;
+          email: string;
+          full_name: string | null;
+          id: string;
+          preferences: Json | null;
+          updated_at: string;
+        };
         Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          email: string
-          full_name?: string | null
-          id: string
-          preferences?: Json | null
-          updated_at?: string
-        }
+          avatar_url?: string | null;
+          created_at?: string;
+          email: string;
+          full_name?: string | null;
+          id: string;
+          preferences?: Json | null;
+          updated_at?: string;
+        };
         Update: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string
-          full_name?: string | null
-          id?: string
-          preferences?: Json | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
+          avatar_url?: string | null;
+          created_at?: string;
+          email?: string;
+          full_name?: string | null;
+          id?: string;
+          preferences?: Json | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       writing_projects: {
         Row: {
-          academic_level: string
-          ai_provider: string | null
-          citation_style: string
-          completed_at: string | null
-          created_at: string
-          deleted_at: string | null
-          document_type: string
-          id: string
-          instructions: string | null
-          is_complete: boolean
-          metadata: Json | null
-          target_word_count: number | null
-          title: string
-          topic: string
-          updated_at: string
-          user_id: string
-          workflow_step: string
-          writing_style: string
-        }
+          academic_level: string;
+          ai_provider: string | null;
+          citation_style: string;
+          completed_at: string | null;
+          created_at: string;
+          deleted_at: string | null;
+          document_type: string;
+          id: string;
+          instructions: string | null;
+          is_complete: boolean;
+          is_archived: boolean | null;
+          metadata: Json | null;
+          target_word_count: number | null;
+          title: string;
+          topic: string;
+          updated_at: string;
+          user_id: string;
+          workflow_step: string;
+          writing_style: string;
+        };
         Insert: {
-          academic_level: string
-          ai_provider?: string | null
-          citation_style: string
-          completed_at?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          document_type: string
-          id?: string
-          instructions?: string | null
-          is_complete?: boolean
-          metadata?: Json | null
-          target_word_count?: number | null
-          title: string
-          topic: string
-          updated_at?: string
-          user_id: string
-          workflow_step?: string
-          writing_style: string
-        }
+          academic_level: string;
+          ai_provider?: string | null;
+          citation_style: string;
+          completed_at?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          document_type: string;
+          id?: string;
+          instructions?: string | null;
+          is_complete?: boolean;
+          is_archived?: boolean | null;
+          metadata?: Json | null;
+          target_word_count?: number | null;
+          title: string;
+          topic: string;
+          updated_at?: string;
+          user_id: string;
+          workflow_step?: string;
+          writing_style: string;
+        };
         Update: {
-          academic_level?: string
-          ai_provider?: string | null
-          citation_style?: string
-          completed_at?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          document_type?: string
-          id?: string
-          instructions?: string | null
-          is_complete?: boolean
-          metadata?: Json | null
-          target_word_count?: number | null
-          title?: string
-          topic?: string
-          updated_at?: string
-          user_id?: string
-          workflow_step?: string
-          writing_style?: string
-        }
-        Relationships: []
-      }
-    }
+          academic_level?: string;
+          ai_provider?: string | null;
+          citation_style?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          deleted_at?: string | null;
+          document_type?: string;
+          id?: string;
+          instructions?: string | null;
+          is_complete?: boolean;
+          is_archived?: boolean | null;
+          metadata?: Json | null;
+          target_word_count?: number | null;
+          title?: string;
+          topic?: string;
+          updated_at?: string;
+          user_id?: string;
+          workflow_step?: string;
+          writing_style?: string;
+        };
+        Relationships: [];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
-      generate_share_token: { Args: never; Returns: string }
+      generate_share_token: { Args: never; Returns: string };
       increment_share_view: {
-        Args: { share_token_param: string }
-        Returns: undefined
-      }
-    }
+        Args: { share_token_param: string };
+        Returns: undefined;
+      };
+    };
     Enums: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-}
+      [_ in never]: never;
+    };
+  };
+};
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<
+  keyof Database,
+  "public"
+>];
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never = never
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
       DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
+      Row: infer R;
     }
     ? R
     : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
+      DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] &
+      DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R;
+    }
+    ? R
     : never
+  : never;
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never = never
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
+      Insert: infer I;
     }
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Insert: infer I;
+    }
+    ? I
     : never
+  : never;
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never = never
 > = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
+      Update: infer U;
     }
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+      Update: infer U;
+    }
+    ? U
     : never
+  : never;
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never = never
 > = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never;
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+    schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never = never
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+  schema: keyof DatabaseWithoutInternals;
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never;
 
 export const Constants = {
   graphql_public: {
@@ -819,5 +831,4 @@ export const Constants = {
   public: {
     Enums: {},
   },
-} as const
-
+} as const;

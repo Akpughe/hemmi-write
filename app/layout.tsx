@@ -6,6 +6,7 @@ import { EditorProvider } from "@/lib/contexts/EditorContext";
 import { ThemeProvider } from "@/app/components/theme-provider";
 import SupabaseProvider from "@/lib/context/SupabaseContext";
 import { ReactQueryProvider } from "@/lib/providers/react-query-provider";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -38,7 +39,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "HEmmi - AI Writing Assistant",
+  title: "Hemmi - AI Writing Assistant",
   description:
     "A powerful writing application with AI assistance and rich text editing",
 };
@@ -66,6 +67,7 @@ export default function RootLayout({
             </EditorProvider>
           </SupabaseProvider>
         </ReactQueryProvider>
+        <Toaster />
       </body>
     </html>
   );

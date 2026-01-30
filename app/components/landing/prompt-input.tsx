@@ -68,19 +68,22 @@ export function PromptInput({
       {/* Bottom toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-muted/30">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowInstructions(!showInstructions)}
             className={cn(
-              "h-8 px-4 py-2 rounded-4xl gap-2 transition-colors duration-200 ease-in-out",
+              "inline-flex items-center justify-center rounded-full px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background group",
               showInstructions
-                ? "bg-foreground text-background hover:bg-foreground/90"
-                : "text-black hover:text-white hover:bg-gray-800"
+                ? "bg-foreground text-background shadow-sm"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}>
-            <Plus className="w-4 h-4" />
-            <span className="text-sm">Add extra instructions</span>
-          </Button>
+            <Plus
+              className={cn(
+                "w-3.5 h-3.5 mr-1.5 transition-transform",
+                showInstructions && "rotate-45"
+              )}
+            />
+            <span>Extra instructions</span>
+          </button>
         </div>
 
         <Button

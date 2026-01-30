@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import Groq from "groq-sdk";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AcademicLevel, WritingStyle, ResearchSource } from "@/lib/types/document";
+import { getMinimalHumanizationHint, getEmDashHint } from "@/lib/utils/humanizationPrompt";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -92,7 +93,7 @@ Return ONLY the HTML content for this section, no additional commentary.`;
       {
         role: "system",
         content:
-          "You are an expert academic writer. Generate well-structured HTML content for document sections. Use proper HTML tags like <h1>, <h2>, <p>, <ul>, <ol>, <li>, <strong>, <em>. Do not use markdown.",
+          "You are an expert academic writer. Generate well-structured HTML content for document sections. Use proper HTML tags like <h1>, <h2>, <p>, <ul>, <ol>, <li>, <strong>, <em>. Do not use markdown.\n\n" + getMinimalHumanizationHint() + "\n\n" + getEmDashHint(),
       },
       {
         role: "user",
