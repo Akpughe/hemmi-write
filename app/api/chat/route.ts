@@ -13,7 +13,7 @@ import {
   formatCitationsForPrompt,
 } from "@/lib/services/chatResearch";
 import { ChatCitation } from "@/lib/types/chat";
-import { checkTokenBalance, deductTokens, estimateChatTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, estimateChatTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -52,10 +52,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Chat] Estimated tokens: ${estimatedTokens}, Research needed: ${willNeedResearch}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAT);
     if (tokenCheckError) {
-      console.log(`[Chat] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Chat] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAT})`);
       return tokenCheckError;
     }
 
