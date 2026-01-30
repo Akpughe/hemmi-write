@@ -43,10 +43,10 @@ export function TokenBalance({
           const data = await response.json();
           setBalance(data.data);
 
-          // Trigger low balance callback if tokens < 10% of allocation
+          // Hard paywall when tokens < 5% of allocation
           if (
             data.data.subscription &&
-            data.data.tokens < data.data.subscription.tokenAllocation * 0.1
+            data.data.tokens < data.data.subscription.tokenAllocation * 0.05
           ) {
             onLowBalance?.();
           }
@@ -80,7 +80,7 @@ export function TokenBalance({
           <div
             className={cn(
               "flex items-center gap-2 cursor-pointer hover:opacity-80",
-              className
+              className,
             )}>
             <Zap className="size-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">No plan</span>
@@ -94,7 +94,7 @@ export function TokenBalance({
   }
 
   const percentage = Math.round(
-    (balance.tokens / balance.subscription.tokenAllocation) * 100
+    (balance.tokens / balance.subscription.tokenAllocation) * 100,
   );
   const isLow = percentage < 20;
   const isCritical = percentage < 10;
@@ -110,7 +110,7 @@ export function TokenBalance({
           <div
             className={cn(
               "flex items-center gap-2 cursor-pointer hover:opacity-80",
-              className
+              className,
             )}>
             <Zap
               className={cn(
@@ -118,8 +118,8 @@ export function TokenBalance({
                 isCritical
                   ? "text-red-500"
                   : isLow
-                  ? "text-orange-500"
-                  : "text-yellow-500"
+                    ? "text-orange-500"
+                    : "text-yellow-500",
               )}
             />
             <span
@@ -128,8 +128,8 @@ export function TokenBalance({
                 isCritical
                   ? "text-red-600"
                   : isLow
-                  ? "text-orange-600"
-                  : "text-foreground"
+                    ? "text-orange-600"
+                    : "text-foreground",
               )}>
               {formattedTokens}
             </span>
@@ -171,8 +171,8 @@ export function TokenBalance({
               isCritical
                 ? "text-red-500"
                 : isLow
-                ? "text-orange-500"
-                : "text-yellow-500"
+                  ? "text-orange-500"
+                  : "text-yellow-500",
             )}
           />
           <h3 className="font-semibold text-sm">Token Balance</h3>
@@ -203,8 +203,8 @@ export function TokenBalance({
             isCritical
               ? "[&>div]:bg-red-500"
               : isLow
-              ? "[&>div]:bg-orange-500"
-              : ""
+                ? "[&>div]:bg-orange-500"
+                : "",
           )}
         />
       </div>
