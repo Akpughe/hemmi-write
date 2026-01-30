@@ -62,12 +62,12 @@ export async function GET(request: NextRequest) {
     const mappedPayments: BillingPayment[] = (payments || []).map((p) => ({
       id: p.id,
       transactionId: p.transaction_id,
-      paymentGateway: p.payment_gateway,
+      paymentGateway: p.payment_gateway as PaymentGateway,
       amount: typeof p.amount === "string" ? Number.parseFloat(p.amount) : p.amount,
-      currency: p.currency,
+      currency: p.currency as Currency,
       tokensPurchased: p.tokens_purchased,
-      paymentType: p.payment_type,
-      status: p.status,
+      paymentType: p.payment_type as BillingPayment["paymentType"],
+      status: p.status as BillingPayment["status"],
       failureReason: p.failure_reason ?? null,
       createdAt: p.created_at,
     }));
