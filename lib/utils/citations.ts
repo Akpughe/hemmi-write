@@ -51,7 +51,7 @@ function hasAcademicMetadata(source: ResearchSource): boolean {
 }
 
 // Helper: Format multiple authors based on citation style
-function formatAuthors(source: ResearchSource, style: CitationStyle): string {
+function formatAuthors(source: ResearchSource, style: CitationStyle): string | null {
   // Try structured authors first
   if (source.authorsStructured && source.authorsStructured.length > 0) {
     const authors = source.authorsStructured;

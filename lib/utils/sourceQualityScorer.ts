@@ -251,7 +251,9 @@ export function scoreAndFilterSources(
   });
 
   // Filter by minimum score
-  let filtered = scoredSources.filter(s => s.qualityScore! >= minScore);
+  let filtered = scoredSources.filter(s =>
+    s.qualityScore !== undefined && s.qualityScore >= minScore
+  ) as ScoredSource[];
 
   // Sort by score if requested
   if (sortByScore) {
