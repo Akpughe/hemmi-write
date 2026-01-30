@@ -156,8 +156,8 @@ async function handleChargeSuccess(event: {
 /**
  * Handle subscription creation
  */
-async function handleSubscriptionCreate(event: {
-  data: {
+async function handleSubscriptionCreate(event: { data: Record<string, unknown> }) {
+  const data = event.data as {
     subscription_code: string;
     customer: {
       customer_code: string;
@@ -169,26 +169,24 @@ async function handleSubscriptionCreate(event: {
       interval: string;
     };
   };
-}) {
-  console.log('[Paystack Webhook] Subscription created:', event.data.subscription_code);
+  console.log('[Paystack Webhook] Subscription created:', data.subscription_code);
   // Subscription details are already handled in charge.success
 }
 
 /**
  * Handle subscription not renewing
  */
-async function handleSubscriptionNotRenew(event: {
-  data: {
+async function handleSubscriptionNotRenew(event: { data: Record<string, unknown> }) {
+  const data = event.data as {
     subscription_code: string;
     customer: {
       customer_code: string;
       email: string;
     };
   };
-}) {
   console.log(
     '[Paystack Webhook] Subscription not renewing:',
-    event.data.subscription_code
+    data.subscription_code
   );
 
   try {
@@ -203,18 +201,17 @@ async function handleSubscriptionNotRenew(event: {
 /**
  * Handle subscription disabled/cancelled
  */
-async function handleSubscriptionDisable(event: {
-  data: {
+async function handleSubscriptionDisable(event: { data: Record<string, unknown> }) {
+  const data = event.data as {
     subscription_code: string;
     customer: {
       customer_code: string;
       email: string;
     };
   };
-}) {
   console.log(
     '[Paystack Webhook] Subscription disabled:',
-    event.data.subscription_code
+    data.subscription_code
   );
 
   try {
