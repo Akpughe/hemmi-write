@@ -171,6 +171,37 @@ class TokenService {
 
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  // Default pricing values as fallback (matches database seed values)
+  private readonly DEFAULT_PRICING: PricingConfig = {
+    basicTokens: 165000,
+    proTokens: 665000,
+    premiumTokens: 3000000,
+    basicPriceUsd: 20,
+    proPriceUsd: 37.5,
+    premiumPriceUsd: 70,
+    basicPriceNgn: 30000,
+    proPriceNgn: 56250,
+    premiumPriceNgn: 105000,
+    tokensPerTenUsd: 20000,
+    tokensPerTenThousandNgn: 20000,
+    minOnetimeUsd: 10,
+    minOnetimeNgn: 10000,
+    basicPriceQuarterlyUsd: 51,
+    proPriceQuarterlyUsd: 95.63,
+    premiumPriceQuarterlyUsd: 178.5,
+    basicPriceQuarterlyNgn: 76500,
+    proPriceQuarterlyNgn: 143437.5,
+    premiumPriceQuarterlyNgn: 267750,
+    basicPriceYearlyUsd: 180,
+    proPriceYearlyUsd: 337.5,
+    premiumPriceYearlyUsd: 630,
+    basicPriceYearlyNgn: 270000,
+    proPriceYearlyNgn: 506250,
+    premiumPriceYearlyNgn: 945000,
+    premiumDailySoftLimit: 100000,
+    premiumIsUnlimited: true,
+  };
+
   async getPricingConfig(): Promise<PricingConfig> {
     // Check cache
     const now = Date.now();
@@ -190,7 +221,14 @@ class TokenService {
 
       if (error) {
         console.error('[TokenService] Get pricing config error:', error);
-        throw error;
+        console.warn('[TokenService] Using default pricing values');
+        return this.DEFAULT_PRICING;
+      }
+
+      // If no data returned (e.g., RLS blocking or empty table), use defaults
+      if (!data || data.length === 0) {
+        console.warn('[TokenService] No pricing data in database, using defaults');
+        return this.DEFAULT_PRICING;
       }
 
       // Convert array to object
@@ -205,34 +243,44 @@ class TokenService {
         }
       });
 
+      // Helper to get value with fallback
+      const getNum = (key: string, fallback: number): number => {
+        const val = config[key];
+        return typeof val === 'number' && !Number.isNaN(val) ? val : fallback;
+      };
+      const getBool = (key: string, fallback: boolean): boolean => {
+        const val = config[key];
+        return typeof val === 'boolean' ? val : fallback;
+      };
+
       const pricingConfig: PricingConfig = {
-        basicTokens: config.basic_tokens as number,
-        proTokens: config.pro_tokens as number,
-        premiumTokens: config.premium_tokens as number,
-        basicPriceUsd: config.basic_price_usd as number,
-        proPriceUsd: config.pro_price_usd as number,
-        premiumPriceUsd: config.premium_price_usd as number,
-        basicPriceNgn: config.basic_price_ngn as number,
-        proPriceNgn: config.pro_price_ngn as number,
-        premiumPriceNgn: config.premium_price_ngn as number,
-        tokensPerTenUsd: config.tokens_per_10_usd as number,
-        tokensPerTenThousandNgn: config.tokens_per_10000_ngn as number,
-        minOnetimeUsd: config.min_onetime_usd as number,
-        minOnetimeNgn: config.min_onetime_ngn as number,
-        basicPriceQuarterlyUsd: config.basic_price_quarterly_usd as number,
-        proPriceQuarterlyUsd: config.pro_price_quarterly_usd as number,
-        premiumPriceQuarterlyUsd: config.premium_price_quarterly_usd as number,
-        basicPriceQuarterlyNgn: config.basic_price_quarterly_ngn as number,
-        proPriceQuarterlyNgn: config.pro_price_quarterly_ngn as number,
-        premiumPriceQuarterlyNgn: config.premium_price_quarterly_ngn as number,
-        basicPriceYearlyUsd: config.basic_price_yearly_usd as number,
-        proPriceYearlyUsd: config.pro_price_yearly_usd as number,
-        premiumPriceYearlyUsd: config.premium_price_yearly_usd as number,
-        basicPriceYearlyNgn: config.basic_price_yearly_ngn as number,
-        proPriceYearlyNgn: config.pro_price_yearly_ngn as number,
-        premiumPriceYearlyNgn: config.premium_price_yearly_ngn as number,
-        premiumDailySoftLimit: config.premium_daily_soft_limit as number,
-        premiumIsUnlimited: config.premium_is_unlimited as boolean,
+        basicTokens: getNum('basic_tokens', this.DEFAULT_PRICING.basicTokens),
+        proTokens: getNum('pro_tokens', this.DEFAULT_PRICING.proTokens),
+        premiumTokens: getNum('premium_tokens', this.DEFAULT_PRICING.premiumTokens),
+        basicPriceUsd: getNum('basic_price_usd', this.DEFAULT_PRICING.basicPriceUsd),
+        proPriceUsd: getNum('pro_price_usd', this.DEFAULT_PRICING.proPriceUsd),
+        premiumPriceUsd: getNum('premium_price_usd', this.DEFAULT_PRICING.premiumPriceUsd),
+        basicPriceNgn: getNum('basic_price_ngn', this.DEFAULT_PRICING.basicPriceNgn),
+        proPriceNgn: getNum('pro_price_ngn', this.DEFAULT_PRICING.proPriceNgn),
+        premiumPriceNgn: getNum('premium_price_ngn', this.DEFAULT_PRICING.premiumPriceNgn),
+        tokensPerTenUsd: getNum('tokens_per_10_usd', this.DEFAULT_PRICING.tokensPerTenUsd),
+        tokensPerTenThousandNgn: getNum('tokens_per_10000_ngn', this.DEFAULT_PRICING.tokensPerTenThousandNgn),
+        minOnetimeUsd: getNum('min_onetime_usd', this.DEFAULT_PRICING.minOnetimeUsd),
+        minOnetimeNgn: getNum('min_onetime_ngn', this.DEFAULT_PRICING.minOnetimeNgn),
+        basicPriceQuarterlyUsd: getNum('basic_price_quarterly_usd', this.DEFAULT_PRICING.basicPriceQuarterlyUsd),
+        proPriceQuarterlyUsd: getNum('pro_price_quarterly_usd', this.DEFAULT_PRICING.proPriceQuarterlyUsd),
+        premiumPriceQuarterlyUsd: getNum('premium_price_quarterly_usd', this.DEFAULT_PRICING.premiumPriceQuarterlyUsd),
+        basicPriceQuarterlyNgn: getNum('basic_price_quarterly_ngn', this.DEFAULT_PRICING.basicPriceQuarterlyNgn),
+        proPriceQuarterlyNgn: getNum('pro_price_quarterly_ngn', this.DEFAULT_PRICING.proPriceQuarterlyNgn),
+        premiumPriceQuarterlyNgn: getNum('premium_price_quarterly_ngn', this.DEFAULT_PRICING.premiumPriceQuarterlyNgn),
+        basicPriceYearlyUsd: getNum('basic_price_yearly_usd', this.DEFAULT_PRICING.basicPriceYearlyUsd),
+        proPriceYearlyUsd: getNum('pro_price_yearly_usd', this.DEFAULT_PRICING.proPriceYearlyUsd),
+        premiumPriceYearlyUsd: getNum('premium_price_yearly_usd', this.DEFAULT_PRICING.premiumPriceYearlyUsd),
+        basicPriceYearlyNgn: getNum('basic_price_yearly_ngn', this.DEFAULT_PRICING.basicPriceYearlyNgn),
+        proPriceYearlyNgn: getNum('pro_price_yearly_ngn', this.DEFAULT_PRICING.proPriceYearlyNgn),
+        premiumPriceYearlyNgn: getNum('premium_price_yearly_ngn', this.DEFAULT_PRICING.premiumPriceYearlyNgn),
+        premiumDailySoftLimit: getNum('premium_daily_soft_limit', this.DEFAULT_PRICING.premiumDailySoftLimit),
+        premiumIsUnlimited: getBool('premium_is_unlimited', this.DEFAULT_PRICING.premiumIsUnlimited),
       };
 
       // Update cache
@@ -244,7 +292,8 @@ class TokenService {
       return pricingConfig;
     } catch (error) {
       console.error('[TokenService] Get pricing config error:', error);
-      throw error;
+      console.warn('[TokenService] Using default pricing values');
+      return this.DEFAULT_PRICING;
     }
   }
 

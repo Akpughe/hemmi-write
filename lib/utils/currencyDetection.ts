@@ -3,6 +3,8 @@
  * Detects user's currency based on IP geolocation
  */
 
+import { NGN_PRICING_ENABLED } from './pricing';
+
 export type Currency = 'NGN' | 'USD';
 
 interface GeoLocationResponse {
@@ -16,6 +18,11 @@ interface GeoLocationResponse {
  * Uses ip-api.com free tier (no API key required)
  */
 export async function detectCurrencyFromIP(): Promise<Currency> {
+  // If NGN pricing is disabled, always return USD
+  if (!NGN_PRICING_ENABLED) {
+    return 'USD';
+  }
+
   try {
     // Use ip-api.com free API (no key required, 45 requests/minute)
     const response = await fetch('http://ip-api.com/json/?fields=countryCode,currency');
@@ -50,6 +57,11 @@ export async function detectCurrencyFromIP(): Promise<Currency> {
  * Uses navigator.language as fallback
  */
 export function detectCurrencyFromBrowser(): Currency {
+  // If NGN pricing is disabled, always return USD
+  if (!NGN_PRICING_ENABLED) {
+    return 'USD';
+  }
+
   if (typeof window === 'undefined') {
     return 'USD';
   }
