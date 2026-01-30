@@ -5,7 +5,7 @@ import { AcademicLevel, WritingStyle, ResearchSource } from "@/lib/types/documen
 import { getMinimalHumanizationHint, getEmDashHint } from "@/lib/utils/humanizationPrompt";
 import { perplexityService } from "@/lib/services/perplexityService";
 import { savePerplexityCitations } from "@/lib/utils/perplexityCitationSaver";
-import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 /**
  * Clean em-dashes from text to avoid AI detection fingerprints
@@ -215,10 +215,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Regenerate Sections] Estimated tokens: ${estimatedTokens} for ${sectionIds.length} sections`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAPTER);
     if (tokenCheckError) {
-      console.log(`[Regenerate Sections] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Regenerate Sections] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAPTER})`);
       return tokenCheckError;
     }
 
@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
       pages: s.pages || undefined,
       year: s.year || undefined,
       publisher: s.publisher || undefined,
-      publicationType: s.publication_type || undefined,
+      publicationType: s.publication_type as ResearchSource['publicationType'] || undefined,
     }));
 
     // Set up SSE stream

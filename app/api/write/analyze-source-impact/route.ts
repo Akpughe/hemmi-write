@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { createServerSupabaseClient, requireAuth } from "@/lib/supabase/server";
-import { checkTokenBalance, deductTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Analyze Source Impact] Estimated tokens: ${estimatedTokens}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAT);
     if (tokenCheckError) {
-      console.log(`[Analyze Source Impact] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Analyze Source Impact] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAT})`);
       return tokenCheckError;
     }
 
