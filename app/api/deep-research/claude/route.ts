@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   DeepResearchQuerySchema,
   ResearchProgressUpdate,
-  ResearchStatus,
+  StreamingResearchEvent,
 } from "@/lib/types/deepResearch";
 import {
   executeClaudeResearch,
@@ -81,40 +81,73 @@ export async function POST(request: NextRequest) {
           );
 
           const progressCallback: ProgressCallback = (
-            update: ResearchProgressUpdate,
+            update: StreamingResearchEvent,
           ) => {
             try {
-              if (update.type === "progress") {
+              // Handle paper-level events (new streaming events)
+              if ("paperId" in update) {
                 controller.enqueue(
                   encoder.encode(
-                    formatSSEEvent("progress", {
-                      stage: update.stage,
+                    formatSSEEvent(update.type, {
+                      paperId: update.paperId,
+                      paper: update.paper,
+                      enrichmentField: update.enrichmentField,
                       message: update.message,
-                      iteration: update.currentIteration,
-                      papersFound: update.papersFound,
-                      papersEnriched: update.papersEnriched,
-                      currentQuality: update.currentQuality,
-                      targetQuality: update.targetQuality,
-                      timestamp: update.timestamp,
                     }),
                   ),
                 );
-              } else if (update.type === "result") {
+                return;
+              }
+
+              // Handle phase events
+              if ("phase" in update && update.type === "phase") {
+                controller.enqueue(
+                  encoder.encode(
+                    formatSSEEvent("phase", {
+                      phase: update.phase,
+                      message: update.message,
+                      count: update.count,
+                      topic: update.topic,
+                    }),
+                  ),
+                );
+                return;
+              }
+
+              // Handle legacy progress events
+              const progressUpdate = update as ResearchProgressUpdate;
+              if (progressUpdate.type === "progress") {
+                controller.enqueue(
+                  encoder.encode(
+                    formatSSEEvent("progress", {
+                      stage: progressUpdate.stage,
+                      message: progressUpdate.message,
+                      iteration: progressUpdate.currentIteration,
+                      papersFound: progressUpdate.papersFound,
+                      papersEnriched: progressUpdate.papersEnriched,
+                      papers: progressUpdate.papers,
+                      currentQuality: progressUpdate.currentQuality,
+                      targetQuality: progressUpdate.targetQuality,
+                      timestamp: progressUpdate.timestamp,
+                    }),
+                  ),
+                );
+              } else if (progressUpdate.type === "result") {
                 controller.enqueue(
                   encoder.encode(
                     formatSSEEvent("result", {
                       success: true,
-                      data: update.result,
+                      data: progressUpdate.result,
                     }),
                   ),
                 );
-              } else if (update.type === "error") {
+              } else if (progressUpdate.type === "error") {
                 controller.enqueue(
                   encoder.encode(
                     formatSSEEvent("error", {
-                      code: update.error?.code,
-                      message: update.error?.message,
-                      retryable: update.error?.retryable,
+                      code: progressUpdate.error?.code,
+                      message: progressUpdate.error?.message,
+                      retryable: progressUpdate.error?.retryable,
                     }),
                   ),
                 );
