@@ -24,7 +24,10 @@ import {
   Cloud,
   CloudOff,
   AlertCircle,
+  Search,
 } from "lucide-react";
+import { ResearchStreamView } from "./research-stream-view";
+import { PartialDeepResearchPaper, ResearchPhase } from "@/lib/types/deepResearch";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
 import {
@@ -77,10 +80,30 @@ interface EditorPanelProps {
   researchCompletedAt?: Date | null;
   canGenerateStructure?: boolean;
   onGenerateStructure?: () => void;
+  onStartResearch?: () => void;
   structurePhase?: "idle" | "loading" | "done" | "error";
   structureError?: string | null;
   structureCompletedAt?: Date | null;
   autoApproveEnabled?: boolean;
+  // Streaming research state
+  streamingResearch?: {
+    isStreaming: boolean;
+    phase: ResearchPhase;
+    phaseMessage: string;
+    papersFound: PartialDeepResearchPaper[];
+    papersEnriching: Map<string, { paper: PartialDeepResearchPaper; field: string }>;
+    papersComplete: PartialDeepResearchPaper[];
+    papersFailed: PartialDeepResearchPaper[];
+    targetCount: number;
+    completedCount: number;
+    savedCount: number;
+    tokensUsed: number;
+    tokensRemaining?: number;
+    tokenWarning?: boolean;
+    tokenExhausted?: boolean;
+  };
+  onCancelResearch?: () => void;
+  isInlineResearchActive?: boolean;
 }
 
 export function EditorPanel({
@@ -103,8 +126,12 @@ export function EditorPanel({
   researchPhase = "idle",
   researchError = null,
   researchCompletedAt = null,
+  streamingResearch,
+  onCancelResearch,
+  isInlineResearchActive = false,
   canGenerateStructure = false,
   onGenerateStructure,
+  onStartResearch,
   structurePhase = "idle",
   structureError = null,
   structureCompletedAt = null,
@@ -934,11 +961,37 @@ export function EditorPanel({
     })();
 
     const uniqueDomains = domainCounts.length;
-    const isLoading =
-      researchPhase === "loading" ||
-      (brief.includeSources &&
-        sources.length === 0 &&
-        researchPhase !== "error");
+    // isLoading should only be true when research is actively running
+    // Don't show loading state just because sources are empty and sources are enabled
+    const isLoading = researchPhase === "loading";
+
+    // Use streaming view if streaming research is active OR inline research is in progress
+    // This prevents the view from disappearing during the transition when isStreaming becomes false
+    // but before the completion handler has finished processing
+    if (streamingResearch?.isStreaming || (isInlineResearchActive && streamingResearch)) {
+      return (
+        <main className="flex-1 flex items-center justify-center bg-background p-8">
+          <ResearchStreamView
+            phase={streamingResearch.phase}
+            phaseMessage={streamingResearch.phaseMessage}
+            papersFound={streamingResearch.papersFound}
+            papersEnriching={streamingResearch.papersEnriching}
+            papersComplete={streamingResearch.papersComplete}
+            papersFailed={streamingResearch.papersFailed}
+            targetCount={streamingResearch.targetCount}
+            completedCount={streamingResearch.completedCount}
+            savedCount={streamingResearch.savedCount}
+            tokensUsed={streamingResearch.tokensUsed}
+            tokensRemaining={streamingResearch.tokensRemaining ?? undefined}
+            tokenWarning={streamingResearch.tokenWarning ?? undefined}
+            tokenExhausted={streamingResearch.tokenExhausted ?? undefined}
+            topic={brief.topic}
+            onCancel={onCancelResearch}
+            onUpgrade={() => handlePaywallOpen('insufficient_tokens')}
+          />
+        </main>
+      );
+    }
 
     return (
       <main className="flex-1 flex items-center justify-center bg-background p-8">
@@ -1069,17 +1122,36 @@ export function EditorPanel({
             )}
           </CardContent>
 
-          {!isLoading && researchPhase !== "error" && (
+            {!isLoading && researchPhase !== "error" && (
             <CardFooter className="justify-between gap-3">
               <div className="text-xs text-muted-foreground">
                 {selectedCount} selected
               </div>
-              <Button
-                onClick={onGenerateStructure}
-                disabled={!canGenerateStructure || selectedCount === 0}
-                className="gap-2">
-                Start generating project structure
-              </Button>
+              {sources.length === 0 ? (
+                <Button
+                  onClick={onStartResearch}
+                  disabled={isInlineResearchActive}
+                  className="gap-2">
+                  {isInlineResearchActive ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4" />
+                      Start Search
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={onGenerateStructure}
+                  disabled={!canGenerateStructure || selectedCount === 0}
+                  className="gap-2">
+                  Start generating project structure
+                </Button>
+              )}
             </CardFooter>
           )}
         </Card>
