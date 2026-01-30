@@ -16,7 +16,7 @@ import {
   requireAuth,
 } from "@/lib/supabase/server";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
-import { checkTokenBalance, deductTokens, estimateStructureTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, estimateStructureTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = createGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -303,10 +303,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Structure Generation] Estimated tokens: ${estimatedTokens}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.STRUCTURE);
     if (tokenCheckError) {
-      console.log(`[Structure Generation] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Structure Generation] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.STRUCTURE})`);
       return tokenCheckError;
     }
 

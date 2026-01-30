@@ -17,7 +17,7 @@ import {
   requireAuth,
 } from "@/lib/supabase/server";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
-import { checkTokenBalance, deductTokens, estimateStructureTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, estimateStructureTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -63,10 +63,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Deep Regenerate] Estimated tokens: ${estimatedTokens}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.STRUCTURE);
     if (tokenCheckError) {
-      console.log(`[Deep Regenerate] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Deep Regenerate] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.STRUCTURE})`);
       return tokenCheckError;
     }
 
