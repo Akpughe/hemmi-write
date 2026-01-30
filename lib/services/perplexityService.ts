@@ -50,7 +50,7 @@ export class PerplexityService {
    */
   async search(
     query: string,
-    options: PerplexitySearchOptions = {}
+    options: PerplexitySearchOptions = {},
   ): Promise<PerplexitySearchResult[]> {
     if (!this.client) {
       console.warn("Perplexity API key not configured");
@@ -60,7 +60,9 @@ export class PerplexityService {
     const { maxResults = 10, searchDomainFilter } = options;
 
     try {
-      console.log(`[Perplexity] Searching for: "${query}" (max: ${maxResults})`);
+      console.log(
+        `[Perplexity] Searching for: "${query}" (max: ${maxResults})`,
+      );
 
       const response = await this.client.search.create({
         query,
@@ -73,7 +75,9 @@ export class PerplexityService {
         return [];
       }
 
-      console.log(`[Perplexity] Raw response: ${response.results.length} results`);
+      console.log(
+        `[Perplexity] Raw response: ${response.results.length} results`,
+      );
 
       const filtered = response.results
         .filter((result: any) => {
@@ -83,7 +87,9 @@ export class PerplexityService {
             return false;
           }
           if (!result.title || result.title.trim() === "") {
-            console.warn(`[Perplexity] Result has no title for ${result.url}, skipping`);
+            console.warn(
+              `[Perplexity] Result has no title for ${result.url}, skipping`,
+            );
             return false;
           }
           return true;
@@ -97,7 +103,9 @@ export class PerplexityService {
           provider: SearchProvider.PERPLEXITY,
         }));
 
-      console.log(`[Perplexity] After filtering: ${filtered.length} valid results`);
+      console.log(
+        `[Perplexity] After filtering: ${filtered.length} valid results`,
+      );
       return filtered;
     } catch (error: any) {
       console.error("[Perplexity] Search failed:", error.message);
@@ -110,7 +118,7 @@ export class PerplexityService {
    */
   async multiSearch(
     queries: string[],
-    options: PerplexitySearchOptions = {}
+    options: PerplexitySearchOptions = {},
   ): Promise<PerplexitySearchResult[]> {
     if (!this.client) {
       console.warn("Perplexity API key not configured");
@@ -122,7 +130,9 @@ export class PerplexityService {
     const { maxResults = 10, searchDomainFilter } = options;
 
     try {
-      console.log(`[Perplexity Multi] Searching with ${limitedQueries.length} queries (max: ${maxResults} per query)`);
+      console.log(
+        `[Perplexity Multi] Searching with ${limitedQueries.length} queries (max: ${maxResults} per query)`,
+      );
       console.log(`[Perplexity Multi] Queries:`, limitedQueries);
 
       const response = await this.client.search.create({
@@ -136,7 +146,9 @@ export class PerplexityService {
         return [];
       }
 
-      console.log(`[Perplexity Multi] Raw response: ${response.results.length} results`);
+      console.log(
+        `[Perplexity Multi] Raw response: ${response.results.length} results`,
+      );
 
       const filtered = response.results
         .filter((result: any) => {
@@ -146,7 +158,9 @@ export class PerplexityService {
             return false;
           }
           if (!result.title || result.title.trim() === "") {
-            console.warn(`[Perplexity Multi] Result has no title for ${result.url}, skipping`);
+            console.warn(
+              `[Perplexity Multi] Result has no title for ${result.url}, skipping`,
+            );
             return false;
           }
           return true;
@@ -160,7 +174,9 @@ export class PerplexityService {
           provider: SearchProvider.PERPLEXITY,
         }));
 
-      console.log(`[Perplexity Multi] After filtering: ${filtered.length} valid results`);
+      console.log(
+        `[Perplexity Multi] After filtering: ${filtered.length} valid results`,
+      );
       return filtered;
     } catch (error: any) {
       console.error("[Perplexity Multi] Search failed:", error.message);
@@ -174,7 +190,7 @@ export class PerplexityService {
    */
   async chatCompletion(
     query: string,
-    options: { searchDomainFilter?: string[] } = {}
+    options: { searchDomainFilter?: string[] } = {},
   ): Promise<PerplexityChatResponse> {
     if (!this.client) {
       console.warn("Perplexity API key not configured");
@@ -182,7 +198,9 @@ export class PerplexityService {
     }
 
     try {
-      console.log(`[Perplexity Chat] Getting factual information for: "${query.substring(0, 100)}..."`);
+      console.log(
+        `[Perplexity Chat] Getting factual information for: "${query.substring(0, 100)}..."`,
+      );
 
       const response = await this.client.chat.completions.create({
         model: "sonar-pro", // Use sonar-pro for best quality with citations
@@ -206,47 +224,54 @@ PUNCTUATION ALTERNATIVES:
 - Use COLONS for explanations: "The analysis revealed: clear patterns emerged"
 - Use PERIODS for separate thoughts: "The data showed X. The conclusion was Y."
 
-Provide comprehensive, factual information with proper inline citations.`
+Provide comprehensive, factual information with proper inline citations.`,
           },
           {
             role: "user",
-            content: query
-          }
+            content: query,
+          },
         ],
-        ...(options.searchDomainFilter && { search_domain_filter: options.searchDomainFilter }),
+        ...(options.searchDomainFilter && {
+          search_domain_filter: options.searchDomainFilter,
+        }),
         return_citations: true,
-        return_related_questions: false
-      });
+        return_related_questions: false,
+      } as any);
 
-      const content = response.choices[0]?.message?.content || "";
+      const content = (response.choices[0]?.message?.content as string) || "";
       const citations: PerplexityCitation[] = [];
 
       // Extract citations from response
       if (response.citations && Array.isArray(response.citations)) {
         response.citations.forEach((citation: string | any) => {
           // Handle both string URLs and potentially richer citation objects
-          const url = typeof citation === 'string' ? citation : citation.url || citation;
+          const url =
+            typeof citation === "string" ? citation : citation.url || citation;
 
           // Try to extract a better title from the URL
           let title: string | undefined = undefined;
-          if (typeof citation === 'object' && citation.title) {
+          if (typeof citation === "object" && citation.title) {
             title = citation.title;
           } else {
             // Extract domain name as fallback title
             try {
               const urlObj = new URL(url);
-              const hostname = urlObj.hostname.replace('www.', '');
-              const pathname = urlObj.pathname.split('/').filter(p => p).pop() || '';
+              const hostname = urlObj.hostname.replace("www.", "");
+              const pathname =
+                urlObj.pathname
+                  .split("/")
+                  .filter((p) => p)
+                  .pop() || "";
 
               // Try to create a readable title from the URL
-              if (pathname && pathname !== '') {
+              if (pathname && pathname !== "") {
                 // Convert URL slug to title (e.g., "machine-learning-guide" -> "Machine Learning Guide")
                 title = pathname
-                  .replace(/\.(html|htm|php|asp|aspx)$/i, '')
-                  .replace(/[-_]/g, ' ')
-                  .split(' ')
-                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(' ')
+                  .replace(/\.(html|htm|php|asp|aspx)$/i, "")
+                  .replace(/[-_]/g, " ")
+                  .split(" ")
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(" ")
                   .substring(0, 100);
               } else {
                 title = hostname;
@@ -258,12 +283,14 @@ Provide comprehensive, factual information with proper inline citations.`
 
           citations.push({
             url,
-            title
+            title,
           });
         });
       }
 
-      console.log(`[Perplexity Chat] Response: ${content.length} chars, ${citations.length} citations`);
+      console.log(
+        `[Perplexity Chat] Response: ${content.length} chars, ${citations.length} citations`,
+      );
 
       return { content, citations };
     } catch (error: any) {
