@@ -23,6 +23,8 @@ import {
   buildPlanData,
 } from "@/lib/utils/pricing";
 import { BreadcrumbJsonLd, WebPageJsonLd } from "@/app/components/seo/JsonLd";
+import { AuthModal } from "@/app/components/auth/auth-modal";
+import { getUser } from "@/lib/supabase/auth";
 
 const billingOptions: { label: string; value: BillingCycle }[] = [
   { label: "Yearly", value: "yearly" },
@@ -36,6 +38,17 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [checkoutLoadingPlan, setCheckoutLoadingPlan] =
     useState<PlanKey | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  // Check if user is authenticated
+  useEffect(() => {
+    async function checkAuth() {
+      const { user } = await getUser();
+      setIsAuthenticated(!!user);
+    }
+    checkAuth();
+  }, []);
 
   // Fetch pricing from database
   useEffect(() => {
@@ -89,6 +102,12 @@ export default function PricingPage() {
   }, [pricing, currency]);
 
   const handleStartCheckout = async (planType: PlanKey) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      setAuthModalOpen(true);
+      return;
+    }
+
     try {
       setCheckoutLoadingPlan(planType);
       const response = await fetch("/api/subscription", {
@@ -350,6 +369,16 @@ export default function PricingPage() {
           </div>
         </div>
       </div>
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={() => {
+          setAuthModalOpen(false);
+          setIsAuthenticated(true);
+        }}
+        nextPath="/pricing"
+      />
     </main>
   );
 }

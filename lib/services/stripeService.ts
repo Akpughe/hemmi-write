@@ -8,8 +8,24 @@
 
 import Stripe from "stripe";
 
-// Stripe Price IDs for subscription plans
-export const STRIPE_PRICE_IDS = {
+// Test Stripe Price IDs for development
+const TEST_STRIPE_PRICE_IDS = {
+  basic: {
+    monthly: "price_1SvPOeFDGn8kVMNZQAA51euA",
+    yearly: "price_1SvPPLFDGn8kVMNZh3L51Knj",
+  },
+  pro: {
+    monthly: "price_1SvPPmFDGn8kVMNZnKOE4OOa",
+    yearly: "price_1SvPQIFDGn8kVMNZuLkD8whH",
+  },
+  premium: {
+    monthly: "price_1SvPQlFDGn8kVMNZwdomGa80",
+    yearly: "price_1SvPREFDGn8kVMNZaJHu3O3P",
+  },
+} as const;
+
+// Production Stripe Price IDs
+const PRODUCTION_STRIPE_PRICE_IDS = {
   basic: {
     monthly: "price_1SvIsNFDGn8kVMNZFPgax2kR",
     yearly: "price_1SvIvxFDGn8kVMNZ1YiBg8Vw",
@@ -23,6 +39,12 @@ export const STRIPE_PRICE_IDS = {
     yearly: "price_1SvIyKFDGn8kVMNZ7FEzt5zw",
   },
 } as const;
+
+// Select price IDs based on environment
+export const STRIPE_PRICE_IDS =
+  process.env.NEXT_PUBLIC_ENVIRONMENT === "development"
+    ? TEST_STRIPE_PRICE_IDS
+    : PRODUCTION_STRIPE_PRICE_IDS;
 
 type PlanType = keyof typeof STRIPE_PRICE_IDS;
 type StripeBillingCycle = "monthly" | "yearly";
@@ -63,7 +85,7 @@ class StripeService {
 
     try {
       this.stripe = new Stripe(secretKey, {
-        apiVersion: "2025-12-15.clover", // Latest API version
+        apiVersion: "2026-01-28.clover", // Latest API version
       });
       this.webhookSecret = webhookSecret || "";
       console.log("[StripeService] Initialized successfully");
