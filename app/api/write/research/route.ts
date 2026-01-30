@@ -23,6 +23,7 @@ import {
   checkTokenBalance,
   deductTokens,
   estimateResearchTokens,
+  MIN_TOKENS,
 } from "@/lib/middleware/tokenMiddleware";
 
 // Extended request type to include projectId
@@ -50,41 +51,51 @@ export async function POST(request: NextRequest) {
     if (!topic || !documentType) {
       return NextResponse.json(
         { error: "Topic and document type are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // 2. ESTIMATE TOKEN USAGE for this research operation
     const estimatedTokens = estimateResearchTokens({
       sourceCount: numSources,
-      depth: 'deep', // Comprehensive research with full content fetching
+      depth: "deep", // Comprehensive research with full content fetching
     });
 
-    console.log(`[Research] User ${user.id.substring(0, 8)}... requesting ${numSources} sources`);
+    console.log(
+      `[Research] User ${user.id.substring(0, 8)}... requesting ${numSources} sources`,
+    );
     console.log(`[Research] Estimated token cost: ${estimatedTokens} tokens`);
 
-    // 3. CHECK TOKEN BALANCE - returns 402 Payment Required if insufficient
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // 3. CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(
+      user.id,
+      estimatedTokens,
+      MIN_TOKENS.RESEARCH,
+    );
     if (tokenCheckError) {
-      console.log(`[Research] ❌ BLOCKED - Insufficient tokens`);
+      console.log(
+        `[Research] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.RESEARCH})`,
+      );
       return tokenCheckError;
     }
 
-    console.log(`[Research] ✅ Token check passed, proceeding with research...`);
+    console.log(
+      `[Research] ✅ Token check passed, proceeding with research...`,
+    );
 
     console.log(`Starting parallel search for topic: ${topic}`);
     if (instructions) {
       console.log(`With instructions: ${instructions}`);
     }
     console.log(
-      `Available providers: ${searchService.getAvailableProviders().join(", ")}`
+      `Available providers: ${searchService.getAvailableProviders().join(", ")}`,
     );
 
     // Calculate dynamic domain limit based on requested source count
     // Formula: ceil(numSources / 5), capped at 5 for diversity
     const dynamicDomainLimit = Math.min(5, Math.ceil(numSources / 5));
     console.log(
-      `Dynamic domain limit: ${dynamicDomainLimit} (for ${numSources} sources)`
+      `Dynamic domain limit: ${dynamicDomainLimit} (for ${numSources} sources)`,
     );
 
     // Use the unified search service for parallel Exa + Perplexity search
@@ -100,7 +111,7 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(
-      `Got ${sources.length} sources after deduplication and diversity enforcement`
+      `Got ${sources.length} sources after deduplication and diversity enforcement`,
     );
 
     // If projectId provided, save sources to database
@@ -131,7 +142,7 @@ export async function POST(request: NextRequest) {
 
           // Map provider to valid source_type
           const getSourceType = (
-            provider?: string
+            provider?: string,
           ): "web" | "academic" | "news" | "blog" => {
             // For now, both EXA and PERPLEXITY are general web search providers
             // Could be enhanced to infer type from URL or metadata in the future
@@ -185,12 +196,12 @@ export async function POST(request: NextRequest) {
               // Fetch metadata for all sources, prioritizing by relevance score if available
               const sourcesToFetch = [...insertedSources]
                 .sort(
-                  (a, b) => (b.relevance_score || 0) - (a.relevance_score || 0)
+                  (a, b) => (b.relevance_score || 0) - (a.relevance_score || 0),
                 )
                 .slice(0, numSources);
 
               console.log(
-                `[Content Fetch] Starting for ${sourcesToFetch.length} sources to extract metadata`
+                `[Content Fetch] Starting for ${sourcesToFetch.length} sources to extract metadata`,
               );
 
               // Fetch content in parallel with retry logic
@@ -205,7 +216,7 @@ export async function POST(request: NextRequest) {
                   timeout: 8000,
                   retries: 2,
                   maxWords: 500,
-                }
+                },
               );
 
               // Update database with results
@@ -259,13 +270,13 @@ export async function POST(request: NextRequest) {
 
               const successCount = fetchResults.filter((r) => r.success).length;
               console.log(
-                `[Content Fetch] Success: ${successCount}/${fetchResults.length}`
+                `[Content Fetch] Success: ${successCount}/${fetchResults.length}`,
               );
 
               // NEW: Enrich metadata via APIs
               try {
                 console.log(
-                  `[Metadata Enrichment] Starting for ${insertedSources.length} sources`
+                  `[Metadata Enrichment] Starting for ${insertedSources.length} sources`,
                 );
 
                 // Fetch current source data from database for enrichment
@@ -275,13 +286,13 @@ export async function POST(request: NextRequest) {
                     .select("*")
                     .in(
                       "id",
-                      insertedSources.map((s) => s.id)
+                      insertedSources.map((s) => s.id),
                     );
 
                 if (fetchError || !sourcesForEnrichment) {
                   console.error(
                     "[Metadata Enrichment] Failed to fetch sources:",
-                    fetchError
+                    fetchError,
                   );
                 } else {
                   // Enrich each source
@@ -306,8 +317,8 @@ export async function POST(request: NextRequest) {
                             : source.authors_structured
                           : undefined,
                         full_content: source.full_content || undefined,
-                      })
-                    )
+                      }),
+                    ),
                   );
 
                   // Update database with enriched metadata
@@ -333,7 +344,7 @@ export async function POST(request: NextRequest) {
                         enriched.authorsStructured.length > 0
                       ) {
                         updateData.authors_structured = JSON.stringify(
-                          enriched.authorsStructured
+                          enriched.authorsStructured,
                         );
                         // Also update author string if not already set
                         if (
@@ -387,8 +398,13 @@ export async function POST(request: NextRequest) {
                       }
 
                       // Update venue prestige if enriched
-                      if (enriched.venuePrestige && !sourcesForEnrichment[i].venue_prestige) {
-                        updateData.venue_prestige = enriched.venuePrestige;
+                      if (
+                        (enriched as any).venue_prestige &&
+                        !(sourcesForEnrichment[i] as any).venue_prestige
+                      ) {
+                        updateData.venue_prestige = (
+                          enriched as any
+                        ).venue_prestige;
                       }
 
                       await supabase
@@ -400,19 +416,19 @@ export async function POST(request: NextRequest) {
                     } else if (result.status === "rejected") {
                       console.error(
                         `[Metadata Enrichment] Failed for source ${sourcesForEnrichment[i].id}:`,
-                        result.reason
+                        result.reason,
                       );
                     }
                   }
 
                   console.log(
-                    `[Metadata Enrichment] Completed: ${enrichedCount}/${sourcesForEnrichment.length} sources enriched`
+                    `[Metadata Enrichment] Completed: ${enrichedCount}/${sourcesForEnrichment.length} sources enriched`,
                   );
                 }
               } catch (enrichError) {
                 console.error(
                   "[Metadata Enrichment] Non-fatal error:",
-                  enrichError
+                  enrichError,
                 );
                 // Continue - metadata enrichment is optional
               }
@@ -420,7 +436,7 @@ export async function POST(request: NextRequest) {
               // NEW: Quality Scoring & Filtering (Phase 3)
               try {
                 console.log(
-                  `[Quality Scoring] Starting for ${insertedSources.length} sources`
+                  `[Quality Scoring] Starting for ${insertedSources.length} sources`,
                 );
 
                 // Fetch current source data from database for scoring
@@ -430,13 +446,13 @@ export async function POST(request: NextRequest) {
                     .select("*")
                     .in(
                       "id",
-                      insertedSources.map((s) => s.id)
+                      insertedSources.map((s) => s.id),
                     );
 
                 if (scoringFetchError || !sourcesForScoring) {
                   console.error(
                     "[Quality Scoring] Failed to fetch sources:",
-                    scoringFetchError
+                    scoringFetchError,
                   );
                 } else {
                   // Convert database sources to ScoredSource format
@@ -459,15 +475,21 @@ export async function POST(request: NextRequest) {
                       pages: source.pages || undefined,
                       year: source.year || undefined,
                       publisher: source.publisher || undefined,
-                      publicationType: source.publication_type || undefined,
-                      venuePrestige: source.venue_prestige || undefined,
-                      domainPrestige: source.domain_prestige || undefined,
+                      publicationType:
+                        (source.publication_type as ScoredSource["publicationType"]) ||
+                        undefined,
+                      venuePrestige:
+                        (source.venue_prestige as ScoredSource["venuePrestige"]) ||
+                        undefined,
+                      domainPrestige:
+                        (source.domain_prestige as ScoredSource["domainPrestige"]) ||
+                        undefined,
                       citationCount: source.citation_count || undefined,
                       score:
                         source.relevance_score !== null
                           ? Number(source.relevance_score)
                           : undefined,
-                    })
+                    }),
                   );
 
                   // Score sources (but don't filter yet - let user see all sources)
@@ -483,7 +505,7 @@ export async function POST(request: NextRequest) {
                     `Total: ${stats.total}, ` +
                       `A: ${stats.gradeA}, B: ${stats.gradeB}, C: ${stats.gradeC}, D: ${stats.gradeD}, F: ${stats.gradeF}, ` +
                       `Avg: ${stats.averageScore}/5, ` +
-                      `High Quality (A/B): ${stats.highQuality}/${stats.total} (${Math.round((stats.highQuality / stats.total) * 100)}%)`
+                      `High Quality (A/B): ${stats.highQuality}/${stats.total} (${Math.round((stats.highQuality / stats.total) * 100)}%)`,
                   );
 
                   // Update database with quality scores
@@ -498,13 +520,13 @@ export async function POST(request: NextRequest) {
                   }
 
                   console.log(
-                    `[Quality Scoring] Completed: ${scoredSources.length} sources scored and stored`
+                    `[Quality Scoring] Completed: ${scoredSources.length} sources scored and stored`,
                   );
                 }
               } catch (scoringError) {
                 console.error(
                   "[Quality Scoring] Non-fatal error:",
-                  scoringError
+                  scoringError,
                 );
                 // Continue - quality scoring is optional
               }
@@ -524,7 +546,7 @@ export async function POST(request: NextRequest) {
     // Calculate actual tokens based on sources found and processed
     const actualTokens = Math.ceil(savedSources.length * 800); // ~800 tokens per source (search + fetch + process)
 
-    await deductTokens(user.id, actualTokens, 'research', {
+    await deductTokens(user.id, actualTokens, "research", {
       projectId,
       sourceCount: savedSources.length,
       numRequested: numSources,
@@ -532,7 +554,9 @@ export async function POST(request: NextRequest) {
       topic,
     });
 
-    console.log(`[Research] ✅ Success - Deducted ${actualTokens} tokens for ${savedSources.length} sources`);
+    console.log(
+      `[Research] ✅ Success - Deducted ${actualTokens} tokens for ${savedSources.length} sources`,
+    );
 
     const response: ResearchResponse = {
       sources: savedSources,
@@ -542,9 +566,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error: any) {
     // Handle authentication errors
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      console.log('[Research] ❌ Unauthorized access attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (error instanceof Error && error.message === "Unauthorized") {
+      console.log("[Research] ❌ Unauthorized access attempt");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     console.error("Research API error:", error);
@@ -554,7 +578,7 @@ export async function POST(request: NextRequest) {
         sources: [],
         query: "",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
