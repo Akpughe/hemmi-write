@@ -68,7 +68,7 @@ export function TokenBalance({
   if (loading) {
     return (
       <div className={cn("flex items-center gap-2 animate-pulse", className)}>
-        <div className="h-4 w-20 bg-gray-200 rounded" />
+        <div className="h-4 w-20 bg-muted rounded" />
       </div>
     );
   }

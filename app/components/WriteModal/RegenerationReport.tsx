@@ -13,38 +13,38 @@ export default function RegenerationReport({ report, onSourceToggle }: Regenerat
   const { feedbackAnalysis, researchConducted, newSourcesAdded, changesSummary } = report;
 
   return (
-    <div className="space-y-4 bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6">
+    <div className="space-y-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-lg p-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <CheckCircle2 className="w-6 h-6 text-green-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Structure Regenerated</h3>
+        <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+        <h3 className="text-lg font-semibold text-foreground">Structure Regenerated</h3>
       </div>
 
       {/* What We Did Section */}
-      <div className="bg-white rounded-lg p-4 border border-gray-200">
-        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+      <div className="bg-card rounded-lg p-4 border border-border">
+        <h4 className="font-semibold text-foreground mb-3 flex items-center gap-2">
           <Search className="w-4 h-4" />
           What We Did
         </h4>
-        <div className="space-y-2 text-sm text-gray-700">
+        <div className="space-y-2 text-sm text-foreground/80">
           <div className="flex items-start gap-2">
-            <span className="text-blue-600 font-medium">•</span>
+            <span className="text-blue-600 dark:text-blue-400 font-medium">•</span>
             <span>Analyzed feedback and identified {feedbackAnalysis.intents.length} intent{feedbackAnalysis.intents.length !== 1 && 's'}: {feedbackAnalysis.intents.join(', ')}</span>
           </div>
           {researchConducted.length > 0 && (
             <div className="flex items-start gap-2">
-              <span className="text-blue-600 font-medium">•</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">•</span>
               <span>Conducted {researchConducted.length} targeted search{researchConducted.length !== 1 && 'es'}</span>
             </div>
           )}
           {newSourcesAdded.length > 0 && (
             <div className="flex items-start gap-2">
-              <span className="text-blue-600 font-medium">•</span>
+              <span className="text-blue-600 dark:text-blue-400 font-medium">•</span>
               <span>Added {newSourcesAdded.length} new source{newSourcesAdded.length !== 1 && 's'}</span>
             </div>
           )}
           <div className="flex items-start gap-2">
-            <span className="text-blue-600 font-medium">•</span>
+            <span className="text-blue-600 dark:text-blue-400 font-medium">•</span>
             <span>Regenerated structure with enhanced information</span>
           </div>
         </div>
@@ -52,16 +52,16 @@ export default function RegenerationReport({ report, onSourceToggle }: Regenerat
 
       {/* Research Conducted */}
       {researchConducted.length > 0 && (
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <h4 className="font-semibold text-gray-900 mb-3">Research Conducted</h4>
+        <div className="bg-card rounded-lg p-4 border border-border">
+          <h4 className="font-semibold text-foreground mb-3">Research Conducted</h4>
           <div className="space-y-3">
             {researchConducted.map((search, index) => (
               <div key={index} className="text-sm">
-                <div className="flex items-start gap-2 text-gray-700">
-                  <span className="text-purple-600 font-medium">{index + 1}.</span>
+                <div className="flex items-start gap-2 text-foreground/80">
+                  <span className="text-purple-600 dark:text-purple-400 font-medium">{index + 1}.</span>
                   <div>
                     <span className="font-medium">"{search.query}"</span>
-                    <p className="text-gray-600 mt-1">{search.rationale}</p>
+                    <p className="text-muted-foreground mt-1">{search.rationale}</p>
                   </div>
                 </div>
               </div>
@@ -72,8 +72,8 @@ export default function RegenerationReport({ report, onSourceToggle }: Regenerat
 
       {/* New Sources Added */}
       {newSourcesAdded.length > 0 && (
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <h4 className="font-semibold text-gray-900 mb-3">
+        <div className="bg-card rounded-lg p-4 border border-border">
+          <h4 className="font-semibold text-foreground mb-3">
             New Sources Added ({newSourcesAdded.length})
           </h4>
           <div className="space-y-3 max-h-[300px] overflow-y-auto">
@@ -94,7 +94,7 @@ export default function RegenerationReport({ report, onSourceToggle }: Regenerat
             ))}
           </div>
           {onSourceToggle && (
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               💡 You can deselect new sources if they're not relevant
             </p>
           )}
@@ -103,9 +103,9 @@ export default function RegenerationReport({ report, onSourceToggle }: Regenerat
 
       {/* Changes Made */}
       {changesSummary && (
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <h4 className="font-semibold text-gray-900 mb-3">Changes Made</h4>
-          <div className="text-sm text-gray-700 whitespace-pre-line">
+        <div className="bg-card rounded-lg p-4 border border-border">
+          <h4 className="font-semibold text-foreground mb-3">Changes Made</h4>
+          <div className="text-sm text-foreground/80 whitespace-pre-line">
             {changesSummary}
           </div>
         </div>

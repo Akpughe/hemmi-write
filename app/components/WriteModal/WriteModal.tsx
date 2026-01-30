@@ -317,12 +317,12 @@ export default function WriteModal({ isOpen, onClose }: WriteModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-semibold text-gray-900">
+            <h2 className="text-2xl font-semibold text-foreground">
               {getStepTitle()}
             </h2>
             <div className="flex items-center gap-2">
@@ -334,7 +334,7 @@ export default function WriteModal({ isOpen, onClose }: WriteModalProps) {
                       ? "bg-blue-600 text-white"
                       : stepNum < state.step
                       ? "bg-green-500 text-white"
-                      : "bg-gray-200 text-gray-600"
+                      : "bg-muted text-muted-foreground"
                   }`}>
                   {stepNum}
                 </div>
@@ -343,16 +343,16 @@ export default function WriteModal({ isOpen, onClose }: WriteModalProps) {
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-muted rounded-full transition-colors"
             aria-label="Close modal">
-            <X className="w-6 h-6 text-gray-600" />
+            <X className="w-6 h-6 text-muted-foreground" />
           </button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {state.error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-600 dark:text-red-400">
               {state.error}
             </div>
           )}

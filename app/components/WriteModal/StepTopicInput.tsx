@@ -106,18 +106,18 @@ export default function StepTopicInput({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+      <div className="bg-muted/50 p-4 rounded-lg border border-border">
         <div className="flex items-center gap-3 mb-2">
           <span className="text-2xl">{config.icon}</span>
           <div>
-            <h3 className="font-semibold text-gray-900">{config.label}</h3>
-            <p className="text-sm text-gray-600">{config.description}</p>
+            <h3 className="font-semibold text-foreground">{config.label}</h3>
+            <p className="text-sm text-muted-foreground">{config.description}</p>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-600 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -125,7 +125,7 @@ export default function StepTopicInput({
       {/* Academic Level Selector - Research Papers Only */}
       {isResearchPaper && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-foreground mb-3">
             Academic Level <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-3 gap-3">
@@ -139,19 +139,19 @@ export default function StepTopicInput({
                   onClick={() => setAcademicLevel(level)}
                   className={`p-4 border-2 rounded-lg text-left transition-all ${
                     isSelected
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
+                      ? "border-blue-500 bg-blue-500/10"
+                      : "border-border hover:border-muted-foreground/30 bg-card"
                   }`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-2xl">{levelConfig.icon}</span>
-                    <span className="font-semibold text-gray-900 text-sm">
+                    <span className="font-semibold text-foreground text-sm">
                       {levelConfig.label}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600 mb-2">
+                  <p className="text-xs text-muted-foreground mb-2">
                     {levelConfig.description}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground/70">
                     {levelConfig.citationsPerSection} citations/section
                   </p>
                 </button>
@@ -164,7 +164,7 @@ export default function StepTopicInput({
       {/* Writing Style Selector - Research Papers Only */}
       {isResearchPaper && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-foreground mb-3">
             Writing Style <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -178,16 +178,16 @@ export default function StepTopicInput({
                   onClick={() => setWritingStyle(style)}
                   className={`p-4 border-2 rounded-lg text-left transition-all ${
                     isSelected
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
+                      ? "border-blue-500 bg-blue-500/10"
+                      : "border-border hover:border-muted-foreground/30 bg-card"
                   }`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xl">{styleConfig.icon}</span>
-                    <span className="font-semibold text-gray-900 text-sm">
+                    <span className="font-semibold text-foreground text-sm">
                       {styleConfig.label}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-600">
+                  <p className="text-xs text-muted-foreground">
                     {styleConfig.description}
                   </p>
                 </button>
@@ -199,7 +199,7 @@ export default function StepTopicInput({
 
       {/* AI Model Provider Selector */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-foreground mb-3">
           AI Model <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-2 gap-3">
@@ -213,19 +213,19 @@ export default function StepTopicInput({
                 onClick={() => setAiProvider(provider)}
                 className={`p-4 border-2 rounded-lg text-left transition-all ${
                   isSelected
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200 hover:border-gray-300 bg-white"
+                    ? "border-blue-500 bg-blue-500/10"
+                    : "border-border hover:border-muted-foreground/30 bg-card"
                 }`}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">{modelConfig.icon}</span>
-                  <span className="font-semibold text-gray-900 text-sm">
+                  <span className="font-semibold text-foreground text-sm">
                     {modelConfig.label}
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 mb-1">
+                <p className="text-xs text-muted-foreground mb-1">
                   {modelConfig.description}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground/70">
                   {modelConfig.maxTokens.toLocaleString()} tokens •{" "}
                   {(modelConfig.contextWindow / 1000).toFixed(0)}K context
                 </p>
@@ -238,7 +238,7 @@ export default function StepTopicInput({
       <div>
         <label
           htmlFor="topic"
-          className="block text-sm font-medium text-gray-700 mb-2">
+          className="block text-sm font-medium text-foreground mb-2">
           Topic <span className="text-red-500">*</span>
         </label>
         <input
@@ -250,10 +250,10 @@ export default function StepTopicInput({
             setError("");
           }}
           placeholder="e.g., The impact of climate change on biodiversity"
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black"
+          className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-card text-foreground"
           required
         />
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Enter the main topic or subject of your {config.label.toLowerCase()}
         </p>
       </div>
@@ -262,7 +262,7 @@ export default function StepTopicInput({
         <div>
           <label
             htmlFor="wordCount"
-            className="block text-sm font-medium text-gray-700 mb-2">
+            className="block text-sm font-medium text-foreground mb-2">
             Word Count (optional)
           </label>
           <input
@@ -276,16 +276,16 @@ export default function StepTopicInput({
             placeholder={`Default: ${defaultCount}`}
             min={MIN_WORD_COUNT}
             max={MAX_WORD_COUNT}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black"
+            className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-card text-foreground"
           />
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Suggested: {suggestedRange}
           </p>
         </div>
 
         {isResearchPaper && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Quick Select Word Count
             </label>
             <select
@@ -295,7 +295,7 @@ export default function StepTopicInput({
                   setError("");
                 }
               }}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black bg-white"
+              className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-card text-foreground"
               defaultValue="">
               <option value="" disabled>
                 Select a target length...
@@ -317,7 +317,7 @@ export default function StepTopicInput({
         <div>
           <label
             htmlFor="numSources"
-            className="block text-sm font-medium text-gray-700 mb-2">
+            className="block text-sm font-medium text-foreground mb-2">
             Number of Sources <span className="text-red-500">*</span>
           </label>
           <input
@@ -333,10 +333,10 @@ export default function StepTopicInput({
             }}
             min={5}
             max={30}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-black"
+            className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-card text-foreground"
             required
           />
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             5-30 sources (default: 20)
           </p>
         </div>
@@ -345,7 +345,7 @@ export default function StepTopicInput({
       <div>
         <label
           htmlFor="instructions"
-          className="block text-sm font-medium text-gray-700 mb-2">
+          className="block text-sm font-medium text-foreground mb-2">
           Additional Instructions (optional)
         </label>
         <textarea
@@ -353,19 +353,19 @@ export default function StepTopicInput({
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
           placeholder="e.g., Focus on recent research from the last 5 years, include case studies, emphasize environmental policy..."
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none text-black"
+          className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none bg-card text-foreground"
           rows={4}
         />
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           Provide any specific requirements, focus areas, or constraints
         </p>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+        <h4 className="font-semibold text-blue-700 dark:text-blue-300 mb-2">
           What&apos;s happens next?
         </h4>
-        <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+        <ol className="list-decimal list-inside space-y-1 text-sm text-blue-700 dark:text-blue-300">
           <li>We&apos;ll search the web for credible sources on your topic</li>
           <li>You&apos;ll review and select the sources to include</li>
           <li>
@@ -375,11 +375,11 @@ export default function StepTopicInput({
         </ol>
       </div>
 
-      <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+          className="flex items-center gap-2 px-4 py-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
           <ArrowLeft className="w-5 h-5" />
           Back
         </button>
