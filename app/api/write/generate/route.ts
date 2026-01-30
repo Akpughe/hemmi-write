@@ -9,7 +9,7 @@ import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { AcademicLevel } from "@/lib/types/document";
 import { createServerSupabaseClient, getCurrentUser, requireAuth } from "@/lib/supabase/server";
-import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 // Extended request type to include projectId and structureId
 interface ExtendedGenerateRequest extends GenerateRequest {
@@ -61,10 +61,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Generate Document] Estimated tokens: ${estimatedTokens}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAPTER);
     if (tokenCheckError) {
-      console.log(`[Generate Document] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Generate Document] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAPTER})`);
       return tokenCheckError;
     }
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
               pages: dbSource?.pages || undefined,
               year: dbSource?.year || undefined,
               publisher: dbSource?.publisher || undefined,
-              publicationType: dbSource?.publication_type || undefined,
+              publicationType: dbSource?.publication_type as ResearchSource['publicationType'] || undefined,
             };
           });
 
@@ -220,7 +220,7 @@ ${(section.keyPoints ?? []).map((point) => `   - ${point}`).join("\n")}
           )) {
             if (chunk.done) {
               // Capture actual tokens used
-              totalTokensUsed = chunk.tokensUsed;
+              totalTokensUsed = chunk.tokensUsed ?? 0;
 
               // Check for truncation
               if (chunk.truncated) {
