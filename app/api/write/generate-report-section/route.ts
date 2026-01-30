@@ -18,7 +18,7 @@ import {
 import { aiService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { requireAuth } from "@/lib/supabase/server";
-import { checkTokenBalance, deductTokens, estimateChapterTokens } from "@/lib/middleware/tokenMiddleware";
+import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 
 interface GenerateReportSectionRequest {
   documentType: DocumentType;
@@ -294,10 +294,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Generate Report Section] Estimated tokens: ${estimatedTokens}`);
 
-    // CHECK TOKEN BALANCE
-    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens);
+    // CHECK TOKEN BALANCE (minimum required to start, not full estimate)
+    const tokenCheckError = await checkTokenBalance(user.id, estimatedTokens, MIN_TOKENS.CHAPTER);
     if (tokenCheckError) {
-      console.log(`[Generate Report Section] ❌ BLOCKED - Insufficient tokens`);
+      console.log(`[Generate Report Section] ❌ BLOCKED - Below minimum tokens (${MIN_TOKENS.CHAPTER})`);
       return tokenCheckError;
     }
 
@@ -362,7 +362,7 @@ export async function POST(request: NextRequest) {
           )) {
             if (chunk.done) {
               // Capture actual tokens used
-              totalTokensUsed = chunk.tokensUsed;
+              totalTokensUsed = chunk.tokensUsed ?? 0;
 
               // DEDUCT TOKENS after successful generation
               const deductSuccess = await deductTokens(user.id, totalTokensUsed, 'chapter', {
