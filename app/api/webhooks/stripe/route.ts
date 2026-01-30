@@ -30,27 +30,27 @@ export async function POST(request: NextRequest) {
     // Handle different event types
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event);
+        await handleCheckoutSessionCompleted(event as unknown as { data: { object: Record<string, unknown> } });
         break;
 
       case 'customer.subscription.created':
-        await handleSubscriptionCreated(event);
+        await handleSubscriptionCreated(event as unknown as { data: { object: Record<string, unknown> } });
         break;
 
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event);
+        await handleSubscriptionUpdated(event as unknown as { data: { object: Record<string, unknown> } });
         break;
 
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event);
+        await handleSubscriptionDeleted(event as unknown as { data: { object: Record<string, unknown> } });
         break;
 
       case 'invoice.payment_succeeded':
-        await handleInvoicePaymentSucceeded(event);
+        await handleInvoicePaymentSucceeded(event as unknown as { data: { object: Record<string, unknown> } });
         break;
 
       case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event);
+        await handleInvoicePaymentFailed(event as unknown as { data: { object: Record<string, unknown> } });
         break;
 
       default:
@@ -72,29 +72,25 @@ export async function POST(request: NextRequest) {
 /**
  * Handle checkout session completed
  */
-async function handleCheckoutSessionCompleted(event: {
-  data: {
-    object: {
-      id: string;
-      client_reference_id: string | null;
-      customer: string | null;
-      customer_email: string | null;
-      amount_total: number | null;
-      currency: string | null;
-      payment_status: string;
-      mode: string;
-      subscription: string | null;
-      metadata: {
-        userId: string;
-        planType: string;
-        billingCycle?: string;
-        tokens: string;
-        paymentType: 'subscription' | 'one_time' | 'top_up';
-      } | null;
-    };
+async function handleCheckoutSessionCompleted(event: { data: { object: Record<string, unknown> } }) {
+  const session = event.data.object as {
+    id: string;
+    client_reference_id: string | null;
+    customer: string | null;
+    customer_email: string | null;
+    amount_total: number | null;
+    currency: string | null;
+    payment_status: string;
+    mode: string;
+    subscription: string | null;
+    metadata: {
+      userId: string;
+      planType: string;
+      billingCycle?: string;
+      tokens: string;
+      paymentType: 'subscription' | 'one_time' | 'top_up';
+    } | null;
   };
-}) {
-  const session = event.data.object;
 
   if (session.payment_status !== 'paid') {
     console.log('[Stripe Webhook] Payment not completed:', session.id);
@@ -119,19 +115,30 @@ async function handleCheckoutSessionCompleted(event: {
 
     if (session.mode === 'subscription' && session.metadata.paymentType === 'subscription') {
       // Create subscription
-      await subscriptionService.createSubscription({
-        userId,
-        planType: session.metadata.planType,
-        billingCycle: (session.metadata.billingCycle as 'monthly' | 'quarterly' | 'yearly') || 'monthly',
-        currency: 'USD',
-        amountPaid,
-        paymentGateway: 'stripe',
-        gatewaySubscriptionId: session.subscription as string,
-        gatewayCustomerId: session.customer as string,
-        transactionId: session.id,
-      });
+      try {
+        await subscriptionService.createSubscription({
+          userId,
+          planType: session.metadata.planType,
+          billingCycle: (session.metadata.billingCycle as 'monthly' | 'quarterly' | 'yearly') || 'monthly',
+          currency: 'USD',
+          amountPaid,
+          paymentGateway: 'stripe',
+          gatewaySubscriptionId: session.subscription as string,
+          gatewayCustomerId: session.customer as string,
+          transactionId: session.id,
+        });
 
-      console.log('[Stripe Webhook] Subscription created for user:', userId);
+        console.log('[Stripe Webhook] Subscription created for user:', userId);
+      } catch (subError: unknown) {
+        // Handle duplicate key constraint error (race condition with multiple webhook calls)
+        const error = subError as { code?: string; message?: string };
+        if (error.code === '23505') {
+          console.log('[Stripe Webhook] Subscription already exists for user (duplicate webhook), skipping:', userId);
+          // This is not an error - subscription was already created by another webhook event
+          return;
+        }
+        throw subError;
+      }
     } else {
       // One-time payment or top-up
       await subscriptionService.addTokens(
@@ -154,18 +161,8 @@ async function handleCheckoutSessionCompleted(event: {
 /**
  * Handle subscription created
  */
-async function handleSubscriptionCreated(event: {
-  data: {
-    object: {
-      id: string;
-      customer: string;
-      status: string;
-      current_period_end: number;
-      metadata: Record<string, string>;
-    };
-  };
-}) {
-  const subscription = event.data.object;
+async function handleSubscriptionCreated(event: { data: { object: Record<string, unknown> } }) {
+  const subscription = event.data.object as { id: string; customer: string; status: string; current_period_end: number; metadata: Record<string, string> };
   console.log('[Stripe Webhook] Subscription created:', subscription.id);
   // Subscription details are already handled in checkout.session.completed
 }
@@ -173,19 +170,8 @@ async function handleSubscriptionCreated(event: {
 /**
  * Handle subscription updated
  */
-async function handleSubscriptionUpdated(event: {
-  data: {
-    object: {
-      id: string;
-      customer: string;
-      status: string;
-      current_period_end: number;
-      cancel_at_period_end: boolean;
-      metadata: Record<string, string>;
-    };
-  };
-}) {
-  const subscription = event.data.object;
+async function handleSubscriptionUpdated(event: { data: { object: Record<string, unknown> } }) {
+  const subscription = event.data.object as { id: string; customer: string; status: string; current_period_end: number; cancel_at_period_end: boolean; metadata: Record<string, string> };
   console.log('[Stripe Webhook] Subscription updated:', subscription.id);
 
   try {
@@ -203,17 +189,8 @@ async function handleSubscriptionUpdated(event: {
 /**
  * Handle subscription deleted/cancelled
  */
-async function handleSubscriptionDeleted(event: {
-  data: {
-    object: {
-      id: string;
-      customer: string;
-      status: string;
-      metadata: Record<string, string>;
-    };
-  };
-}) {
-  const subscription = event.data.object;
+async function handleSubscriptionDeleted(event: { data: { object: Record<string, unknown> } }) {
+  const subscription = event.data.object as { id: string; customer: string; status: string; metadata: Record<string, string> };
   console.log('[Stripe Webhook] Subscription deleted:', subscription.id);
 
   try {
@@ -228,20 +205,8 @@ async function handleSubscriptionDeleted(event: {
 /**
  * Handle successful invoice payment (renewal)
  */
-async function handleInvoicePaymentSucceeded(event: {
-  data: {
-    object: {
-      id: string;
-      customer: string;
-      subscription: string | null;
-      amount_paid: number;
-      currency: string;
-      billing_reason: string;
-      metadata: Record<string, string>;
-    };
-  };
-}) {
-  const invoice = event.data.object;
+async function handleInvoicePaymentSucceeded(event: { data: { object: Record<string, unknown> } }) {
+  const invoice = event.data.object as { id: string; customer: string; subscription: string | null; amount_paid: number; currency: string; billing_reason: string; metadata: Record<string, string> };
   console.log('[Stripe Webhook] Invoice payment succeeded:', invoice.id);
 
   try {
@@ -265,20 +230,8 @@ async function handleInvoicePaymentSucceeded(event: {
 /**
  * Handle failed invoice payment
  */
-async function handleInvoicePaymentFailed(event: {
-  data: {
-    object: {
-      id: string;
-      customer: string;
-      subscription: string | null;
-      amount_due: number;
-      currency: string;
-      attempt_count: number;
-      metadata: Record<string, string>;
-    };
-  };
-}) {
-  const invoice = event.data.object;
+async function handleInvoicePaymentFailed(event: { data: { object: Record<string, unknown> } }) {
+  const invoice = event.data.object as { id: string; customer: string; subscription: string | null; amount_due: number; currency: string; attempt_count: number; metadata: Record<string, string> };
   console.log('[Stripe Webhook] Invoice payment failed:', invoice.id);
 
   try {
