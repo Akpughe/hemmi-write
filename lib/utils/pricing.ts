@@ -2,6 +2,13 @@ export type Currency = "USD" | "NGN";
 export type BillingCycle = "monthly" | "quarterly" | "yearly";
 export type PlanKey = "basic" | "pro" | "premium";
 
+/**
+ * Feature flag to enable/disable NGN (Naira) pricing.
+ * Set to `true` to enable NGN pricing, `false` to disable.
+ * When disabled, all currency detection will default to USD.
+ */
+export const NGN_PRICING_ENABLED = false;
+
 export interface PricingData {
   basic: {
     monthly: number;
@@ -156,6 +163,11 @@ export async function fetchPricing(): Promise<PricingData | null> {
 }
 
 export async function detectCurrency(): Promise<Currency> {
+  // If NGN pricing is disabled, always return USD
+  if (!NGN_PRICING_ENABLED) {
+    return "USD";
+  }
+
   try {
     const response = await fetch("/api/location");
     if (response.ok) {
@@ -169,6 +181,9 @@ export async function detectCurrency(): Promise<Currency> {
 }
 
 export function isNGNAvailable(pricing: PricingData | null): boolean {
+  // If NGN pricing is disabled via feature flag, return false
+  if (!NGN_PRICING_ENABLED) return false;
+
   if (!pricing) return false;
   return !!(
     pricing.basic.priceNgn?.yearly &&

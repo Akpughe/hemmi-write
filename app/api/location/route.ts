@@ -4,8 +4,20 @@
  */
 
 import { NextResponse } from 'next/server';
+import { NGN_PRICING_ENABLED } from '@/lib/utils/pricing';
 
 export async function GET() {
+  // If NGN pricing is disabled, always return USD without calling external API
+  if (!NGN_PRICING_ENABLED) {
+    return NextResponse.json(
+      {
+        currency: 'USD',
+        detected: true,
+      },
+      { status: 200 }
+    );
+  }
+
   try {
     // geolocation-db.com free endpoint (no key required)
     // Example:
