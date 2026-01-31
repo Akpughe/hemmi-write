@@ -1,11 +1,14 @@
 // Chat-specific types for inline citations
 
+export type SourceType = 'web' | 'pdf' | 'journal' | 'news' | 'book' | 'video' | 'other';
+
 export interface ChatCitation {
   number: number;
   title: string;
   url: string;
   snippet: string;
   hostname: string;
+  sourceType?: SourceType;
 }
 
 export interface ChatMessage {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
@@ -19,7 +19,7 @@ import {
   Link as LinkIcon,
   RefreshCw,
 } from "lucide-react";
-import Markdown from "marked-react";
+import { Streamdown } from "streamdown";
 import { toast } from "sonner";
 
 import type { WritingBrief, WorkflowStep, Source } from "@/lib/types/ui";
@@ -29,6 +29,18 @@ import { CitedText } from "@/lib/utils/citationParser";
 import { CitationBadge } from "@/app/components/chat/inline-citation";
 import { generateReferenceList, formatReference } from "@/lib/utils/citations";
 import { CitationStyle, ResearchSource } from "@/lib/types/document";
+import {
+  parseTextWithSections,
+  TextSegment,
+} from "@/lib/utils/sectionReferenceParser";
+import {
+  SectionLink,
+  SectionLinkBadge,
+} from "@/app/components/chat/section-reference";
+import {
+  parseDocumentContent,
+  ParsedDocument,
+} from "@/lib/utils/documentParser";
 
 // =============================================================================
 // Thinking Indicator - Claude/ChatGPT style shimmer
@@ -86,22 +98,91 @@ interface RightPanelProps {
   projectId: string | null;
   initialMessages?: PersistedMessage[];
   onRefreshSources?: () => void;
+  onNavigateToSection?: (sectionName: string) => void;
 }
 
 type RightPanelTab = "chat" | "references";
 
 /**
- * Custom renderer for message content with inline citations
+ * Custom renderer for message content with inline citations and section references
+ * Handles both citations AND section references together with proper markdown parsing
  */
 function MessageContent({
   content,
   citations,
+  onSectionClick,
 }: {
   content: string;
   citations?: ChatCitation[];
+  onSectionClick?: (sectionName: string) => void;
 }) {
-  // If there are citations, use citation-aware rendering
-  if (citations && citations.length > 0) {
+  // Parse content for section references
+  const segments = useMemo(() => parseTextWithSections(content), [content]);
+  const hasSectionReferences = segments.some((seg) => seg.type === "section");
+  const hasCitations = citations && citations.length > 0;
+
+  // If there are section references, render with interactive badges
+  if (hasSectionReferences) {
+    return (
+      <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-word">
+        {segments.map((segment, idx) => {
+          if (segment.type === "section" && segment.reference) {
+            return (
+              <SectionLinkBadge
+                key={idx}
+                reference={segment.reference}
+                onClick={(ref) => onSectionClick?.(ref.sectionName)}
+              />
+            );
+          }
+
+          // For text segments, handle citations and markdown
+          const textContent = segment.content;
+          if (!textContent.trim()) {
+            return <span key={idx}>{textContent}</span>;
+          }
+
+          // Check if line starts with markdown headers
+          const headerMatch = textContent.match(/^(#{1,6})\s+(.+)$/);
+          if (headerMatch) {
+            const level = headerMatch[1].length;
+            const text = headerMatch[2];
+            // CitedText now handles inline markdown as well
+            const headerContent = (
+              <CitedText text={text} citations={citations || []} />
+            );
+            if (level === 1) return <h1 key={idx}>{headerContent}</h1>;
+            if (level === 2) return <h2 key={idx}>{headerContent}</h2>;
+            if (level === 3) return <h3 key={idx}>{headerContent}</h3>;
+            if (level === 4) return <h4 key={idx}>{headerContent}</h4>;
+            if (level === 5) return <h5 key={idx}>{headerContent}</h5>;
+            return <h6 key={idx}>{headerContent}</h6>;
+          }
+
+          // Check if line is a list item
+          const listMatch = textContent.match(/^[-*]\s+(.+)$/);
+          if (listMatch) {
+            return (
+              <li key={idx} className="ml-4">
+                <CitedText text={listMatch[1]} citations={citations || []} />
+              </li>
+            );
+          }
+
+          // Regular text with citations and markdown parsing
+          return (
+            <span key={idx}>
+              <CitedText text={textContent} citations={citations || []} />
+            </span>
+          );
+        })}
+        {hasCitations && <CitationBadge citations={citations} />}
+      </div>
+    );
+  }
+
+  // If there are citations but no section references, use citation-aware rendering
+  if (hasCitations) {
     // Split content by lines to handle markdown paragraphs
     const lines = content.split("\n");
 
@@ -117,42 +198,15 @@ function MessageContent({
           if (headerMatch) {
             const level = headerMatch[1].length;
             const text = headerMatch[2];
-            // Render headers based on level
-            if (level === 1)
-              return (
-                <h1 key={lineIndex}>
-                  <CitedText text={text} citations={citations} />
-                </h1>
-              );
-            if (level === 2)
-              return (
-                <h2 key={lineIndex}>
-                  <CitedText text={text} citations={citations} />
-                </h2>
-              );
-            if (level === 3)
-              return (
-                <h3 key={lineIndex}>
-                  <CitedText text={text} citations={citations} />
-                </h3>
-              );
-            if (level === 4)
-              return (
-                <h4 key={lineIndex}>
-                  <CitedText text={text} citations={citations} />
-                </h4>
-              );
-            if (level === 5)
-              return (
-                <h5 key={lineIndex}>
-                  <CitedText text={text} citations={citations} />
-                </h5>
-              );
-            return (
-              <h6 key={lineIndex}>
-                <CitedText text={text} citations={citations} />
-              </h6>
+            const headerContent = (
+              <CitedText text={text} citations={citations} />
             );
+            if (level === 1) return <h1 key={lineIndex}>{headerContent}</h1>;
+            if (level === 2) return <h2 key={lineIndex}>{headerContent}</h2>;
+            if (level === 3) return <h3 key={lineIndex}>{headerContent}</h3>;
+            if (level === 4) return <h4 key={lineIndex}>{headerContent}</h4>;
+            if (level === 5) return <h5 key={lineIndex}>{headerContent}</h5>;
+            return <h6 key={lineIndex}>{headerContent}</h6>;
           }
 
           // Check if line is a list item
@@ -165,7 +219,7 @@ function MessageContent({
             );
           }
 
-          // Regular paragraph
+          // Regular paragraph with markdown parsing
           return (
             <p key={lineIndex}>
               <CitedText text={line} citations={citations} />
@@ -177,10 +231,10 @@ function MessageContent({
     );
   }
 
-  // No citations - use regular markdown rendering
+  // No citations or section references - use regular markdown rendering
   return (
     <div className="prose prose-sm dark:prose-invert max-w-none wrap-break-word">
-      <Markdown>{content}</Markdown>
+      <Streamdown>{content}</Streamdown>
     </div>
   );
 }
@@ -319,7 +373,9 @@ function ReferencesPreview({
         <div className="w-14 h-14 rounded-2xl bg-foreground/5 flex items-center justify-center mb-4">
           <Library className="w-7 h-7 text-foreground/30" />
         </div>
-        <p className="text-base font-semibold text-foreground">No references yet</p>
+        <p className="text-base font-semibold text-foreground">
+          No references yet
+        </p>
         <p className="text-sm text-foreground/50 mt-2 max-w-[260px]">
           Select research sources to build your citation list
         </p>
@@ -339,7 +395,9 @@ function ReferencesPreview({
                 <Library className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground">References</p>
+                <p className="text-sm font-semibold text-foreground">
+                  References
+                </p>
                 <p
                   className={cn(
                     "text-xs text-foreground/50 leading-relaxed transition-opacity duration-200",
@@ -396,7 +454,9 @@ function ReferencesPreview({
               </div>
             </div>
             <div className="rounded-lg border border-dashed border-foreground/10 bg-foreground/[0.02] px-4 py-3">
-              <p className="text-2xl font-semibold text-foreground">{stats.total}</p>
+              <p className="text-2xl font-semibold text-foreground">
+                {stats.total}
+              </p>
               <p className="text-xs text-foreground/50">sources formatted</p>
               {stats.withAuthor < stats.total && (
                 <p className="mt-2 text-xs font-medium text-amber-500">
@@ -436,7 +496,8 @@ function ReferencesPreview({
                 className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] px-4 py-2 text-xs flex items-center gap-2 text-emerald-500">
                 <Check className="w-3 h-3" />
                 <span className="font-medium">
-                  {refetchResults.success} updated, {refetchResults.failed} failed
+                  {refetchResults.success} updated, {refetchResults.failed}{" "}
+                  failed
                 </span>
               </motion.div>
             )}
@@ -448,7 +509,8 @@ function ReferencesPreview({
             {sortedSources.map((source, index) => {
               const hasAuthor =
                 source.author ||
-                (source.authorsStructured && source.authorsStructured.length > 0);
+                (source.authorsStructured &&
+                  source.authorsStructured.length > 0);
               const formattedRef = formatReference(source, styleOverride);
 
               return (
@@ -600,9 +662,53 @@ export function RightPanel({
   projectId,
   initialMessages = [],
   onRefreshSources,
+  onNavigateToSection,
 }: RightPanelProps) {
   void _currentStep;
   const [activeTab, setActiveTab] = useState<RightPanelTab>("chat");
+
+  // Parse document content into sections for section reference navigation
+  const parsedDocument = useMemo(() => {
+    if (!currentContent) return null;
+    return parseDocumentContent(currentContent);
+  }, [currentContent]);
+
+  // Handler for section click - finds matching section and calls onNavigateToSection
+  const handleSectionClick = useCallback(
+    (sectionName: string) => {
+      console.log(`[Section Click] Section: ${sectionName}`);
+
+      // Call the navigation callback to scroll to the section in the editor
+      onNavigateToSection?.(sectionName);
+
+      if (!parsedDocument) {
+        console.log("[Section Click] No parsed document available");
+        return;
+      }
+
+      // Find matching section by heading (case-insensitive partial match)
+      const matchingSection = parsedDocument.sections.find(
+        (section) =>
+          section.heading.toLowerCase().includes(sectionName.toLowerCase()) ||
+          sectionName.toLowerCase().includes(section.heading.toLowerCase())
+      );
+
+      if (matchingSection) {
+        console.log(
+          `[Section Click] Found matching section: ${matchingSection.heading} (ID: ${matchingSection.id})`
+        );
+      } else {
+        console.log(
+          `[Section Click] No matching section found for: ${sectionName}`
+        );
+        console.log(
+          `[Section Click] Available sections:`,
+          parsedDocument.sections.map((s) => s.heading)
+        );
+      }
+    },
+    [parsedDocument, onNavigateToSection]
+  );
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -723,9 +829,27 @@ ${input}`
     setIsThinking(true);
 
     try {
+      // Create a unique message ID for the streaming response
+      const aiMessageId = (Date.now() + 1).toString();
+      let streamedContent = "";
+      let streamedCitations: ChatCitation[] | undefined;
+
+      // Add empty assistant message that will be filled during streaming
+      const aiMessage: Message = {
+        id: aiMessageId,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+
+      // Use fetch with streaming response
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
         body: JSON.stringify({
           messages: projectId
             ? [{ role: userMessage.role, content: userMessage.content }]
@@ -738,18 +862,66 @@ ${input}`
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      if (data.error) throw new Error(data.error);
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.content,
-        timestamp: new Date(),
-        citations: data.citations,
-      };
-      setMessages((prev) => [...prev, aiMessage]);
+      if (!reader) {
+        throw new Error("No response body");
+      }
+
+      // Read the stream
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            const eventType = line.slice(7);
+            continue;
+          }
+
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.citations) {
+                streamedCitations = data.citations;
+              }
+
+              if (data.content) {
+                streamedContent += data.content;
+                // Update the message content in real-time
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === aiMessageId
+                      ? {
+                          ...msg,
+                          content: streamedContent,
+                          citations: streamedCitations,
+                        }
+                      : msg
+                  )
+                );
+              }
+
+              if (data.tokensUsed) {
+                console.log(
+                  `[Chat] Response completed. Tokens used: ${data.tokensUsed}`
+                );
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error("Chat error:", error);
       const errorMessage: Message = {
@@ -822,12 +994,13 @@ ${input}`
                   className={cn(
                     "w-full max-w-[85%] rounded-2xl px-4 py-3 text-sm",
                     isUser
-                      ? "bg-foreground text-background rounded-tr-lg"
+                      ? "bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-tr-lg"
                       : "bg-foreground/[0.03] text-foreground border border-foreground/5 rounded-tl-lg"
                   )}>
                   <MessageContent
                     content={msg.content}
                     citations={msg.citations}
+                    onSectionClick={handleSectionClick}
                   />
                 </div>
                 {msg.role === "assistant" && (
@@ -887,7 +1060,9 @@ ${input}`
                 <Quote className="h-3 w-3" />
                 Selected Context
               </div>
-              <p className="italic text-foreground/70">&quot;{askAIContext}&quot;</p>
+              <p className="italic text-foreground/70">
+                &quot;{askAIContext}&quot;
+              </p>
               <button
                 onClick={onClearContext}
                 className="absolute -right-2 -top-2 rounded-full border border-foreground/10 bg-background p-1.5 text-foreground/40 transition-all duration-150 hover:bg-foreground/5 hover:text-foreground/70">
@@ -902,7 +1077,7 @@ ${input}`
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="Ask Hemmi or type '@' for sources..."
+            placeholder="Ask Hemmi about this paper"
             rows={1}
             className="w-full resize-none rounded-xl border border-foreground/10 bg-foreground/[0.02] px-4 py-3 text-sm text-foreground placeholder:text-foreground/40 focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20 min-h-[52px] transition-all duration-150"
             disabled={isThinking}

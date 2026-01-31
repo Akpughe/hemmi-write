@@ -2,7 +2,9 @@
 
 import Groq from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { AIProvider, AI_MODELS } from '@/lib/config/aiModels';
+export { AIProvider };
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -20,6 +22,7 @@ interface StreamChunk {
 export class AIService {
   private groq: Groq | null = null;
   private gemini: GoogleGenerativeAI | null = null;
+  private anthropic: Anthropic | null = null;
 
   constructor() {
     // Initialize Groq if API key exists
@@ -32,6 +35,13 @@ export class AIService {
     // Initialize Gemini if API key exists
     if (process.env.GEMINI_API_KEY) {
       this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    }
+
+    // Initialize Anthropic if API key exists
+    if (process.env.ANTHROPIC_API_KEY) {
+      this.anthropic = new Anthropic({
+        apiKey: process.env.ANTHROPIC_API_KEY,
+      });
     }
   }
 
@@ -50,6 +60,8 @@ export class AIService {
       yield* this.streamGroqCompletion(messages, temperature, maxTokens);
     } else if (provider === AIProvider.GEMINI) {
       yield* this.streamGeminiCompletion(messages, temperature, maxTokens);
+    } else if (provider === AIProvider.ANTHROPIC) {
+      yield* this.streamClaudeCompletion(messages, temperature, maxTokens);
     } else {
       throw new Error(`Unsupported AI provider: ${provider}`);
     }
@@ -214,6 +226,76 @@ export class AIService {
   }
 
   /**
+   * Claude streaming implementation
+   */
+  private async *streamClaudeCompletion(
+    messages: ChatMessage[],
+    temperature: number,
+    maxTokens: number
+  ): AsyncGenerator<StreamChunk> {
+    if (!this.anthropic) {
+      throw new Error('Anthropic API key not configured');
+    }
+
+    const modelConfig = AI_MODELS[AIProvider.ANTHROPIC];
+    console.log(`[Claude] Starting generation with model: ${modelConfig.model}, max_tokens: ${maxTokens}`);
+
+    // Separate system message from other messages
+    const systemMessage = messages.find((m) => m.role === 'system');
+    const conversationMessages = messages.filter((m) => m.role !== 'system');
+
+    // Convert messages to Anthropic format
+    const anthropicMessages = conversationMessages.map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+    const stream = await this.anthropic.messages.create({
+      model: modelConfig.model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemMessage?.content,
+      messages: anthropicMessages,
+      stream: true,
+    });
+
+    let outputTokens = 0;
+    let finishReason: string | null = null;
+
+    for await (const chunk of stream) {
+      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+        const content = chunk.delta.text;
+        if (content) {
+          yield { content, done: false, finishReason: null };
+        }
+      }
+
+      if (chunk.type === 'message_stop') {
+        finishReason = 'stop';
+      }
+    }
+
+    // Get token usage from Anthropic (if available in response)
+    try {
+      // Anthropic streams don't include usage metadata in the same way
+      // We'll estimate based on output length for now
+      outputTokens = 0; // Will be tracked externally
+    } catch (e) {
+      console.warn('[Claude] Could not retrieve usage metadata:', e);
+    }
+
+    console.log(`[Claude] ✓ Generation completed. Finish reason: ${finishReason || 'stop'}`);
+
+    yield {
+      content: '',
+      done: true,
+      finishReason: finishReason as any,
+      truncated: false,
+      tokensUsed: outputTokens
+    };
+  }
+
+  /**
    * Non-streaming completion (for structure generation that expects JSON)
    */
   async getChatCompletion(
@@ -228,6 +310,8 @@ export class AIService {
       return this.getGroqCompletion(messages, temperature, maxTokens);
     } else if (provider === AIProvider.GEMINI) {
       return this.getGeminiCompletion(messages, temperature, maxTokens);
+    } else if (provider === AIProvider.ANTHROPIC) {
+      return this.getClaudeCompletion(messages, temperature, maxTokens);
     } else {
       throw new Error(`Unsupported AI provider: ${provider}`);
     }
@@ -298,6 +382,47 @@ export class AIService {
   }
 
   /**
+   * Claude non-streaming completion
+   */
+  private async getClaudeCompletion(
+    messages: ChatMessage[],
+    temperature: number,
+    maxTokens: number
+  ): Promise<string> {
+    if (!this.anthropic) {
+      throw new Error('Anthropic API key not configured');
+    }
+
+    const modelConfig = AI_MODELS[AIProvider.ANTHROPIC];
+
+    // Separate system message from other messages
+    const systemMessage = messages.find((m) => m.role === 'system');
+    const conversationMessages = messages.filter((m) => m.role !== 'system');
+
+    // Convert messages to Anthropic format
+    const anthropicMessages = conversationMessages.map((msg) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+
+    const response = await this.anthropic.messages.create({
+      model: modelConfig.model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemMessage?.content,
+      messages: anthropicMessages,
+    });
+
+    // Combine all text content blocks
+    const content = response.content
+      .filter((block) => block.type === 'text')
+      .map((block) => (block as any).text || '')
+      .join('');
+
+    return content;
+  }
+
+  /**
    * Check which providers are available
    */
   getAvailableProviders(): AIProvider[] {
@@ -309,6 +434,10 @@ export class AIService {
 
     if (this.gemini) {
       available.push(AIProvider.GEMINI);
+    }
+
+    if (this.anthropic) {
+      available.push(AIProvider.ANTHROPIC);
     }
 
     return available;
