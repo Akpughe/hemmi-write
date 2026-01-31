@@ -210,6 +210,15 @@ function WorkspaceContent() {
       };
     });
 
+    // Map chat messages to extract citations from context
+    const mappedMessages = (messages || []).map((m: any) => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      created_at: m.created_at,
+      citations: m.context?.citations || undefined,
+    }));
+
     return {
       brief: mappedBrief,
       initialData: {
@@ -217,7 +226,7 @@ function WorkspaceContent() {
         plan: mappedPlan,
         content: document?.content || "",
         lastSavedAt: document?.updated_at || null,
-        messages: messages || [],
+        messages: mappedMessages,
       },
     };
   }, [projectData, localStorageBrief]);

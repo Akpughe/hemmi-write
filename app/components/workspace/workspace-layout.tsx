@@ -955,6 +955,13 @@ export function WorkspaceLayout({
                 window.location.reload(); // Simple reload for now
               }
             }}
+            onNavigateToSection={(sectionName: string) => {
+              // Call the global scroll function exposed by TiptapEditor
+              const win = window as typeof window & { __editorScrollToSection?: (sectionName: string) => boolean | undefined };
+              if (win.__editorScrollToSection) {
+                win.__editorScrollToSection(sectionName);
+              }
+            }}
           />
         </div>
       </div>

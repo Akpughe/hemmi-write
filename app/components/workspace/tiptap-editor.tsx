@@ -9,7 +9,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import { Color } from "@tiptap/extension-color";
 import { FontFamily } from "@tiptap/extension-font-family";
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import {
   Bold,
   Italic,
@@ -43,6 +43,7 @@ interface TiptapEditorProps {
   sources?: any[];
   insertRequest?: string | null;
   onInsertComplete?: () => void;
+  onScrollToSection?: (sectionName: string) => void;
 }
 
 export function TiptapEditor({
@@ -54,6 +55,7 @@ export function TiptapEditor({
   sources = [],
   insertRequest,
   onInsertComplete,
+  onScrollToSection,
 }: TiptapEditorProps) {
   const [showFloatingToolbar, setShowFloatingToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ x: 0, y: 0 });
@@ -150,6 +152,111 @@ export function TiptapEditor({
       },
     },
   });
+
+  // Scroll to section functionality
+  const scrollToSection = useCallback((sectionName: string) => {
+    if (!editor) return false;
+
+    // Normalize the search name - remove leading numbers like "2.2" and clean up
+    const normalizedSearchName = sectionName
+      .toLowerCase()
+      .trim()
+      .replace(/^\d+(\.\d+)*\s*/, ''); // Remove leading section numbers like "2.2 "
+
+    let foundPos: number | null = null;
+    let bestMatch: { pos: number; score: number } | null = null;
+
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'heading') {
+        const headingText = node.textContent.toLowerCase().trim();
+        const headingWithoutNumbers = headingText.replace(/^\d+(\.\d+)*\s*/, '');
+
+        // Calculate match score
+        let score = 0;
+
+        // Exact match (highest priority)
+        if (headingText === normalizedSearchName || headingWithoutNumbers === normalizedSearchName) {
+          score = 100;
+        }
+        // Heading contains the full search term
+        else if (headingText.includes(normalizedSearchName) || headingWithoutNumbers.includes(normalizedSearchName)) {
+          score = 80;
+        }
+        // Search term contains the full heading (only if heading is substantial - more than 3 words)
+        else if (headingWithoutNumbers.split(/\s+/).length > 3 && normalizedSearchName.includes(headingWithoutNumbers)) {
+          score = 60;
+        }
+        // Partial word match - check if significant words overlap
+        else {
+          const searchWords = normalizedSearchName.split(/\s+/).filter(w => w.length > 3);
+          const headingWords = headingWithoutNumbers.split(/\s+/).filter(w => w.length > 3);
+          const matchingWords = searchWords.filter(sw =>
+            headingWords.some(hw => hw.includes(sw) || sw.includes(hw))
+          );
+          if (matchingWords.length >= 2 && matchingWords.length >= searchWords.length * 0.5) {
+            score = 40 + (matchingWords.length / searchWords.length) * 20;
+          }
+        }
+
+        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { pos, score };
+        }
+      }
+      return true; // Continue searching to find best match
+    });
+
+    if (bestMatch) {
+      const match = bestMatch as { pos: number; score: number };
+      foundPos = match.pos;
+
+      // Get the actual heading DOM element by finding the heading node and its DOM representation
+      const resolvedPos = editor.state.doc.resolve(foundPos);
+      const node = editor.state.doc.nodeAt(foundPos);
+
+      if (node && node.type.name === 'heading') {
+        // Use nodeDOM to get the actual heading element
+        const domNode = editor.view.nodeDOM(foundPos);
+
+        if (domNode && domNode instanceof HTMLElement) {
+          // Scroll the heading element into view
+          domNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // Add temporary highlight effect
+          domNode.classList.add('bg-yellow-200/60', 'transition-colors', 'duration-500');
+
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            domNode.classList.remove('bg-yellow-200/60', 'transition-colors', 'duration-500');
+          }, 3000);
+
+          // Also notify parent component
+          if (onScrollToSection) {
+            onScrollToSection(sectionName);
+          }
+          return true;
+        }
+      }
+    }
+
+    console.log(`[ScrollToSection] No matching section found for: "${sectionName}"`);
+    return false;
+  }, [editor, onScrollToSection]);
+
+  // Expose scrollToSection globally when editor is ready
+  // This allows external components (like RightPanel) to trigger navigation
+  useEffect(() => {
+    if (editor) {
+      // Store scroll function globally for external access
+      (window as typeof window & { __editorScrollToSection?: (sectionName: string) => boolean | undefined }).__editorScrollToSection = scrollToSection;
+    }
+
+    return () => {
+      const win = window as typeof window & { __editorScrollToSection?: unknown };
+      if (win.__editorScrollToSection) {
+        win.__editorScrollToSection = undefined;
+      }
+    };
+  }, [editor, scrollToSection]);
 
   // Update content when it changes externally (e.g., AI writing)
   useEffect(() => {

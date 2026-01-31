@@ -104,6 +104,7 @@ interface EditorPanelProps {
   };
   onCancelResearch?: () => void;
   isInlineResearchActive?: boolean;
+  onNavigateToSection?: (sectionName: string) => void;
 }
 
 export function EditorPanel({
@@ -136,6 +137,7 @@ export function EditorPanel({
   structureError = null,
   structureCompletedAt = null,
   autoApproveEnabled = false,
+  onNavigateToSection,
 }: EditorPanelProps) {
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallReason, setPaywallReason] = useState<'insufficient_tokens' | 'no_subscription'>('insufficient_tokens');
@@ -1428,6 +1430,7 @@ export function EditorPanel({
             sources={sources}
             insertRequest={insertRequest}
             onInsertComplete={onInsertComplete}
+            onScrollToSection={onNavigateToSection}
           />
         </div>
 
