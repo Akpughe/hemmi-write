@@ -58,6 +58,35 @@ export function WorkspaceLayout({
   const [sources, setSources] = useState<Source[]>(initialSources);
   const [plan, setPlan] = useState<DocumentPlan | null>(initialPlan);
   const [editorContent, setEditorContent] = useState(initialContent);
+
+  // Track if we've received initial data to avoid overwriting user edits
+  const [hasReceivedInitialData, setHasReceivedInitialData] = useState(
+    initialSources.length > 0 || initialPlan !== null || initialContent !== ""
+  );
+
+  // Sync initial props to state when they arrive (fixes navigation loading issue)
+  useEffect(() => {
+    // Only sync if we haven't received data yet and now we have it
+    if (!hasReceivedInitialData && initialSources.length > 0) {
+      setSources(initialSources);
+      setHasReceivedInitialData(true);
+    }
+  }, [initialSources, hasReceivedInitialData]);
+
+  useEffect(() => {
+    if (!hasReceivedInitialData && initialPlan !== null) {
+      setPlan(initialPlan);
+      setHasReceivedInitialData(true);
+    }
+  }, [initialPlan, hasReceivedInitialData]);
+
+  useEffect(() => {
+    if (!hasReceivedInitialData && initialContent !== "") {
+      setEditorContent(initialContent);
+      setHasReceivedInitialData(true);
+    }
+  }, [initialContent, hasReceivedInitialData]);
+
   const [chapterHandlers, setChapterHandlers] = useState<{
     approve: (index?: number) => void;
     reject: (index?: number) => void;

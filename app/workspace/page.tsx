@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { WorkspaceLayout } from "@/app/components/workspace/workspace-layout";
 import {
   WritingBrief,
@@ -16,6 +17,7 @@ import {
   mapEnumWritingStyleToUI,
 } from "@/lib/utils/documentTypeMapper";
 import { useProject } from "@/lib/hooks/use-projects";
+import { WorkspaceLoader } from "@/app/components/workspace/workspace-loader";
 
 // Define locally if not exported from UI types, or if it is a DB type
 interface DocumentStructure {
@@ -247,33 +249,33 @@ function WorkspaceContent() {
 
   // Show different loading states
   if (isSessionLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">
-          Initializing session...
-        </div>
-      </div>
-    );
+    return <WorkspaceLoader message="Initializing" />;
   }
 
   // Show loading state when fetching project data
-  if (projectId && (isLoadingProject || (!projectData && !projectError))) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">
-          Loading workspace...
-        </div>
-      </div>
-    );
+  // Use a more robust check: show loading if we have a projectId but data isn't ready yet
+  const isProjectDataReady = projectId ? !!projectData : true;
+  const isWaitingForProjectData = projectId && !isProjectDataReady && !projectError;
+
+  if (projectId && (isLoadingProject || isFetchingProject || isWaitingForProjectData)) {
+    return <WorkspaceLoader message="Loading workspace" />;
   }
 
   // Show error state
   if (projectError) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-destructive">
-          Error loading project. Please try again.
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <div className="w-12 h-12 rounded-full border border-destructive/20 flex items-center justify-center mb-4">
+          <span className="text-destructive text-lg">!</span>
         </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Unable to load project
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-sm text-primary hover:underline">
+          Try again
+        </button>
       </div>
     );
   }
@@ -285,24 +287,32 @@ function WorkspaceContent() {
     !localStorageBrief &&
     !isSessionLoading
   ) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">
-          Loading workspace...
-        </div>
-      </div>
-    );
+    return <WorkspaceLoader message="Preparing workspace" />;
   }
 
   // If no brief after all loading attempts, show error
   if (!brief) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-destructive">
-          Unable to load workspace. Please try again.
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
+        <div className="w-12 h-12 rounded-full border border-muted-foreground/20 flex items-center justify-center mb-4">
+          <span className="text-muted-foreground text-lg">?</span>
         </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          No project found
+        </p>
+        <Link
+          href="/"
+          className="text-sm text-primary hover:underline">
+          Return home
+        </Link>
       </div>
     );
+  }
+
+  // Final safeguard: if we have a projectId, ensure initialData is ready
+  // This prevents WorkspaceLayout from rendering with stale/empty state
+  if (projectId && !initialData) {
+    return <WorkspaceLoader message="Loading project" />;
   }
 
   return (
@@ -324,12 +334,7 @@ function WorkspaceContent() {
 
 export default function WorkspacePage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          Loading...
-        </div>
-      }>
+    <Suspense fallback={<WorkspaceLoader message="Loading" />}>
       <WorkspaceContent />
     </Suspense>
   );
