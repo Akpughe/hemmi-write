@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateText } from "ai";
-import { createGroq } from "@ai-sdk/groq";
-import { AcademicLevel } from "@/lib/types/document";
+import { aiService, AIProvider } from "@/lib/services/aiService";
 import {
   createServerSupabaseClient,
   getCurrentUser,
@@ -14,10 +12,7 @@ import {
 } from "@/lib/services/chatResearch";
 import { ChatCitation } from "@/lib/types/chat";
 import { checkTokenBalance, deductTokens, estimateChatTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
-
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+import { getSmartContext } from "@/lib/utils/contextSelector";
 
 interface ChatSource {
   title: string;
@@ -27,6 +22,11 @@ interface ChatSource {
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
+}
+
+// SSE helper function
+function formatSSEEvent(event: string, data: unknown): string {
+  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
 export async function POST(req: NextRequest) {
@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
     // Save user message to database if projectId provided
     if (projectId && lastUserMessage) {
       try {
-        const user = await getCurrentUser();
-        if (user) {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
           const supabase = await createServerSupabaseClient();
           await supabase.from("chat_messages").insert({
             project_id: projectId,
@@ -101,6 +101,16 @@ export async function POST(req: NextRequest) {
       console.log("Chat question does not need research");
     }
 
+    // Get smart context from document content
+    let documentContext = "";
+    let selectedSectionsInfo = "";
+    if (currentContent && currentContent.length > 100) {
+      const smartContext = getSmartContext(currentContent, userQuestion, 6000);
+      documentContext = smartContext.context;
+      selectedSectionsInfo = smartContext.selectionReason;
+      console.log(`[Chat] ${selectedSectionsInfo}`);
+    }
+
     // Build system prompt with optional research context
     const citationInstructions =
       citations.length > 0
@@ -124,63 +134,130 @@ ${sources.map((s: ChatSource) => `- ${s.title}: ${s.snippet}`).join("\n")}
 ${researchContext}
 ${citationInstructions}
 
+${documentContext}
+
 INSTRUCTIONS:
 - Answer the user's questions based on the provided sources and context.
 - Keep responses concise and helpful.
 - You can help with research, planning, and writing.
 - If asked to write a section, use the specified writing style.
 
+SECTION REFERENCE INSTRUCTIONS:
+When referring to specific parts of the user's document, use this exact format:
+"Section: Section Name" (e.g., "Section: Introduction" or "Section: 3.2 Methods")
+This helps the user navigate to that part of their document.
+
 `;
 
-    const result = await generateText({
-      model: groq("openai/gpt-oss-120b"),
-      system: systemPrompt,
-      messages,
-    });
+    // Prepare messages for AI service
+    const aiMessages = [
+      { role: "system" as const, content: systemPrompt },
+      ...messages.map((m: ChatMessage) => ({
+        role: m.role as "user" | "assistant" | "system",
+        content: m.content,
+      })),
+    ];
 
-    // DEDUCT TOKENS after successful chat response
-    const actualTokens = Math.ceil(result.text.length / 4); // Rough estimate from character count
-    const deductSuccess = await deductTokens(user.id, estimatedTokens, 'chat', {
-      projectId,
-      messageLength: userQuestion.length,
-      responseLength: result.text.length,
-      historyLength: messages.length,
-      hasCitations: citations.length > 0,
-      estimatedTokens,
-      actualTokens,
-    });
-
-    if (!deductSuccess) {
-      console.error(`[Chat] ⚠️  Failed to deduct tokens (${estimatedTokens}), but response was generated`);
-    } else {
-      console.log(`[Chat] ✅ Deducted ${estimatedTokens} tokens`);
-    }
-
-    // Save assistant response to database if projectId provided
-    if (projectId && result.text) {
-      try {
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          const supabase = await createServerSupabaseClient();
-          await supabase.from("chat_messages").insert({
-            project_id: projectId,
-            role: "assistant",
-            content: result.text,
-            context:
-              citations.length > 0
-                ? { citations: JSON.parse(JSON.stringify(citations)) }
-                : null,
-          });
+    // Create streaming response
+    const encoder = new TextEncoder();
+    
+    const stream = new ReadableStream({
+      async start(controller) {
+        // Send citations first if they exist
+        if (citations.length > 0) {
+          controller.enqueue(
+            encoder.encode(formatSSEEvent("citations", { citations }))
+          );
         }
-      } catch (dbError) {
-        console.error("Failed to save assistant message:", dbError);
-      }
-    }
 
-    return NextResponse.json({
-      role: "assistant",
-      content: result.text,
-      citations: citations.length > 0 ? citations : undefined,
+        let fullContent = "";
+        let tokensUsed = 0;
+
+        try {
+          // Stream from Claude via AI service
+          const streamGenerator = aiService.streamChatCompletion(
+            AIProvider.ANTHROPIC,
+            aiMessages,
+            0.7,
+            4000
+          );
+
+          for await (const chunk of streamGenerator) {
+            if (chunk.content) {
+              fullContent += chunk.content;
+              controller.enqueue(
+                encoder.encode(formatSSEEvent("token", { content: chunk.content }))
+              );
+            }
+
+            if (chunk.done) {
+              tokensUsed = chunk.tokensUsed || Math.ceil(fullContent.length / 4);
+              controller.enqueue(
+                encoder.encode(formatSSEEvent("done", { 
+                  tokensUsed,
+                  truncated: chunk.truncated 
+                }))
+              );
+            }
+          }
+
+          // DEDUCT TOKENS after successful chat response
+          const deductSuccess = await deductTokens(user.id, estimatedTokens, 'chat', {
+            projectId,
+            messageLength: userQuestion.length,
+            responseLength: fullContent.length,
+            historyLength: messages.length,
+            hasCitations: citations.length > 0,
+            estimatedTokens,
+            actualTokens: tokensUsed,
+          });
+
+          if (!deductSuccess) {
+            console.error(`[Chat] ⚠️  Failed to deduct tokens (${estimatedTokens}), but response was generated`);
+          } else {
+            console.log(`[Chat] ✅ Deducted ${estimatedTokens} tokens`);
+          }
+
+          // Save assistant response to database if projectId provided
+          if (projectId && fullContent) {
+            try {
+              const currentUser = await getCurrentUser();
+              if (currentUser) {
+                const supabase = await createServerSupabaseClient();
+                await supabase.from("chat_messages").insert({
+                  project_id: projectId,
+                  role: "assistant",
+                  content: fullContent,
+                  context:
+                    citations.length > 0
+                      ? { citations: JSON.parse(JSON.stringify(citations)) }
+                      : null,
+                });
+              }
+            } catch (dbError) {
+              console.error("Failed to save assistant message:", dbError);
+            }
+          }
+
+          controller.close();
+        } catch (error) {
+          console.error("Streaming error:", error);
+          controller.enqueue(
+            encoder.encode(formatSSEEvent("error", { 
+              message: error instanceof Error ? error.message : "Streaming failed" 
+            }))
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
     });
   } catch (error) {
     console.error("Chat error:", error);
