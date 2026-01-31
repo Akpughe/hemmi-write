@@ -1,0 +1,68 @@
+1. PDF UPLOAD FEATURE
+-- user should be able to upload PDF from the home page when entering a topic
+-- upload the pdf to aws s3
+-- extract text from PDF using mistral ocr modelv/api
+-- chunk the pdf content
+-- pass chunk to groq(OSS-120B) 
+-- groq(OSS-120B) will ensure that it's understands the content properly
+-- so this not becomes context
+-- take note of the major parts of the pdf
+-- store it as research_sources in the DB
+
+Ensure that we have minimal AI premium UI (just like ChatGPT or Claude)
+
+NOTE: This adds to the agentic research that we also do -- because after we process the pdfs, we can now use it as a guide when doing research too.
+
+2. IMPROVE THE CHAT EXPERIENCE [DONE]
+- we can use claude for that part with perplexity -- but know what it is important we return references for every response that requires a reference
+- we need to stream the chat response and not just allow it to appear once
+- we can show a thinking process while the chat is actually thinking (just like how ChatGPT or Claude do it)
+- ensure this has an minimal AI premium design and feel to it (just like ChatGPT or Claude)
+- we also need the chat to improve its context awareness -- so that if can refer to parts of the writing to tell 
+us where we can add something (then we can click on th reference point then it will automatically scroll there),
+also just referencing part or sections of the writing (when it needs to)
+
+
+3. PROJECT STRUCTURE -- PLANNING PHASES
+- Be more detailed as though it is a table of content.
+- we may need to do a bit of enhancement using Claude
+- show each section and sub-sections as well as brief and concise highlight of what each will cover
+- with this we can show a layout -- so the user knows what to expect for each section
+- i have made some findings and seen that these reports or project papers have different structure 
+(for examples: some have a certain title/heading naming convention, so sometimes we may write the right 
+heading or subheading but the user would ne confused-- so i think we can have different structure options and let them pick out one of them, 
+or we can also let them edit by editing (mean editing maybe the section heading or the sub-section heading).)
+
+4.
+These are UI observations:
+- So when generating a section, there's a loader that shows up. But when it shows up at the beginning of the workspace or the TipTap editor, 
+let it be generally present so we can see it. Because most times, say I scroll down for instance, and I'm generating Chapter 4, I don't see the loader until 
+I scroll up to the top where Chapter One is.
+
+
+5. AGENTIC HUMANIZER USING GOOGLE GEMINI 3
+- aim of this feature is reduce the AI detection score to be less that 7%
+- So basically, the user clicks a button and then we start the process.
+- we will take everything we have generated, chunk into meaningful chunks
+- pass these chunks to Google Gemini 3 to process it mulitples time and then spit it out.
+- Ensure that it can process multiples in parallet for speed -- but ensure you observe the models(Gemini) context window
+- ensure that the whole process is very smooth and has an minimalistic AI premium feel (just like ChatGPT or Claude)
+
+
+6. URL Data extraction
+- pass URL to Claude to get as much data and information that can be gotten from a URL
+- ensure to get the data in json output so it can be stored in the research_sources table accordingly
+
+
+7- UPLOAD EXISTING PROJECT
+- user can upload their project paper that they have written
+- we analyze it, try to do a bit more research 
+- tell them about improvement and additional references (if we have/find any)
+- require user permission to make improvement
+- it is important we add the improvement section by section and tell them each part of the project are 
+adding up/improving
+- we need to understand and breakdown the project so we can have each section for us to display well
+- we will take not of the sources/reference the user used, add it as part of the sources but label it sources that are from the user
+- then we do our own research and label it differently
+
+-- for us to do we need to make different mode from the onset (let's think about this)

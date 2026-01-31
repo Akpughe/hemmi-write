@@ -3,6 +3,7 @@
 export enum AIProvider {
   GROQ = 'GROQ',
   GEMINI = 'GEMINI',
+  ANTHROPIC = 'ANTHROPIC',
 }
 
 export interface AIModelConfig {
@@ -34,6 +35,15 @@ export const AI_MODELS: Record<AIProvider, AIModelConfig> = {
     contextWindow: 1000000,
     icon: '🤖',
   },
+  [AIProvider.ANTHROPIC]: {
+    provider: AIProvider.ANTHROPIC,
+    model: 'claude-haiku-4-5-20251001',
+    label: 'Claude Haiku',
+    description: 'Fast, efficient assistant for chat and analysis',
+    maxTokens: 4000,
+    contextWindow: 48000,
+    icon: '✦',
+  },
 };
 
-export const DEFAULT_AI_PROVIDER = AIProvider.GROQ;
+export const DEFAULT_AI_PROVIDER = AIProvider.ANTHROPIC;
