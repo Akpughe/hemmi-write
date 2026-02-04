@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Session,
@@ -8,6 +8,7 @@ import {
   AuthChangeEvent,
 } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { getStoredReferralCode, clearReferralCode } from "@/lib/utils/referralTracking";
 
 type SupabaseContextType = {
   supabase: SupabaseClient;
@@ -28,12 +29,49 @@ export default function SupabaseProvider({
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const referralRecordedRef = useRef(false);
+
+  // Function to record referral when user signs in
+  const recordReferralIfNeeded = async (session: Session) => {
+    if (referralRecordedRef.current) return;
+    
+    const referralCode = getStoredReferralCode();
+    if (!referralCode) return;
+    
+    console.log("[SupabaseProvider] Found referral code, attempting to record:", referralCode);
+    referralRecordedRef.current = true;
+    
+    try {
+      const response = await fetch("/api/referral/record", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ referralCode }),
+      });
+      const result = await response.json();
+      console.log("[SupabaseProvider] Referral record result:", result);
+      
+      if (result.data?.success || result.data?.reason === 'already_referred') {
+        clearReferralCode();
+      }
+    } catch (e) {
+      console.error("[SupabaseProvider] Failed to record referral:", e);
+      referralRecordedRef.current = false; // Allow retry on error
+    }
+  };
 
   useEffect(() => {
     // Fetch initial session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setIsLoading(false);
+      
+      // Try to record referral if user is already signed in
+      if (session) {
+        recordReferralIfNeeded(session);
+      }
     });
 
     // Then listen for changes
@@ -46,6 +84,12 @@ export default function SupabaseProvider({
         }
         setSession(session);
         setIsLoading(false);
+        
+        // Record referral on sign in
+        if (event === 'SIGNED_IN' && session) {
+          console.log("[SupabaseProvider] User signed in, checking for referral code");
+          recordReferralIfNeeded(session);
+        }
       }
     );
 
