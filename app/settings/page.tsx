@@ -67,9 +67,9 @@ export default function SettingsPage() {
     <main className="relative min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex flex-col gap-1">
-            <h1 className="font-public-sans text-3xl font-semibold tracking-tight text-foreground">
+            <h1 className="font-public-sans text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
               Settings
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -85,10 +85,33 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Mobile Tab Navigation */}
+      <div className="border-b border-border md:hidden">
+        <div className="mx-auto w-full max-w-6xl px-4">
+          <nav className="flex gap-1 overflow-x-auto py-2 scrollbar-hide">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all",
+                  "flex items-center gap-2",
+                  activeTab === tab.id
+                    ? "bg-card text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}>
+                <span className="shrink-0">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="mx-auto flex w-full max-w-6xl gap-8 px-6 py-8">
-        {/* Sidebar Navigation */}
-        <aside className="w-56 shrink-0">
+      <div className="mx-auto flex w-full max-w-6xl gap-8 px-4 py-6 sm:px-6 sm:py-8">
+        {/* Sidebar Navigation - Hidden on mobile */}
+        <aside className="hidden md:block w-56 shrink-0">
           <nav className="space-y-2">
             {tabs.map((tab) => (
               <button

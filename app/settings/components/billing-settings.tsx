@@ -350,7 +350,7 @@ export function BillingSettings() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="font-public-sans text-2xl font-semibold text-foreground">
             Billing & usage
@@ -363,7 +363,7 @@ export function BillingSettings() {
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl"
+          className="rounded-xl w-full sm:w-auto"
           onClick={fetchAll}
           disabled={loading}
         >
@@ -385,14 +385,14 @@ export function BillingSettings() {
       )}
 
       {/* Current plan */}
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-6">
+      <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted shrink-0">
               <CreditCard className="size-5" />
             </div>
             <div className="space-y-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-medium text-foreground">Current plan</h3>
                 {subscription?.status ? statusPill(subscription.status) : null}
               </div>
@@ -406,10 +406,10 @@ export function BillingSettings() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full sm:w-auto">
             <Button
               type="button"
-              className="rounded-xl"
+              className="rounded-xl w-full sm:w-auto"
               onClick={() => setPaywallOpen(true)}
             >
               Top up tokens
@@ -417,7 +417,7 @@ export function BillingSettings() {
             <Link
               href="/pricing"
               className={cn(
-                "inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground shadow-xs transition",
+                "inline-flex h-10 items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground shadow-xs transition w-full sm:w-auto",
                 "hover:bg-muted/50"
               )}
             >
@@ -426,7 +426,7 @@ export function BillingSettings() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-6 grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-3">
           <div className="rounded-2xl border border-border bg-background p-4">
             <p className="text-xs text-muted-foreground">Tokens remaining</p>
             <p className="mt-1 text-xl font-semibold text-foreground">
@@ -478,10 +478,10 @@ export function BillingSettings() {
       </div>
 
       {/* Usage */}
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-6">
+      <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted shrink-0">
               <Coins className="size-5" />
             </div>
             <div className="space-y-1">
@@ -497,7 +497,7 @@ export function BillingSettings() {
           </p>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-6 grid gap-4 grid-cols-1 md:grid-cols-3">
           <div className="rounded-2xl border border-border bg-background p-4 md:col-span-1">
             <p className="text-xs text-muted-foreground">Top operations (loaded set)</p>
             <div className="mt-3 space-y-2">
@@ -564,10 +564,10 @@ export function BillingSettings() {
       </div>
 
       {/* Payment history */}
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-6">
+      <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+            <div className="flex size-10 items-center justify-center rounded-2xl bg-muted shrink-0">
               <Receipt className="size-5" />
             </div>
             <div className="space-y-1">
@@ -583,7 +583,8 @@ export function BillingSettings() {
           </p>
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-background">
+        {/* Desktop Table */}
+        <div className="mt-6 hidden md:block overflow-hidden rounded-2xl border border-border bg-background">
           <div className="grid grid-cols-12 gap-3 border-b border-border bg-muted/30 px-4 py-3 text-xs font-medium text-muted-foreground">
             <div className="col-span-4">Date</div>
             <div className="col-span-3">Type</div>
@@ -622,6 +623,50 @@ export function BillingSettings() {
 
           {(billing?.payments || []).length === 0 && (
             <div className="px-4 py-6 text-sm text-muted-foreground">
+              No payments found yet.
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="mt-6 md:hidden space-y-3">
+          {(billing?.payments || []).map((p) => (
+            <div
+              key={p.id}
+              className="rounded-xl border border-border bg-background p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-sm text-foreground">
+                    {p.paymentType.replace("_", " ")}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatDateTime(p.createdAt)}
+                  </p>
+                </div>
+                {statusPill(p.status)}
+              </div>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Amount</p>
+                  <p className="font-medium text-foreground">{formatAmount(p.amount, p.currency)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Tokens</p>
+                  <p className="font-medium text-foreground">{p.tokensPurchased.toLocaleString()}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground truncate">
+                {p.paymentGateway.toUpperCase()} • {p.transactionId}
+              </p>
+              {p.status === "failed" && p.failureReason && (
+                <p className="mt-1 text-xs text-amber-700">{p.failureReason}</p>
+              )}
+            </div>
+          ))}
+
+          {(billing?.payments || []).length === 0 && (
+            <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
               No payments found yet.
             </div>
           )}
