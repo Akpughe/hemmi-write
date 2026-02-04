@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { X, User, Sparkles, Palette, CreditCard } from "lucide-react";
+import { X, User, Sparkles, Palette, CreditCard, Gift } from "lucide-react";
 import { useState } from "react";
 import { AccountSettings } from "@/app/settings/components/account-settings";
 import { WritingPreferences } from "@/app/settings/components/writing-preferences";
 import { AppearanceSettings } from "@/app/settings/components/appearance-settings";
 import { BillingSettings } from "@/app/settings/components/billing-settings";
+import { ReferralSettings } from "@/app/settings/components/referral-settings";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/app/settings/hooks/use-profile";
 
-type SettingTab = "account" | "writing" | "appearance" | "billing";
+type SettingTab = "account" | "writing" | "appearance" | "billing" | "referrals";
 
 const tabs: { id: SettingTab; label: string; icon: React.ReactNode; description: string }[] = [
   {
@@ -24,6 +25,12 @@ const tabs: { id: SettingTab; label: string; icon: React.ReactNode; description:
     label: "Billing & usage",
     icon: <CreditCard className="size-5" />,
     description: "Plan, payments & tokens",
+  },
+  {
+    id: "referrals",
+    label: "Referrals",
+    icon: <Gift className="size-5" />,
+    description: "Invite friends & earn",
   },
   {
     id: "writing",
@@ -108,6 +115,7 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {activeTab === "account" && <AccountSettings profile={profile} />}
           {activeTab === "billing" && <BillingSettings />}
+          {activeTab === "referrals" && <ReferralSettings />}
           {activeTab === "writing" && <WritingPreferences preferences={profile?.preferences} />}
           {activeTab === "appearance" && <AppearanceSettings preferences={profile?.preferences} />}
         </div>

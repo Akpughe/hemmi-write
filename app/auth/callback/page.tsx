@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getStoredReferralCode, clearReferralCode } from "@/lib/utils/referralTracking";
 
 // Track processed codes to prevent double execution in Strict Mode
 let processedCode: string | null = null;
@@ -26,10 +27,37 @@ function AuthCallbackContent() {
       processedCode = code;
 
       const supabase = createClient();
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
 
-      if (!error) {
+      if (!error && sessionData?.session) {
         console.log("Code exchanged for session successfully");
+
+        // Check for referral code and record it
+        const referralCode = getStoredReferralCode();
+        console.log("[AuthCallback] Checking for referral code, found:", referralCode);
+        
+        if (referralCode) {
+          try {
+            console.log("[AuthCallback] Recording referral for user:", sessionData.session.user.id);
+            // Pass the access token in the header since cookies may not be set yet
+            const response = await fetch("/api/referral/record", {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionData.session.access_token}`,
+              },
+              body: JSON.stringify({ referralCode }),
+            });
+            const result = await response.json();
+            console.log("[AuthCallback] Referral record result:", result);
+            // Clear referral code after processing
+            clearReferralCode();
+          } catch (e) {
+            console.error("[AuthCallback] Failed to record referral:", e);
+          }
+        } else {
+          console.log("[AuthCallback] No referral code found in storage");
+        }
 
         // Smart redirect: if localStorage has saved data, go to workspace
         const savedBrief = localStorage.getItem("writingBrief");

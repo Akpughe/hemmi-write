@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { paystackService } from '@/lib/services/paystackService';
 import { subscriptionService } from '@/lib/services/subscriptionService';
+import { referralService } from '@/lib/services/referralService';
 import type { Currency } from '@/lib/services/paymentService';
 
 export async function POST(request: NextRequest) {
@@ -134,6 +135,19 @@ async function handleChargeSuccess(event: {
           '[Paystack Webhook] Subscription created for user:',
           metadata.userId
         );
+
+        // Record referral conversion (first payment)
+        try {
+          const converted = await referralService.recordReferralConversion(
+            metadata.userId,
+            data.currency as 'USD' | 'NGN'
+          );
+          if (converted) {
+            console.log('[Paystack Webhook] Referral conversion recorded for user:', metadata.userId);
+          }
+        } catch (refError) {
+          console.error('[Paystack Webhook] Referral conversion error:', refError);
+        }
       } catch (subError: unknown) {
         // Handle duplicate key constraint error (race condition with multiple webhook calls)
         const error = subError as { code?: string; message?: string };
