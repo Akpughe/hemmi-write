@@ -252,7 +252,7 @@ export function ReferralSettings() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h2 className="font-public-sans text-2xl font-semibold text-foreground">Referrals</h2>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -263,7 +263,7 @@ export function ReferralSettings() {
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl"
+          className="rounded-xl w-full sm:w-auto"
           onClick={fetchAll}
           disabled={loading}
         >
@@ -294,9 +294,9 @@ export function ReferralSettings() {
       )}
 
       {/* Invite Link Card */}
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+          <div className="flex size-10 items-center justify-center rounded-2xl bg-muted shrink-0">
             <Gift className="size-5" />
           </div>
           <div className="flex-1">
@@ -307,14 +307,14 @@ export function ReferralSettings() {
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1 rounded-xl border border-border bg-background px-4 py-3">
             <code className="text-sm text-foreground break-all">{inviteLink}</code>
           </div>
           <Button
             type="button"
             variant="outline"
-            className="rounded-xl shrink-0"
+            className="rounded-xl shrink-0 w-full sm:w-auto"
             onClick={copyToClipboard}
           >
             {copied ? (
@@ -355,7 +355,7 @@ export function ReferralSettings() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Users className="size-4" />
@@ -449,9 +449,9 @@ export function ReferralSettings() {
       )}
 
       {/* Referrals Table */}
-      <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+      <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-sm">
         <div className="flex items-start gap-3 mb-6">
-          <div className="flex size-10 items-center justify-center rounded-2xl bg-muted">
+          <div className="flex size-10 items-center justify-center rounded-2xl bg-muted shrink-0">
             <Users className="size-5" />
           </div>
           <div>
@@ -470,32 +470,65 @@ export function ReferralSettings() {
             </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-border bg-background">
-            <div className="grid grid-cols-12 gap-3 border-b border-border bg-muted/30 px-4 py-3 text-xs font-medium text-muted-foreground">
-              <div className="col-span-5">User</div>
-              <div className="col-span-3">Signed up</div>
-              <div className="col-span-2">Status</div>
-              <div className="col-span-2 text-right">Points</div>
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-hidden rounded-2xl border border-border bg-background">
+              <div className="grid grid-cols-12 gap-3 border-b border-border bg-muted/30 px-4 py-3 text-xs font-medium text-muted-foreground">
+                <div className="col-span-5">User</div>
+                <div className="col-span-3">Signed up</div>
+                <div className="col-span-2">Status</div>
+                <div className="col-span-2 text-right">Points</div>
+              </div>
+
+              {referrals.map((ref) => (
+                <div
+                  key={ref.id}
+                  className="grid grid-cols-12 gap-3 px-4 py-3 text-sm text-foreground border-b border-border last:border-b-0"
+                >
+                  <div className="col-span-5 truncate">{maskEmail(ref.referredEmail)}</div>
+                  <div className="col-span-3 text-muted-foreground">
+                    {formatDateTime(ref.signedUpAt)}
+                  </div>
+                  <div className="col-span-2">{statusPill(ref.status)}</div>
+                  <div className="col-span-2 text-right font-medium">
+                    {ref.status === "converted"
+                      ? `+${(config?.signupPoints || 10) + (config?.conversionPointsUsd || 50)}`
+                      : `+${config?.signupPoints || 10}`}
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {referrals.map((ref) => (
-              <div
-                key={ref.id}
-                className="grid grid-cols-12 gap-3 px-4 py-3 text-sm text-foreground border-b border-border last:border-b-0"
-              >
-                <div className="col-span-5 truncate">{maskEmail(ref.referredEmail)}</div>
-                <div className="col-span-3 text-muted-foreground">
-                  {formatDateTime(ref.signedUpAt)}
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {referrals.map((ref) => (
+                <div
+                  key={ref.id}
+                  className="rounded-xl border border-border bg-background p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm text-foreground truncate">
+                        {maskEmail(ref.referredEmail)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatDateTime(ref.signedUpAt)}
+                      </p>
+                    </div>
+                    {statusPill(ref.status)}
+                  </div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Points earned</span>
+                    <span className="font-medium text-foreground">
+                      {ref.status === "converted"
+                        ? `+${(config?.signupPoints || 10) + (config?.conversionPointsUsd || 50)}`
+                        : `+${config?.signupPoints || 10}`}
+                    </span>
+                  </div>
                 </div>
-                <div className="col-span-2">{statusPill(ref.status)}</div>
-                <div className="col-span-2 text-right font-medium">
-                  {ref.status === "converted"
-                    ? `+${(config?.signupPoints || 10) + (config?.conversionPointsUsd || 50)}`
-                    : `+${config?.signupPoints || 10}`}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
