@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { X, User, Sparkles, Palette, CreditCard } from "lucide-react";
+import { X, User, Sparkles, Palette, CreditCard, Gift } from "lucide-react";
 import { useState } from "react";
 import { AccountSettings } from "@/app/settings/components/account-settings";
 import { WritingPreferences } from "@/app/settings/components/writing-preferences";
 import { AppearanceSettings } from "@/app/settings/components/appearance-settings";
 import { BillingSettings } from "@/app/settings/components/billing-settings";
+import { ReferralSettings } from "@/app/settings/components/referral-settings";
 import { cn } from "@/lib/utils";
 import { useProfile } from "@/app/settings/hooks/use-profile";
 
-type SettingTab = "account" | "writing" | "appearance" | "billing";
+type SettingTab = "account" | "writing" | "appearance" | "billing" | "referrals";
 
 const tabs: { id: SettingTab; label: string; icon: React.ReactNode; description: string }[] = [
   {
@@ -24,6 +25,12 @@ const tabs: { id: SettingTab; label: string; icon: React.ReactNode; description:
     label: "Billing & usage",
     icon: <CreditCard className="size-5" />,
     description: "Plan, payments & tokens",
+  },
+  {
+    id: "referrals",
+    label: "Referrals",
+    icon: <Gift className="size-5" />,
+    description: "Invite friends & earn",
   },
   {
     id: "writing",
@@ -60,9 +67,9 @@ export default function SettingsPage() {
     <main className="relative min-h-screen bg-background">
       {/* Header */}
       <div className="border-b border-border">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex flex-col gap-1">
-            <h1 className="font-public-sans text-3xl font-semibold tracking-tight text-foreground">
+            <h1 className="font-public-sans text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
               Settings
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -78,10 +85,33 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Mobile Tab Navigation */}
+      <div className="border-b border-border md:hidden">
+        <div className="mx-auto w-full max-w-6xl px-4">
+          <nav className="flex gap-1 overflow-x-auto py-2 scrollbar-hide">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all",
+                  "flex items-center gap-2",
+                  activeTab === tab.id
+                    ? "bg-card text-foreground shadow-sm border border-border"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}>
+                <span className="shrink-0">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="mx-auto flex w-full max-w-6xl gap-8 px-6 py-8">
-        {/* Sidebar Navigation */}
-        <aside className="w-56 shrink-0">
+      <div className="mx-auto flex w-full max-w-6xl gap-8 px-4 py-6 sm:px-6 sm:py-8">
+        {/* Sidebar Navigation - Hidden on mobile */}
+        <aside className="hidden md:block w-56 shrink-0">
           <nav className="space-y-2">
             {tabs.map((tab) => (
               <button
@@ -108,6 +138,7 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           {activeTab === "account" && <AccountSettings profile={profile} />}
           {activeTab === "billing" && <BillingSettings />}
+          {activeTab === "referrals" && <ReferralSettings />}
           {activeTab === "writing" && <WritingPreferences preferences={profile?.preferences} />}
           {activeTab === "appearance" && <AppearanceSettings preferences={profile?.preferences} />}
         </div>

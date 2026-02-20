@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripeService } from '@/lib/services/stripeService';
 import { subscriptionService } from '@/lib/services/subscriptionService';
+import { referralService } from '@/lib/services/referralService';
 import type { Currency } from '@/lib/services/paymentService';
 
 export async function POST(request: NextRequest) {
@@ -129,6 +130,16 @@ async function handleCheckoutSessionCompleted(event: { data: { object: Record<st
         });
 
         console.log('[Stripe Webhook] Subscription created for user:', userId);
+
+        // Record referral conversion (first payment)
+        try {
+          const converted = await referralService.recordReferralConversion(userId, 'USD');
+          if (converted) {
+            console.log('[Stripe Webhook] Referral conversion recorded for user:', userId);
+          }
+        } catch (refError) {
+          console.error('[Stripe Webhook] Referral conversion error:', refError);
+        }
       } catch (subError: unknown) {
         // Handle duplicate key constraint error (race condition with multiple webhook calls)
         const error = subError as { code?: string; message?: string };

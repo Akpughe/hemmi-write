@@ -8,6 +8,7 @@ import SupabaseProvider from "@/lib/context/SupabaseContext";
 import { ReactQueryProvider } from "@/lib/providers/react-query-provider";
 import { Toaster } from "sonner";
 import { MobileNotice } from "@/app/components/mobile-notice";
+import { ReferralTracker } from "@/app/components/referral-tracker";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -146,6 +147,7 @@ export default function RootLayout({
         </ReactQueryProvider>
         <Toaster />
         <MobileNotice />
+        <ReferralTracker />
       </body>
     </html>
   );
