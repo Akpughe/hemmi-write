@@ -1,9 +1,3 @@
-import metascraper from "metascraper";
-import metascraperReadability from "metascraper-readability";
-import metascraperTitle from "metascraper-title";
-import metascraperDescription from "metascraper-description";
-import metascraperAuthor from "metascraper-author";
-import metascraperDate from "metascraper-date";
 import TurndownService from "turndown";
 import axios from "axios";
 import { JSDOM } from "jsdom";
@@ -40,14 +34,37 @@ export interface ExtractionOptions {
   timeout?: number; // Default: 8000ms
 }
 
-// Initialize metascraper with rules
-const scraper = metascraper([
-  metascraperReadability(),
-  metascraperTitle(),
-  metascraperDescription(),
-  metascraperAuthor(),
-  metascraperDate(),
-]);
+// Lazily initialize metascraper to avoid CJS/ESM issues at build time
+// (metascraper-readability -> happy-dom is ESM-only and can't be required at module eval)
+let _scraper: ((opts: { html: string; url: string }) => Promise<Record<string, string>>) | null = null;
+
+async function getScraper() {
+  if (!_scraper) {
+    const [
+      { default: metascraper },
+      { default: metascraperReadability },
+      { default: metascraperTitle },
+      { default: metascraperDescription },
+      { default: metascraperAuthor },
+      { default: metascraperDate },
+    ] = await Promise.all([
+      import("metascraper"),
+      import("metascraper-readability"),
+      import("metascraper-title"),
+      import("metascraper-description"),
+      import("metascraper-author"),
+      import("metascraper-date"),
+    ]);
+    _scraper = metascraper([
+      metascraperReadability(),
+      metascraperTitle(),
+      metascraperDescription(),
+      metascraperAuthor(),
+      metascraperDate(),
+    ]);
+  }
+  return _scraper;
+}
 
 // Initialize Mistral client for author extraction fallback
 const mistralApiKey = process.env.MISTRAL_API_KEY;
@@ -598,6 +615,7 @@ export async function extractArticleContent(
     }
 
     // 2. Extract metadata and content using Metascraper
+    const scraper = await getScraper();
     const metadata = (await scraper({
       html: response.data,
       url,
