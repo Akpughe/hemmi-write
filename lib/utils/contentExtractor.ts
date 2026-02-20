@@ -1,6 +1,5 @@
 import TurndownService from "turndown";
 import axios from "axios";
-import { JSDOM } from "jsdom";
 import { ocrDocumentUrl, isPdfUrl } from "@/lib/services/mistralOcrService";
 import { Mistral } from "@mistralai/mistralai";
 
@@ -32,6 +31,13 @@ export interface ExtractionResult {
 export interface ExtractionOptions {
   maxWords?: number; // Default: 500
   timeout?: number; // Default: 8000ms
+}
+
+// Lazily load JSDOM to avoid CJS/ESM issues at build time
+// (jsdom@27 -> html-encoding-sniffer -> @exodus/bytes is ESM-only and can't be required at module eval)
+async function getJSDOM(html: string, options?: { url?: string }): Promise<InstanceType<typeof import("jsdom").JSDOM>> {
+  const { JSDOM } = await import("jsdom");
+  return new JSDOM(html, options);
 }
 
 // Lazily initialize metascraper to avoid CJS/ESM issues at build time
@@ -185,7 +191,7 @@ async function extractAcademicMetadataFromHtml(
 
   try {
     // Extract visible text from HTML (first 3000 chars)
-    const dom = new JSDOM(html, { url });
+    const dom = await getJSDOM(html, { url });
     const document = dom.window.document;
 
     // Remove non-content elements
@@ -317,8 +323,8 @@ Return JSON format:
 }
 
 // Fallback content extraction when readability fails
-function extractContentFallback(html: string, url: string): string | null {
-  const dom = new JSDOM(html, { url });
+async function extractContentFallback(html: string, url: string): Promise<string | null> {
+  const dom = await getJSDOM(html, { url });
   const document = dom.window.document;
 
   // Try common article content selectors
@@ -360,11 +366,11 @@ function extractContentFallback(html: string, url: string): string | null {
 }
 
 // Extract readable content, using fallback if needed
-function extractReadableContent(
+async function extractReadableContent(
   readabilityHtml: string | undefined,
   rawHtml: string,
   url: string
-): string | null {
+): Promise<string | null> {
   if (readabilityHtml && readabilityHtml.trim().length >= 100) {
     return readabilityHtml;
   }
@@ -372,7 +378,7 @@ function extractReadableContent(
   console.log(
     `[Content Extract] Readability returned empty/insufficient content for ${url}, trying fallback extraction`
   );
-  const fallbackHtml = extractContentFallback(rawHtml, url);
+  const fallbackHtml = await extractContentFallback(rawHtml, url);
   return fallbackHtml && fallbackHtml.trim().length >= 100
     ? fallbackHtml
     : null;
@@ -627,7 +633,7 @@ export async function extractArticleContent(
     };
 
     // 3. Extract readable content with fallback
-    const readableHtml = extractReadableContent(
+    const readableHtml = await extractReadableContent(
       metadata.readability,
       response.data,
       url

@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "re2"]
+nixPkgs = ["nodejs_22", "re2"]
 
 [phases.install]
 cmds = ["npm ci"]
