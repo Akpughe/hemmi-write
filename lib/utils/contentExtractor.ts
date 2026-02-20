@@ -36,7 +36,7 @@ export interface ExtractionOptions {
 
 // Lazily initialize metascraper to avoid CJS/ESM issues at build time
 // (metascraper-readability -> happy-dom is ESM-only and can't be required at module eval)
-let _scraper: ((opts: { html: string; url: string }) => Promise<Record<string, string>>) | null = null;
+let _scraper: ((opts: { html: string; url: string }) => Promise<Record<string, string | undefined>>) | null = null;
 
 async function getScraper() {
   if (!_scraper) {
