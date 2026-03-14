@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { createGroq } from "@ai-sdk/groq";
+import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import {
   DOCUMENT_TYPE_CONFIGS,
@@ -17,10 +18,18 @@ import {
 } from "@/lib/supabase/server";
 import { getMinimalHumanizationHint } from "@/lib/utils/humanizationPrompt";
 import { checkTokenBalance, deductTokens, estimateStructureTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
+import { tokenService } from "@/lib/services/tokenService";
+import { AIService } from "@/lib/services/aiService";
+import { AIProvider } from "@/lib/config/aiModels";
 
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-});
+const getStructureModel = (planType: string) => {
+  if (planType === 'free') {
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+    return openai('gpt-5-mini');
+  }
+  const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+  return groq('openai/gpt-oss-120b');
+};
 
 function generateStructurePrompt(
   documentType: string,
@@ -30,7 +39,8 @@ function generateStructurePrompt(
   sourcesText: string,
   academicLevel?: AcademicLevel,
   writingStyle?: WritingStyle,
-  userFeedback?: string
+  userFeedback?: string,
+  sourceAnalysis?: any
 ): string {
   const config =
     DOCUMENT_TYPE_CONFIGS[documentType as keyof typeof DOCUMENT_TYPE_CONFIGS];
@@ -161,6 +171,21 @@ CHAPTER STRUCTURE FOR RESEARCH PAPERS:`;
     }
   }
 
+  if (sourceAnalysis) {
+    basePrompt += `
+
+RESEARCH INTELLIGENCE (from source analysis):
+Central argument suggestion: ${sourceAnalysis.suggestedCentralArgument}
+Thematic clusters:
+${sourceAnalysis.thematicClusters?.map((c: any) => `- "${c.label}": ${c.consensusView} (tensions: ${c.tensions})`).join('\n') || 'None identified'}
+Research gaps: ${sourceAnalysis.researchGaps?.join(', ') || 'None identified'}
+
+PLANNING TASK:
+1. First, articulate the CENTRAL ARGUMENT this paper will advance based on the research intelligence above
+2. Design a structure where each chapter advances this argument
+3. For each chapter, specify its argumentative role and which thematic clusters it draws on`;
+  }
+
   basePrompt += `
 
 AVAILABLE SOURCES:
@@ -272,6 +297,9 @@ export async function POST(req: NextRequest) {
     // AUTHENTICATE USER
     const user = await requireAuth();
 
+    const balance = await tokenService.getUserTokenBalance(user.id);
+    const planType = balance.subscription?.planType || 'free';
+
     const {
       documentType,
       topic,
@@ -283,6 +311,24 @@ export async function POST(req: NextRequest) {
       chapters,
       projectId,
     } = await req.json();
+
+    // Fetch source analysis if available
+    let sourceAnalysisData = null;
+    if (projectId) {
+      try {
+        const supabaseForAnalysis = await createServerSupabaseClient();
+        const { data } = await supabaseForAnalysis
+          .from('source_analysis')
+          .select('analysis')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (data) sourceAnalysisData = data.analysis;
+      } catch (e) {
+        // Source analysis is optional
+      }
+    }
 
     // Get config for the document type
     const config =
@@ -339,6 +385,18 @@ export async function POST(req: NextRequest) {
       ${chapters ? `- Number of Chapters: ${chapters}` : ""}
       ${instructions ? `- User Instructions: ${instructions}` : ""}
       
+      ${sourceAnalysisData ? `
+      RESEARCH INTELLIGENCE (from source analysis):
+      Central argument suggestion: ${sourceAnalysisData.suggestedCentralArgument}
+      Thematic clusters:
+      ${sourceAnalysisData.thematicClusters?.map((c: any) => `- "${c.label}": ${c.consensusView} (tensions: ${c.tensions})`).join('\n      ') || 'None identified'}
+      Research gaps: ${sourceAnalysisData.researchGaps?.join(', ') || 'None identified'}
+
+      PLANNING TASK:
+      1. First, articulate the CENTRAL ARGUMENT this paper will advance based on the research intelligence above
+      2. Design a structure where each chapter advances this argument
+      3. For each chapter, specify its argumentative role and which thematic clusters it draws on
+      ` : ''}
       SOURCES:
       ${
         sources && sources.length > 0
@@ -392,7 +450,7 @@ export async function POST(req: NextRequest) {
     `;
 
     const result = await generateObject({
-      model: groq("openai/gpt-oss-120b"),
+      model: getStructureModel(planType),
       schema: z.object({
         title: z.string(),
         approach: z.string(),
@@ -621,6 +679,24 @@ export async function POST(req: NextRequest) {
             console.log(
               `Saved structure to database with ID: ${insertedStructure.id}`
             );
+
+            // Trigger source-to-section mapping if source analysis is available
+            if (sourceAnalysisData) {
+              try {
+                const { sourceAnalysisService } = await import('@/lib/services/sourceAnalysisService');
+                await sourceAnalysisService.mapSourcesToSections({
+                  analysis: sourceAnalysisData,
+                  sections: result.object.sections,
+                  topic,
+                  projectId,
+                  documentType,
+                  provider: AIService.getEffectiveProvider(AIProvider.OPENAI, planType),
+                });
+                console.log('[Structure] Source-to-section mapping completed');
+              } catch (mappingError) {
+                console.error('[Structure] Source mapping failed (non-fatal):', mappingError);
+              }
+            }
           }
         }
       } catch (dbError) {
