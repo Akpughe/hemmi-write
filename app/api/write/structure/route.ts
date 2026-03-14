@@ -689,6 +689,7 @@ export async function POST(req: NextRequest) {
                   sections: result.object.sections,
                   topic,
                   projectId,
+                  structureId: insertedStructure.id,
                   documentType,
                   provider: AIService.getEffectiveProvider(AIProvider.OPENAI, planType),
                 });

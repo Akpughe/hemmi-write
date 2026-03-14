@@ -109,9 +109,9 @@ export async function POST(request: NextRequest) {
         searchTopic = decomposed.subQueries[0];
         console.log(`[Research] Decomposed into ${decomposed.subQueries.length} sub-queries`);
         console.log(`[Research] Primary: ${searchTopic}`);
+        // Only charge when decomposition actually produced multiple sub-queries
+        await deductTokens(user.id, 2000, 'query_decomposition', { projectId, topic });
       }
-
-      await deductTokens(user.id, 2000, 'query_decomposition', { projectId, topic });
     } catch (decompError) {
       console.error('[Research] Query decomposition failed (non-fatal):', decompError);
     }

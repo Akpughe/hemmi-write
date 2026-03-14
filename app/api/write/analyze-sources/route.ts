@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/supabase/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { sourceAnalysisService } from '@/lib/services/sourceAnalysisService';
-import { AIProvider } from '@/lib/services/aiService';
+import { AIProvider, AIService } from '@/lib/services/aiService';
 import {
   checkTokenBalance,
   deductTokens,
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // 4. Determine AI provider based on plan type
     const balance = await tokenService.getUserTokenBalance(user.id);
     const planType = balance.subscription?.planType || 'free';
-    const provider = planType === 'free' ? AIProvider.OPENAI : AIProvider.OPENAI;
+    const provider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
 
     // 5. Run source analysis
     const analysis = await sourceAnalysisService.analyzeSources({

@@ -94,13 +94,20 @@ ${sourceSummaries}`;
     try {
       const supabase = createServiceRoleSupabaseClient();
 
+      // Delete existing analysis for this project, then insert fresh
       await (supabase as any)
         .from('source_analysis')
-        .upsert({
+        .delete()
+        .eq('project_id', projectId);
+
+      await (supabase as any)
+        .from('source_analysis')
+        .insert({
           project_id: projectId,
-          analysis_data: analysis as any,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'project_id' });
+          analysis: analysis as any,
+          model_used: provider,
+          tokens_used: Math.ceil(response.length * 1.33),
+        });
     } catch (dbError) {
       console.error('[SourceAnalysisService] Failed to save source analysis to DB:', dbError);
     }
@@ -113,6 +120,7 @@ ${sourceSummaries}`;
    */
   async mapSourcesToSections(params: {
     projectId: string;
+    structureId: string;
     analysis: SourceAnalysis;
     sections: DocumentSection[];
     topic: string;
@@ -158,13 +166,19 @@ Return a JSON array of section mappings:
     try {
       const supabase = createServiceRoleSupabaseClient();
 
+      // Delete existing mappings for this project, then insert fresh
       await (supabase as any)
         .from('section_source_mappings')
-        .upsert({
+        .delete()
+        .eq('project_id', projectId);
+
+      await (supabase as any)
+        .from('section_source_mappings')
+        .insert({
           project_id: projectId,
-          mappings_data: mappings as any,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'project_id' });
+          structure_id: params.structureId,
+          mappings: mappings as any,
+        });
     } catch (dbError) {
       console.error('[SourceAnalysisService] Failed to save section mappings to DB:', dbError);
     }

@@ -126,8 +126,8 @@ Output ONLY the HTML content for the abstract. Begin:`;
 
   // Build sources section: use pre-analyzed sources when available, fall back to raw sourcesText
   let sourcesSection = "";
-  if (sectionMapping?.relevantSourceIds && sourceAnalysis?.analyzedSources) {
-    const analyzedSources = sourceAnalysis.analyzedSources as any[];
+  if (sectionMapping?.relevantSourceIds && sourceAnalysis?.sources) {
+    const analyzedSources = sourceAnalysis.sources as any[];
     const relevantSources = analyzedSources.filter((s: any) =>
       sectionMapping.relevantSourceIds.includes(s.sourceId)
     );
@@ -710,7 +710,7 @@ Include relevant data, statistics, examples, and authoritative information with 
               }
 
               // Post-generation argument summary extraction
-              if (projectId && !isAbstract && contentBuffer.length > 100) {
+              if (projectId && !isAbstract && contentBuffer.length > 100 && (chapter as any).id) {
                 try {
                   const summaryProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
                   const summaryResponse = await aiService.getChatCompletion(
@@ -737,14 +737,16 @@ Return JSON: { "thesisAdvanced": "...", "keyEvidence": ["...", "..."], "connecti
                   const dbSupabase = await createServiceRoleSupabaseClient();
                   await (dbSupabase as any).from('chapter_argument_summaries').insert({
                     project_id: projectId,
-                    section_id: (chapter as any).id || crypto.randomUUID(),
+                    section_id: (chapter as any).id,
                     chapter_heading: chapter.heading,
                     thesis_advanced: summary.thesisAdvanced,
                     key_evidence: summary.keyEvidence,
                     connection_to_next: summary.connectionToNext || '',
                   });
 
-                  await deductTokens(user.id, 1500, 'argument_summary', { projectId, chapterName: chapter.heading });
+                  // Estimate actual tokens: input (chapter excerpt ~8k chars ≈ 2k tokens) + output (~200 tokens)
+                  const summaryTokensUsed = Math.ceil(summaryResponse.length * 1.33) + 500;
+                  await deductTokens(user.id, summaryTokensUsed, 'argument_summary', { projectId, chapterName: chapter.heading });
                   console.log(`[Generate Chapter ${chapterIndex + 1}] Argument summary saved`);
                 } catch (summaryError) {
                   console.error(`[Generate Chapter ${chapterIndex + 1}] Argument summary failed (non-fatal):`, summaryError);
