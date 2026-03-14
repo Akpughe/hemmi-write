@@ -10,18 +10,13 @@ import {
   WRITING_STYLE_CONFIGS,
 } from "@/lib/types/document";
 import { formatSourcesForPrompt } from "@/lib/utils/documentStructure";
-import {
-  buildChapterHumanizationContext,
-  getMinimalHumanizationHint,
-  buildEmDashWarning,
-  buildChatGPTFingerprintWarning,
-} from "@/lib/utils/humanizationPrompt";
-import { aiService } from "@/lib/services/aiService";
+import { aiService, AIService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { perplexityService } from "@/lib/services/perplexityService";
 import { savePerplexityCitations } from "@/lib/utils/perplexityCitationSaver";
-import { requireAuth } from "@/lib/supabase/server";
+import { requireAuth, createServiceRoleSupabaseClient } from "@/lib/supabase/server";
 import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
+import { tokenService } from "@/lib/services/tokenService";
 
 /**
  * Clean em-dashes from text to avoid AI detection fingerprints
@@ -68,22 +63,21 @@ function generateChapterPrompt(
   documentTitle: string,
   documentApproach: string,
   documentTone: string,
-  perplexityContent?: string
+  perplexityContent?: string,
+  argumentSummaries?: any[],
+  sectionMapping?: any,
+  sourceAnalysis?: any
 ): string {
   const config = DOCUMENT_TYPE_CONFIGS[documentType];
   const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
   const styleConfig = WRITING_STYLE_CONFIGS[writingStyle];
 
   const isAbstract = chapter.heading.toLowerCase().includes("abstract");
-  // Calculate proper chapter number, accounting for abstract at index 0
-  // If this is the abstract, don't assign a number
-  // If abstract exists (index 0), then Chapter 1 is at index 1, so use chapterIndex directly
-  // Otherwise, use chapterIndex + 1
   const chapterNumber = isAbstract ? 0 : chapterIndex;
   const targetWordCount = chapter.estimatedWordCount || 5000;
 
-  let prompt = isAbstract
-    ? `You are writing the Abstract for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
+  if (isAbstract) {
+    let prompt = `You are writing the Abstract for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
 
 DOCUMENT CONTEXT:
 Title: "${documentTitle}"
@@ -112,10 +106,102 @@ STRUCTURE (single paragraph format):
 2-3 sentences: Key findings and results
 1-2 sentences: Conclusions and implications
 
-Write the abstract as a SINGLE cohesive paragraph with proper flow between elements.`
-    : `You are writing Chapter ${chapterNumber} of ${
-        totalChapters - 1
-      } for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
+Write the abstract as a SINGLE cohesive paragraph with proper flow between elements.
+
+FORMATTING REQUIREMENTS:
+- Output in clean HTML format (NOT markdown)
+- Start with heading: <h1>Abstract</h1>
+- Write the abstract as a SINGLE <p> tag containing ONE cohesive paragraph
+- Do NOT use subsection headings
+- Do NOT include citations in the abstract
+- Do NOT use markdown syntax (no #, *, **, etc.)
+- Use <strong>text</strong> for emphasis if needed
+
+IMPORTANT: Write the abstract NOW. Do not ask questions or provide options.
+Output ONLY the HTML content for the abstract. Begin:`;
+    return prompt;
+  }
+
+  // === NON-ABSTRACT CHAPTER PROMPT ===
+
+  // Build sources section: use pre-analyzed sources when available, fall back to raw sourcesText
+  let sourcesSection = "";
+  if (sectionMapping?.relevantSourceIds && sourceAnalysis?.analyzedSources) {
+    const analyzedSources = sourceAnalysis.analyzedSources as any[];
+    const relevantSources = analyzedSources.filter((s: any) =>
+      sectionMapping.relevantSourceIds.includes(s.sourceId)
+    );
+    if (relevantSources.length > 0) {
+      sourcesSection = relevantSources
+        .map(
+          (s: any) =>
+            `[${s.author || "Unknown"}] "${s.title}"\n  Key findings: ${
+              s.keyFindings?.join("; ") || s.excerpt || "N/A"
+            }\n  Relevance: ${s.relevanceToSection || "general"}`
+        )
+        .join("\n\n");
+    } else {
+      sourcesSection = sourcesText;
+    }
+  } else {
+    sourcesSection = sourcesText;
+  }
+
+  // Build argument thread
+  const argumentThread = `
+ARGUMENT THREAD:
+- Paper's central argument: ${sourceAnalysis?.suggestedCentralArgument || documentApproach}
+- Previous chapters established: ${
+    argumentSummaries && argumentSummaries.length > 0
+      ? argumentSummaries
+          .map(
+            (s: any) =>
+              `${s.chapter_heading}: ${s.thesis_advanced}`
+          )
+          .join("\n  ")
+      : "This is the first chapter."
+  }
+- THIS chapter's thesis: ${
+    sectionMapping?.sectionThesis ||
+    `Advance the argument through ${chapter.heading}`
+  }
+- This chapter's argumentative role: ${
+    sectionMapping?.argumentRole || "builds_evidence"
+  }
+- Next chapter will address: ${
+    chapterIndex < totalChapters - 2
+      ? "subsequent developments"
+      : "synthesis and conclusions"
+  }`;
+
+  // Build previous chapters context
+  let previousContext = "";
+  if (argumentSummaries && argumentSummaries.length > 0) {
+    previousContext = `\nPREVIOUS CHAPTERS (argument continuity):
+${argumentSummaries
+  .map(
+    (s: any) =>
+      `- ${s.chapter_heading}: ${s.thesis_advanced} (Evidence: ${
+        Array.isArray(s.key_evidence)
+          ? s.key_evidence.join("; ")
+          : s.key_evidence || "N/A"
+      })`
+  )
+  .join("\n")}
+
+Build upon these established points. Do not repeat what was already covered.
+`;
+  } else if (previousChaptersText && previousChaptersText.trim()) {
+    previousContext = `\nPREVIOUS CHAPTERS CONTEXT (for continuity and avoiding repetition):
+${previousChaptersText}
+
+IMPORTANT: Reference and build upon concepts from previous chapters where appropriate. Avoid repeating information already covered.
+`;
+  }
+
+  let prompt = `You are writing Chapter ${chapterNumber} of ${
+    totalChapters - 1
+  } for a ${levelConfig.label.toLowerCase()} ${config.label.toLowerCase()}.
 
 DOCUMENT CONTEXT:
 Title: "${documentTitle}"
@@ -123,6 +209,7 @@ Topic: "${topic}"
 Overall Approach: ${documentApproach}
 Writing Tone: ${documentTone}
 ${instructions ? `Additional Instructions: ${instructions}` : ""}
+${argumentThread}
 
 ACADEMIC LEVEL: ${levelConfig.label}
 - Citations per subsection: ${levelConfig.citationsPerSection}
@@ -140,15 +227,15 @@ Chapter Description: ${chapter.description}
 
 SUBSECTIONS TO COVER:
 ${(chapter.keyPoints ?? [])
-  .map((point, idx) =>
-    isAbstract ? point : `${chapterNumber}.${idx + 1}. ${point}`
-  )
+  .map((point: string, idx: number) => `${chapterNumber}.${idx + 1}. ${point}`)
   .join("\n")}
 
-TARGET WORD COUNT: ${targetWordCount} words
+TARGET WORD COUNT: ${targetWordCount} words (range: ${Math.floor(
+    targetWordCount * 0.95
+  )}-${Math.ceil(targetWordCount * 1.15)} words)
 
 AVAILABLE SOURCES:
-${sourcesText}
+${sourcesSection}
 
 ${
   perplexityContent
@@ -158,35 +245,15 @@ ${perplexityContent}
 Use the information above to enrich your content. The citations [1], [2], etc. in the factual information refer to authoritative sources - integrate this information naturally into your writing.`
     : ""
 }
+${previousContext}
+SYNTHESIS INSTRUCTIONS (CRITICAL):
+- Organize by THEMES that cut across sources, not source-by-source
+- Each paragraph must draw from at least 2 sources
+- Introduce sources with signal phrases: "According to Smith's (2023) longitudinal study..." NOT "(Smith, 2023)"
+- After presenting evidence, ANALYZE it: What does this mean? Why does it matter for your thesis?
+- Address contradictions between sources — do not ignore disagreements
+- Connect each major point back to the chapter thesis
 
-`;
-
-  // Add context from previous chapters if available
-  if (previousChaptersText && previousChaptersText.trim()) {
-    prompt += `\nPREVIOUS CHAPTERS CONTEXT (for continuity and avoiding repetition):
-${previousChaptersText}
-
-IMPORTANT: Reference and build upon concepts from previous chapters where appropriate. Avoid repeating information already covered.
-`;
-  }
-
-  // Abstract has simple requirements, chapters have full requirements
-  if (isAbstract) {
-    prompt += `
-
-FORMATTING REQUIREMENTS:
-- Output in clean HTML format (NOT markdown)
-- Start with heading: <h1>Abstract</h1>
-- Write the abstract as a SINGLE <p> tag containing ONE cohesive paragraph
-- Do NOT use subsection headings
-- Do NOT include citations in the abstract
-- Do NOT use markdown syntax (no #, *, **, etc.)
-- Use <strong>text</strong> for emphasis if needed
-
-IMPORTANT: Write the abstract NOW. Do not ask questions or provide options.
-Output ONLY the HTML content for the abstract. Begin:`;
-  } else {
-    prompt += `
 WRITING REQUIREMENTS:
 
 1. STRUCTURE:
@@ -199,10 +266,12 @@ WRITING REQUIREMENTS:
        ? Math.floor(targetWordCount / (chapter.keyPoints ?? []).length)
        : targetWordCount
    }-${
-      (chapter.keyPoints ?? []).length > 0
-        ? Math.ceil((targetWordCount / (chapter.keyPoints ?? []).length) * 1.3)
-        : targetWordCount
-    } words)
+    (chapter.keyPoints ?? []).length > 0
+      ? Math.ceil(
+          (targetWordCount / (chapter.keyPoints ?? []).length) * 1.3
+        )
+      : targetWordCount
+  } words)
 
 2. ACADEMIC RIGOR:
    - Cite ${levelConfig.citationsPerSection} sources per major point
@@ -223,66 +292,25 @@ WRITING REQUIREMENTS:
        : "- Synthesize and conclude the entire document"
    }
 
-4. CRITICAL WORD COUNT REQUIREMENT (MANDATORY):
-   === YOU MUST WRITE AT LEAST ${targetWordCount} WORDS ===
-   - MINIMUM: ${targetWordCount} words (this is NON-NEGOTIABLE)
-   - Acceptable range: ${Math.floor(targetWordCount * 0.95)}-${Math.ceil(
-      targetWordCount * 1.15
-    )} words
-   - Required paragraphs: ${Math.max(
-     10,
-     Math.floor(targetWordCount / 100)
-   )}+ paragraphs
-   - Each paragraph: 80-120 words with 4-6 complete sentences
-   
-   IMPORTANT: Do NOT stop early. Write ALL subsections completely.
-   If you feel you are running low on content, expand your analysis with:
-     * More detailed explanations of concepts
-     * Additional examples and case studies
-     * Deeper critical analysis of sources
-     * More thorough exploration of implications
-   
-   Each subsection MUST include:
-     * Clear topic sentences
-     * Evidence from sources with citations
-     * Critical analysis and synthesis
-     * Smooth transitions to next subsection
+4. WORD COUNT: Write at least ${targetWordCount} words. Do NOT stop early. Write ALL subsections completely.
+   Each subsection MUST include: clear topic sentences, evidence with citations, critical analysis, and smooth transitions.
 
-5. FORMATTING & PRESENTATION (CRITICAL - USE HTML NOT MARKDOWN):
+5. FORMATTING (CRITICAL - USE HTML NOT MARKDOWN):
    - Output in clean HTML format (NOT markdown)
    - Main chapter heading: <h1>${chapter.heading}</h1>
    - Subsection headings: <h2>${chapterNumber}.1 Subsection Title</h2>
-   - Use <strong>text</strong> for key terms and important concepts (NOT **text**)
-   - Use <em>text</em> for emphasis and technical terms (NOT *text*)
-   - Wrap each paragraph in <p> tags
-   - Each paragraph should be 4-6 sentences for better flow
-   - Use <ul><li> or <ol><li> for bullet/numbered lists (NOT dashes or asterisks)
+   - Use <strong>text</strong> for key terms (NOT **text**)
+   - Use <em>text</em> for emphasis (NOT *text*)
+   - Wrap each paragraph in <p> tags (4-6 sentences each)
+   - Use <ul><li> or <ol><li> for lists (NOT dashes or asterisks)
    - In-text citations: (Author, Year) or (Author1 & Author2, Year)
-   - Ensure proper HTML structure:
-     * Properly closed tags
-     * No markdown syntax (no #, *, **, --, etc.)
-     * Clean, semantic HTML
-
-6. WRITING STYLE:
-   - Write in clear, professional academic prose
-   - Vary sentence structure for better readability
-   - Use topic sentences to introduce each paragraph
-   - Include transitional phrases between paragraphs
-   - Maintain consistent voice and tense throughout
-   - Avoid overly complex sentences - aim for clarity
+   - Ensure properly closed tags, no markdown syntax
 
 CRITICAL: Write ONLY this chapter (${
-      chapter.heading
-    }). Do not include references section - that will be added at the end of the entire document. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing in HTML format (NOT markdown) for THIS chapter only.
-
-${buildChapterHumanizationContext(academicLevel)}
-
-${buildEmDashWarning(targetWordCount)}
-
-${buildChatGPTFingerprintWarning()}
+    chapter.heading
+  }). Do not include references section. Focus on delivering ${targetWordCount} words of high-quality, well-formatted academic writing in HTML format for THIS chapter only.
 
 Begin writing now in HTML format:`;
-  }
 
   return prompt;
 }
@@ -295,30 +323,23 @@ function getSystemMessage(
 
   if (isAbstract) {
     return `You are an expert academic writer specializing in ${levelConfig.label.toLowerCase()}-level research papers.
-
-Your task is to write a concise, well-structured abstract that:
-- Summarizes the research in a single cohesive paragraph
-- Uses clear, professional academic language
-- Follows standard abstract conventions (background, objectives, methodology, findings, conclusions)
-- Does NOT include citations (abstracts are standalone summaries)
-- Maintains the appropriate academic tone and depth for ${levelConfig.label.toLowerCase()}-level work
-
-Write the abstract directly without preamble or meta-commentary. Just provide the abstract content itself.
-
-${getMinimalHumanizationHint()}`;
+Write a concise, well-structured abstract as a single cohesive paragraph.
+Follow standard abstract conventions (background, objectives, methodology, findings, conclusions).
+Do NOT include citations in the abstract. Write directly without preamble.`;
   }
 
-  return `You are an expert academic writer specializing in ${levelConfig.label.toLowerCase()}-level research papers. Your writing demonstrates:
-
+  return `You are an expert academic writer. Your writing demonstrates:
 - ${levelConfig.analysisStyle}
 - Technical depth: ${levelConfig.technicalDepth}
 - ${levelConfig.citationsPerSection} citations per major point
-- Clear, professional academic prose
-- Logical flow and strong argumentation
+- Natural sentence variation (mix short, medium, long)
+- Active voice (70-80%)
+- Specific data points and examples over vague claims
+- No em-dashes — use commas, parentheses, or colons
+- None of these words: "Furthermore", "Moreover", "delve", "landscape", "tapestry", "multifaceted", "myriad", "plethora"
+- No 3+ AI-flagged phrases per paragraph
 
-Write with authority and precision. Every claim should be supported by evidence from the provided sources.
-
-${getMinimalHumanizationHint()}`;
+Write with authority. Every claim must be supported by evidence.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -344,6 +365,10 @@ export async function POST(request: NextRequest) {
       aiProvider,
       projectId,
     } = body;
+
+    // Get user plan for provider restriction
+    const balance = await tokenService.getUserTokenBalance(user.id);
+    const planType = balance.subscription?.planType || 'free';
 
     // Validation
     if (
@@ -388,11 +413,51 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Generate Chapter ${chapterIndex + 1}] ✅ Token check passed`);
 
-    // Determine AI provider
-    const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
+    // Determine AI provider (restricted by plan)
+    const provider = AIService.getEffectiveProvider(
+      (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER,
+      planType
+    );
 
     // Calculate word budget for chapter sources
     const sourceWordBudget = Math.floor(chapterWordCount * 0.25);
+
+    // Fetch argument summaries, section mapping, and source analysis
+    let argumentSummaries: any[] = [];
+    let sectionMapping: any = null;
+    let sourceAnalysisData: any = null;
+
+    if (projectId) {
+      const supabase = await createServiceRoleSupabaseClient();
+
+      const { data: summaries } = await (supabase as any)
+        .from('chapter_argument_summaries')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: true });
+      if (summaries) argumentSummaries = summaries;
+
+      const { data: mappingData } = await (supabase as any)
+        .from('section_source_mappings')
+        .select('mappings')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (mappingData?.mappings) {
+        const allMappings = Array.isArray(mappingData.mappings) ? mappingData.mappings : [];
+        sectionMapping = allMappings.find((m: any) => m.sectionHeading === chapter.heading);
+      }
+
+      const { data: analysisData } = await (supabase as any)
+        .from('source_analysis')
+        .select('analysis')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (analysisData) sourceAnalysisData = analysisData.analysis;
+    }
 
     // Step 1: Call Perplexity to get factual information about this chapter
     const isAbstract = chapter.heading.toLowerCase().includes("abstract");
@@ -405,10 +470,13 @@ export async function POST(request: NextRequest) {
         }] Fetching factual data from Perplexity for: "${chapter.heading}"`
       );
 
-      const perplexityQuery = `Provide comprehensive factual information about "${
-        chapter.heading
-      }" in the context of ${topic}. Focus on these key points:
-${(chapter.keyPoints ?? []).map((kp, i) => `${i + 1}. ${kp}`).join("\n")}
+      const perplexityQuery = sectionMapping
+        ? `Find recent empirical evidence about "${sectionMapping.sectionThesis}".
+Focus on: ${(chapter.keyPoints ?? []).map((kp: string, i: number) => `${i + 1}. ${kp}`).join('\n')}
+Specifically look for: data, statistics, case studies, and research findings from the last 3 years.
+Do NOT provide general background — focus on specific evidence and data points.`
+        : `Provide comprehensive factual information about "${chapter.heading}" in the context of ${topic}. Focus on these key points:
+${(chapter.keyPoints ?? []).map((kp: string, i: number) => `${i + 1}. ${kp}`).join("\n")}
 
 Include relevant data, statistics, examples, and authoritative information with citations.`;
 
@@ -498,7 +566,10 @@ Include relevant data, statistics, examples, and authoritative information with 
       documentTitle,
       documentApproach,
       documentTone,
-      perplexityContent || undefined
+      perplexityContent || undefined,
+      argumentSummaries,
+      sectionMapping,
+      sourceAnalysisData
     );
 
     const systemMessage = getSystemMessage(academicLevel, isAbstract);
@@ -636,6 +707,65 @@ Include relevant data, statistics, examples, and authoritative information with 
                 console.error(`[Generate Chapter ${chapterIndex + 1}] ⚠️  Failed to deduct tokens (${totalTokensUsed}), but content was generated`);
               } else {
                 console.log(`[Generate Chapter ${chapterIndex + 1}] ✅ Deducted ${totalTokensUsed} tokens`);
+              }
+
+              // Post-generation argument summary extraction
+              if (projectId && !isAbstract && contentBuffer.length > 100) {
+                try {
+                  const summaryProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
+                  const summaryResponse = await aiService.getChatCompletion(
+                    summaryProvider,
+                    [
+                      { role: 'system', content: 'Extract a brief argument summary. Return only valid JSON.' },
+                      { role: 'user', content: `Summarize what this chapter established:
+1. The thesis it advanced (one sentence)
+2. Key evidence presented with author citations (2-3 items)
+3. How it connects to what comes next (one sentence)
+
+Chapter: ${chapter.heading}
+Content: ${contentBuffer.substring(0, 8000)}
+
+Return JSON: { "thesisAdvanced": "...", "keyEvidence": ["...", "..."], "connectionToNext": "..." }` },
+                    ],
+                    0.2,
+                    500
+                  );
+
+                  const summaryJson = summaryResponse.replace(/```json?\n?/g, '').replace(/```\n?/g, '').trim();
+                  const summary = JSON.parse(summaryJson);
+
+                  const dbSupabase = await createServiceRoleSupabaseClient();
+                  await (dbSupabase as any).from('chapter_argument_summaries').insert({
+                    project_id: projectId,
+                    section_id: (chapter as any).id || crypto.randomUUID(),
+                    chapter_heading: chapter.heading,
+                    thesis_advanced: summary.thesisAdvanced,
+                    key_evidence: summary.keyEvidence,
+                    connection_to_next: summary.connectionToNext || '',
+                  });
+
+                  await deductTokens(user.id, 1500, 'argument_summary', { projectId, chapterName: chapter.heading });
+                  console.log(`[Generate Chapter ${chapterIndex + 1}] Argument summary saved`);
+                } catch (summaryError) {
+                  console.error(`[Generate Chapter ${chapterIndex + 1}] Argument summary failed (non-fatal):`, summaryError);
+                }
+              }
+
+              // Quality monitoring
+              if (contentBuffer.length > 100) {
+                const { countEmDashes, checkForBannedPhrases, detectChatGPTFingerprint } = await import('@/lib/config/humanization');
+                const emDashCount = countEmDashes(contentBuffer);
+                const bannedPhrases = checkForBannedPhrases(contentBuffer);
+                const fingerprint = detectChatGPTFingerprint(contentBuffer);
+                const citationCount = (contentBuffer.match(/\([A-Z][a-z]+(?:\s*(?:&|and)\s*[A-Z][a-z]+)*,\s*\d{4}\)/g) || []).length;
+
+                console.log(`[Quality Monitor] Chapter ${chapterIndex + 1}:`,
+                  `Words: ${totalWords}/${targetWordCount},`,
+                  `Em-dashes: ${emDashCount},`,
+                  `Banned phrases: ${bannedPhrases.length},`,
+                  `ChatGPT fingerprint: ${fingerprint.hasFingerprint ? 'YES' : 'no'},`,
+                  `Citations: ${citationCount}`
+                );
               }
 
               const doneMessage = `data: ${JSON.stringify({ done: true })}\n\n`;
