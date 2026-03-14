@@ -317,7 +317,7 @@ export async function POST(req: NextRequest) {
     if (projectId) {
       try {
         const supabaseForAnalysis = await createServerSupabaseClient();
-        const { data } = await supabaseForAnalysis
+        const { data } = await (supabaseForAnalysis as any)
           .from('source_analysis')
           .select('analysis')
           .eq('project_id', projectId)

@@ -94,7 +94,7 @@ ${sourceSummaries}`;
     try {
       const supabase = createServiceRoleSupabaseClient();
 
-      await supabase
+      await (supabase as any)
         .from('source_analysis')
         .upsert({
           project_id: projectId,
@@ -158,7 +158,7 @@ Return a JSON array of section mappings:
     try {
       const supabase = createServiceRoleSupabaseClient();
 
-      await supabase
+      await (supabase as any)
         .from('section_source_mappings')
         .upsert({
           project_id: projectId,

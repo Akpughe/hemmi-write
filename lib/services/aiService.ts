@@ -334,7 +334,7 @@ export class AIService {
       stream_options: { include_usage: true },
     });
 
-    let lastFinishReason: 'stop' | 'length' | 'tool_calls' | 'function_call' | null = null;
+    let lastFinishReason: string | null = null;
     let outputTokens = 0;
 
     for await (const chunk of stream) {
