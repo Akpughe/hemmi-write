@@ -4,6 +4,7 @@ export enum AIProvider {
   GROQ = 'GROQ',
   GEMINI = 'GEMINI',
   ANTHROPIC = 'ANTHROPIC',
+  OPENAI = 'OPENAI',
 }
 
 export interface AIModelConfig {
@@ -43,6 +44,15 @@ export const AI_MODELS: Record<AIProvider, AIModelConfig> = {
     maxTokens: 4000,
     contextWindow: 48000,
     icon: '✦',
+  },
+  [AIProvider.OPENAI]: {
+    provider: AIProvider.OPENAI,
+    model: 'gpt-5-mini',
+    label: 'GPT-5 Mini',
+    description: 'Fast, cost-effective model for research and writing',
+    maxTokens: 16000,
+    contextWindow: 400000,
+    icon: '🔷',
   },
 };
 
