@@ -25,6 +25,10 @@ import {
   estimateResearchTokens,
   MIN_TOKENS,
 } from "@/lib/middleware/tokenMiddleware";
+import { queryDecompositionService } from "@/lib/services/queryDecompositionService";
+import { tokenService } from "@/lib/services/tokenService";
+import { AIService } from "@/lib/services/aiService";
+import { AIProvider } from "@/lib/config/aiModels";
 
 // Extended request type to include projectId
 interface ExtendedResearchRequest extends ResearchRequest {
@@ -83,7 +87,36 @@ export async function POST(request: NextRequest) {
       `[Research] ✅ Token check passed, proceeding with research...`,
     );
 
-    console.log(`Starting parallel search for topic: ${topic}`);
+    // Get user plan for free-tier optimizations
+    const balance = await tokenService.getUserTokenBalance(user.id);
+    const planType = balance.subscription?.planType || 'free';
+    const effectiveProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
+
+    // Free tier: limit sources to 10
+    const effectiveNumSources = planType === 'free' ? Math.min(numSources, 10) : numSources;
+
+    // Decompose research topic into targeted sub-queries
+    let searchTopic = topic;
+    try {
+      const decomposed = await queryDecompositionService.decompose({
+        topic,
+        documentType,
+        instructions,
+        provider: effectiveProvider,
+      });
+
+      if (decomposed.subQueries.length > 1) {
+        searchTopic = decomposed.subQueries[0];
+        console.log(`[Research] Decomposed into ${decomposed.subQueries.length} sub-queries`);
+        console.log(`[Research] Primary: ${searchTopic}`);
+      }
+
+      await deductTokens(user.id, 2000, 'query_decomposition', { projectId, topic });
+    } catch (decompError) {
+      console.error('[Research] Query decomposition failed (non-fatal):', decompError);
+    }
+
+    console.log(`Starting parallel search for topic: ${searchTopic}`);
     if (instructions) {
       console.log(`With instructions: ${instructions}`);
     }
@@ -93,17 +126,17 @@ export async function POST(request: NextRequest) {
 
     // Calculate dynamic domain limit based on requested source count
     // Formula: ceil(numSources / 5), capped at 5 for diversity
-    const dynamicDomainLimit = Math.min(5, Math.ceil(numSources / 5));
+    const dynamicDomainLimit = Math.min(5, Math.ceil(effectiveNumSources / 5));
     console.log(
       `Dynamic domain limit: ${dynamicDomainLimit} (for ${numSources} sources)`,
     );
 
     // Use the unified search service for parallel Exa + Perplexity search
     const sources = await searchService.searchParallel({
-      topic,
+      topic: searchTopic,
       documentType,
       instructions,
-      numResults: numSources,
+      numResults: effectiveNumSources,
       maxSourcesPerDomain: dynamicDomainLimit, // Dynamic diversity based on source count
       enableQueryExpansion: true, // Generate varied queries
       excludeUrls,
