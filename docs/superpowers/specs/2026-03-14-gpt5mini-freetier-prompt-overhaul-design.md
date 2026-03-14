@@ -74,7 +74,21 @@ export enum AIProvider {
 
 Currently `app/api/write/structure/route.ts` calls `groq("openai/gpt-oss-120b")` directly, bypassing `aiService`. This must be routed through `aiService` so free-tier model restrictions apply.
 
-**Change**: Replace direct Groq `generateObject()` call with `aiService.getChatCompletion()` using the user's effective provider, then parse JSON from the response. Use zod validation on the parsed result.
+**Change**: Install `@ai-sdk/openai` and add OpenAI as a provider to the Vercel AI SDK setup. This allows `generateObject()` to work with GPT-5-mini, maintaining the same structured output reliability as the current Groq integration. Select the provider dynamically based on the user's plan type:
+
+```typescript
+import { createOpenAI } from '@ai-sdk/openai';
+import { createGroq } from '@ai-sdk/groq';
+
+const getStructureModel = (planType: string) => {
+  if (planType === 'free') {
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    return openai('gpt-5-mini');
+  }
+  const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
+  return groq('openai/gpt-oss-120b');
+};
+```
 
 ---
 
@@ -84,7 +98,27 @@ Currently `app/api/write/structure/route.ts` calls `groq("openai/gpt-oss-120b")`
 
 New migration file: `supabase/migrations/YYYYMMDDHHMMSS_free_tier_signup.sql`
 
-**Modify `handle_new_user()` trigger** to auto-create a free subscription:
+**Step 1: Update CHECK constraints** to allow free tier values:
+
+```sql
+-- Allow 'free' plan type
+ALTER TABLE subscriptions DROP CONSTRAINT subscriptions_plan_type_check;
+ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_plan_type_check
+  CHECK (plan_type IN ('basic', 'pro', 'premium', 'one_time', 'free'));
+
+-- Allow 'none' payment gateway for free tier
+ALTER TABLE subscriptions DROP CONSTRAINT subscriptions_payment_gateway_check;
+ALTER TABLE subscriptions ADD CONSTRAINT subscriptions_payment_gateway_check
+  CHECK (payment_gateway IN ('paystack', 'stripe', 'none'));
+
+-- Make payment-related columns nullable for free tier
+ALTER TABLE subscriptions ALTER COLUMN currency DROP NOT NULL;
+ALTER TABLE subscriptions ALTER COLUMN amount_paid DROP NOT NULL;
+ALTER TABLE subscriptions ALTER COLUMN payment_gateway DROP NOT NULL;
+ALTER TABLE subscriptions ALTER COLUMN current_period_end DROP NOT NULL;
+```
+
+**Step 2: Modify `handle_new_user()` trigger** to auto-create a free subscription:
 
 ```sql
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -106,6 +140,9 @@ BEGIN
     billing_cycle,
     token_allocation,
     tokens_remaining,
+    currency,
+    amount_paid,
+    payment_gateway,
     status,
     auto_renew,
     current_period_start,
@@ -116,10 +153,13 @@ BEGIN
     NULL,
     20000,
     20000,
+    NULL,       -- No currency for free tier
+    NULL,       -- No payment
+    NULL,       -- No gateway
     'active',
     FALSE,
     NOW(),
-    NULL  -- Never expires, just depletes
+    NULL        -- Never expires, just depletes
   );
 
   RETURN NEW;
@@ -127,7 +167,36 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### 3.2 Token Service Updates
+**Step 3: Add RLS policies** for new tables (see Section 4.3).
+
+### 3.2 Upgrade Path: Free → Paid
+
+When a free user purchases a paid plan:
+1. The existing Stripe/Paystack webhook handler creates a new subscription record
+2. The `idx_one_active_subscription` unique index will conflict with the existing free subscription
+3. **Fix**: Before inserting the paid subscription, the webhook handler must expire the free subscription:
+
+```sql
+-- In the subscription creation flow (stripeService.ts / paystackService.ts):
+-- Expire any existing free subscription before creating paid one
+UPDATE subscriptions
+SET status = 'expired', cancelled_at = NOW()
+WHERE user_id = $userId AND plan_type = 'free' AND status = 'active';
+```
+
+This must be added to both `lib/services/stripeService.ts` and `lib/services/paystackService.ts` subscription creation logic.
+
+### 3.3 Free Tier User Experience & Token Budget
+
+The enhanced pipeline costs ~70k tokens for a full paper. Free users (20k tokens) won't complete a full paper — by design. Their 20k tokens allow:
+- ~1 research operation with 10 sources (≈ 8k tokens — reduced source count for free tier)
+- ~1 source analysis (≈ 5k tokens)
+- ~1 structure generation (≈ 3k tokens)
+- ~1 short chapter (≈ 4k tokens remaining)
+
+**Free tier pipeline optimization**: For free users, skip re-ranking (saves ~3k tokens) and limit research to 10 sources instead of 15 (saves ~4k). Argument summaries are skipped since free users likely generate only 1-2 chapters.
+
+### 3.4 Token Service Updates
 
 **`lib/services/tokenService.ts`:**
 - Add `free` case to `getTokenAllocationForPlan()` returning `20000`
@@ -137,11 +206,27 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 - No changes needed — the existing `checkTokenBalance()` will naturally find the free subscription and check its token balance
 - When tokens deplete to 0, the "insufficient tokens" response triggers with upgrade messaging
 
-### 3.3 Existing User Backfill
+### 3.5 Existing User Backfill
 
 For users who already signed up without free tokens:
-- A one-time migration script that creates free subscriptions for users who have no subscription record
-- Only applies to users with 0 existing subscriptions
+
+```sql
+-- Backfill: Create free subscriptions for users with NO subscription records at all
+-- Excludes users with any subscription (active, expired, cancelled, or one_time)
+INSERT INTO subscriptions (
+  user_id, plan_type, token_allocation, tokens_remaining,
+  status, auto_renew, current_period_start
+)
+SELECT
+  up.id, 'free', 20000, 20000,
+  'active', FALSE, NOW()
+FROM user_profiles up
+WHERE NOT EXISTS (
+  SELECT 1 FROM subscriptions s WHERE s.user_id = up.id
+);
+```
+
+Users with expired/cancelled paid subscriptions are NOT backfilled — they already experienced the product.
 
 ---
 
@@ -213,7 +298,7 @@ SOURCES:
 [source data with titles, authors, excerpts, full content where available]
 ```
 
-**Token cost**: ~3-5k tokens (input: source excerpts, output: structured analysis)
+**Token cost**: ~15-20k tokens total (input: ~12-15k for 15 source excerpts with metadata + prompt; output: ~3-5k for structured analysis). For free-tier users with 10 sources: ~10-13k tokens.
 
 #### Step B: Source-to-Section Mapping (during structure generation)
 
@@ -234,14 +319,11 @@ interface SectionMapping {
 ### 4.3 Database Schema
 
 ```sql
--- Source analysis results
+-- Source analysis results (document-style: all data in JSONB)
 CREATE TABLE source_analysis (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES writing_projects(id) ON DELETE CASCADE,
-  analysis JSONB NOT NULL,           -- Full SourceAnalysis object
-  thematic_clusters JSONB,           -- ThematicCluster array
-  research_gaps TEXT[],
-  suggested_central_argument TEXT,
+  analysis JSONB NOT NULL,           -- Full SourceAnalysis object (sources, clusters, gaps, central argument)
   model_used TEXT NOT NULL,
   tokens_used INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -253,14 +335,53 @@ CREATE TABLE section_source_mappings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES writing_projects(id) ON DELETE CASCADE,
   structure_id UUID NOT NULL REFERENCES document_structures(id) ON DELETE CASCADE,
-  section_heading TEXT NOT NULL,
-  relevant_source_ids UUID[],
-  section_thesis TEXT,
-  argument_role TEXT,
-  suggested_approach TEXT,
+  mappings JSONB NOT NULL,           -- Array of SectionMapping objects
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Chapter argument summaries (for cross-chapter threading)
+CREATE TABLE chapter_argument_summaries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID NOT NULL REFERENCES writing_projects(id) ON DELETE CASCADE,
+  section_id UUID NOT NULL REFERENCES document_sections(id) ON DELETE CASCADE,
+  chapter_heading TEXT NOT NULL,
+  thesis_advanced TEXT NOT NULL,
+  key_evidence TEXT[] NOT NULL,
+  connection_to_next TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS policies
+ALTER TABLE source_analysis ENABLE ROW LEVEL SECURITY;
+ALTER TABLE section_source_mappings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chapter_argument_summaries ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own source analysis"
+  ON source_analysis FOR SELECT
+  USING (project_id IN (SELECT id FROM writing_projects WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own source analysis"
+  ON source_analysis FOR INSERT
+  WITH CHECK (project_id IN (SELECT id FROM writing_projects WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can view own section mappings"
+  ON section_source_mappings FOR SELECT
+  USING (project_id IN (SELECT id FROM writing_projects WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own section mappings"
+  ON section_source_mappings FOR INSERT
+  WITH CHECK (project_id IN (SELECT id FROM writing_projects WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can view own argument summaries"
+  ON chapter_argument_summaries FOR SELECT
+  USING (project_id IN (SELECT id FROM writing_projects WHERE user_id = auth.uid()));
+
+CREATE POLICY "Users can insert own argument summaries"
+  ON chapter_argument_summaries FOR INSERT
+  WITH CHECK (project_id IN (SELECT id FROM writing_projects WHERE user_id = auth.uid()));
 ```
+
+**Argument summary storage**: After each chapter completes streaming, the API saves a summary to `chapter_argument_summaries`. Before generating the next chapter, the route fetches all previous summaries for the project and includes them in the prompt context. This is a DB-persisted approach (not client-side) so it survives page reloads.
 
 ---
 
@@ -448,7 +569,7 @@ Use the section thesis and mapped source themes to construct targeted queries:
 ```
 Find recent empirical evidence about [specific claim from section thesis].
 Focus on: [key points from section mapping]
-Specifically look for: data, statistics, case studies, and recent (2023-2026) research findings.
+Specifically look for: data, statistics, case studies, and research findings from the last 3 years.
 Do NOT provide general background — focus on specific evidence and data points.
 ```
 
@@ -464,9 +585,9 @@ Add to `lib/middleware/tokenMiddleware.ts`:
 export function estimateSourceAnalysisTokens(params: {
   sourceCount: number;
 }): number {
-  // Input: ~200 tokens per source excerpt + 500 prompt
-  // Output: ~2000 for structured analysis
-  return (params.sourceCount * 200) + 500 + 2000;
+  // Input: ~800-1000 tokens per source (excerpt + metadata) + 500 prompt
+  // Output: ~3000-5000 for structured analysis
+  return (params.sourceCount * 900) + 500 + 4000;
 }
 
 export function estimateQueryDecompositionTokens(): number {
@@ -497,6 +618,15 @@ export const MIN_TOKENS = {
 } as const;
 ```
 
+### 8.3 Update `deductTokens` Operation Types
+
+The `operationType` union in `tokenMiddleware.ts` must be extended:
+
+```typescript
+operationType: 'research' | 'structure' | 'chapter' | 'chat' | 'generate'
+  | 'source_analysis' | 'query_decomposition' | 're_ranking' | 'argument_summary'
+```
+
 ---
 
 ## 9. Post-Generation Quality Monitoring
@@ -521,20 +651,22 @@ Log results to console. Do not block or re-generate. This is monitoring data tha
 - `lib/services/sourceAnalysisService.ts` — Source intelligence analysis
 - `lib/services/queryDecompositionService.ts` — Research query decomposition
 - `app/api/write/analyze-sources/route.ts` — Source analysis API endpoint
-- `supabase/migrations/YYYYMMDDHHMMSS_free_tier_signup.sql` — Free tier DB migration
-- `supabase/migrations/YYYYMMDDHHMMSS_source_analysis_tables.sql` — Source analysis schema
+- `supabase/migrations/YYYYMMDDHHMMSS_free_tier_signup.sql` — Free tier DB migration (constraints + trigger + backfill)
+- `supabase/migrations/YYYYMMDDHHMMSS_source_analysis_tables.sql` — Source analysis, mappings, argument summaries + RLS
 
 ### Modified Files
 - `lib/config/aiModels.ts` — Add OPENAI provider
 - `lib/services/aiService.ts` — Add OpenAI streaming/non-streaming, add `getEffectiveProvider()`
 - `lib/services/tokenService.ts` — Add free plan support
-- `lib/middleware/tokenMiddleware.ts` — Add new estimation functions, update MIN_TOKENS
-- `app/api/write/structure/route.ts` — Rewrite prompt, route through aiService
-- `app/api/write/generate-chapter/route.ts` — Rewrite prompt, use mapped sources, argument threading
+- `lib/services/stripeService.ts` — Expire free subscription on paid plan purchase
+- `lib/services/paystackService.ts` — Expire free subscription on paid plan purchase
+- `lib/middleware/tokenMiddleware.ts` — Add new estimation functions, update MIN_TOKENS, extend operationType union
+- `app/api/write/structure/route.ts` — Rewrite prompt, use `@ai-sdk/openai` for free tier model routing
+- `app/api/write/generate-chapter/route.ts` — Rewrite prompt, use mapped sources, argument threading, save argument summaries
 - `app/api/write/research/route.ts` — Add query decomposition, re-ranking, trigger source analysis
 - `lib/utils/queryExpansion.ts` — Enhanced with decomposition support
 - `lib/utils/humanizationPrompt.ts` — Compact system message version
-- `package.json` — Add `openai` dependency
+- `package.json` — Add `openai`, `@ai-sdk/openai` dependencies
 - `.env.example` — Add `OPENAI_API_KEY`
 
 ### Unchanged Files
@@ -574,13 +706,26 @@ User Input
 | Step | Before | After |
 |------|--------|-------|
 | Research | ~12,000 | ~17,000 (+query decomposition, re-ranking) |
-| Source Analysis | 0 | ~5,000 |
-| Structure | ~2,500 | ~3,000 |
-| Chapters (5x) | ~40,000 | ~38,000 (less input per chapter due to mapping) |
+| Source Analysis | 0 | ~18,000 (15 sources analyzed) |
+| Structure | ~2,500 | ~3,500 (thesis-first, source-aware) |
+| Source-to-Section Mapping | 0 | ~3,000 |
+| Chapters (5x) | ~40,000 | ~35,000 (less input per chapter due to mapping) |
 | Argument Summaries | 0 | ~7,500 (5 chapters) |
-| **Total** | **~54,500** | **~70,500** |
+| **Total** | **~54,500** | **~84,000** |
 
-Net increase: ~16,000 tokens (~30%) for dramatically better output quality. At GPT-5-mini rates ($0.125/M input), this costs approximately $0.002 more per paper.
+Net increase: ~29,500 tokens (~54%) for dramatically better output quality. At GPT-5-mini rates ($0.125/M input, $1/M output), the additional cost is approximately $0.005 per paper — negligible.
+
+**For free-tier users (10 sources, no re-ranking, no argument summaries):**
+
+| Step | Tokens |
+|------|--------|
+| Research (10 sources) | ~8,000 |
+| Source Analysis | ~13,000 |
+| Structure | ~3,000 |
+| 1 Chapter | ~7,000 |
+| **Total** | **~31,000** |
+
+This exceeds the 20k free allowance. **Recommendation**: For free users, make source analysis optional (show a "skip" button) or reduce source analysis depth (extract only key findings, skip methodology/limitations). This brings the total to ~20-22k tokens — tight but workable for experiencing one chapter.
 
 ---
 
@@ -591,5 +736,8 @@ Net increase: ~16,000 tokens (~30%) for dramatically better output quality. At G
 | Source analysis adds latency | Run concurrently with metadata enrichment (already async) |
 | GPT-5-mini quality too low for academic writing | It's used for analysis/mapping, not writing. Writing still uses Groq/Claude for paid users |
 | Free 20k tokens abused (bot signups) | Standard Supabase auth protections + can add rate limiting later |
-| Argument summary extraction fails | Graceful fallback to current truncated-context approach |
-| OpenAI API downtime | Existing multi-provider architecture handles failover |
+| Argument summary extraction fails | Graceful fallback to current truncated-context approach (pass last 3500 words) |
+| OpenAI API downtime | Free users blocked; paid users unaffected (they use Groq/Claude). No automatic failover implemented — can be added later |
+| Free tier token budget too tight | Source analysis made optional for free users; can increase to 25k tokens if needed |
+| DB constraint violations on free insert | Migration explicitly alters CHECK constraints and nullability before trigger change |
+| Free→Paid upgrade conflict | Webhook handlers expire free subscription before creating paid one |
