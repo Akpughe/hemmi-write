@@ -340,6 +340,8 @@ class TokenService {
       // For other plans, allocation is same regardless of billing cycle
       // (Billing cycle affects price, not token amount)
       switch (planType) {
+        case 'free':
+          return 20000;
         case 'basic':
           return pricing.basicTokens;
         case 'pro':
