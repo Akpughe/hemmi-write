@@ -1249,6 +1249,7 @@ export function EditorPanel({
               <StructurePreview
                 plan={plan}
                 projectId={projectId}
+                sources={sources}
                 onStepChange={onStepChange}
                 onGenerateStructure={onGenerateStructure}
                 structureCompletedAt={structureCompletedAt}
