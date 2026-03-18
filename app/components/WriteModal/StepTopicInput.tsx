@@ -203,7 +203,7 @@ export default function StepTopicInput({
           AI Model <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-2 gap-3">
-          {Object.values(AIProvider).map((provider) => {
+          {([AIProvider.OPENAI, AIProvider.ANTHROPIC] as AIProvider[]).map((provider) => {
             const modelConfig = AI_MODELS[provider];
             const isSelected = aiProvider === provider;
             return (

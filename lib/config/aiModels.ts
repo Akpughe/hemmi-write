@@ -39,8 +39,8 @@ export const AI_MODELS: Record<AIProvider, AIModelConfig> = {
   [AIProvider.ANTHROPIC]: {
     provider: AIProvider.ANTHROPIC,
     model: 'claude-haiku-4-5-20251001',
-    label: 'Claude Haiku',
-    description: 'Fast, efficient assistant for chat and analysis',
+    label: 'Claude',
+    description: 'Advanced reasoning',
     maxTokens: 4000,
     contextWindow: 48000,
     icon: '✦',
@@ -48,8 +48,8 @@ export const AI_MODELS: Record<AIProvider, AIModelConfig> = {
   [AIProvider.OPENAI]: {
     provider: AIProvider.OPENAI,
     model: 'gpt-5-mini',
-    label: 'GPT-5 Mini',
-    description: 'Fast, cost-effective model for research and writing',
+    label: 'GPT-5',
+    description: 'Fast & cost-effective',
     maxTokens: 16000,
     contextWindow: 400000,
     icon: '🔷',

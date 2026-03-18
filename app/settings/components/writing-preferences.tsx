@@ -49,10 +49,8 @@ interface WritingPreferencesProps {
 
 const preferenceOptions = {
   aiModel: [
-    { value: "GROQ", label: "Groq (GPT-OSS 120B)", description: "Fast inference" },
-    { value: "GEMINI", label: "Google Gemini 2.0 Flash", description: "Advanced reasoning" },
-    { value: "ANTHROPIC", label: "Claude Haiku", description: "Fast & efficient" },
-    { value: "OPENAI", label: "GPT-5 Mini", description: "Cost-effective" },
+    { value: "OPENAI", label: "GPT-5", description: "Fast & cost-effective" },
+    { value: "ANTHROPIC", label: "Claude", description: "Advanced reasoning" },
   ],
   citation: [
     { value: "APA", label: "APA", description: "American Psychological Association" },
