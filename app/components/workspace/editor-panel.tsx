@@ -1172,8 +1172,8 @@ export function EditorPanel({
     const isLoading = structurePhase === "loading";
 
     return (
-      <main className="flex-1 flex items-center justify-center bg-background p-8">
-        <Card className="w-full max-w-2xl">
+      <main className="flex-1 flex items-start justify-center bg-background p-8 overflow-y-auto">
+        <Card className="w-full max-w-2xl max-h-[calc(100vh-8rem)] flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {isLoading ? (
@@ -1203,7 +1203,7 @@ export function EditorPanel({
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
             {isLoading ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
