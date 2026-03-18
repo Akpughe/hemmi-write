@@ -47,6 +47,12 @@ export async function GET(request: NextRequest) {
       .eq('project_id', projectId)
       .order('position', { ascending: true });
 
+    console.log(`[AnalyzeSources GET] Project ${projectId}:`, {
+      hasAnalysis: !!analysisData?.analysis,
+      hasMappings: !!mappingData?.mappings,
+      sourceCount: sources?.length || 0,
+    });
+
     return NextResponse.json({
       sourceAnalysis: analysisData?.analysis || null,
       sectionMappings: mappingData?.mappings || null,

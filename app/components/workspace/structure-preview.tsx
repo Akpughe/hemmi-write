@@ -10,7 +10,6 @@ import {
   Edit3,
   RefreshCw,
   Loader2,
-  FileText,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -65,7 +64,7 @@ interface SectionDetail {
 }
 
 // =============================================================================
-// ThinkingShimmer - Pulsing dots for loading state
+// ThinkingShimmer
 // =============================================================================
 
 function ThinkingShimmer({ text }: { text?: string }) {
@@ -95,7 +94,7 @@ function ThinkingShimmer({ text }: { text?: string }) {
 }
 
 // =============================================================================
-// SkeletonCard - Shimmer placeholder while loading details
+// SkeletonCard
 // =============================================================================
 
 function SkeletonCard() {
@@ -119,7 +118,7 @@ function SkeletonCard() {
 }
 
 // =============================================================================
-// SectionCard - Expandable section with subsection details + references
+// SectionCard
 // =============================================================================
 
 interface SectionCardProps {
@@ -146,6 +145,7 @@ function SectionCard({
 
   const referenceCount = sectionDetail?.references?.length || 0;
   const subsections = sectionDetail?.subsections || [];
+  const hasDetail = sectionDetail !== null;
 
   const handleTitleBlur = useCallback(() => {
     setIsEditing(false);
@@ -192,12 +192,10 @@ function SectionCard({
         onClick={onToggle}
         className="w-full flex items-center gap-3 p-4 text-left hover:bg-foreground/[0.02] transition-colors duration-200 rounded-xl"
       >
-        {/* Section number */}
         <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold shrink-0">
           {index + 1}
         </div>
 
-        {/* Title */}
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <span
             ref={titleRef}
@@ -229,7 +227,6 @@ function SectionCard({
           </button>
         </div>
 
-        {/* Meta badges */}
         <div className="flex items-center gap-2 shrink-0">
           {section.estimatedWordCount && (
             <span className="text-[11px] text-foreground/40">
@@ -244,6 +241,12 @@ function SectionCard({
               <BookOpen className="w-3 h-3 mr-0.5" />
               {referenceCount}
             </Badge>
+          )}
+          {isLoadingDetail && !hasDetail && (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
+          )}
+          {hasDetail && (
+            <Check className="w-3.5 h-3.5 text-emerald-500" />
           )}
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-foreground/30" />
@@ -264,9 +267,9 @@ function SectionCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-4 border-t border-foreground/5 pt-3">
-              {isLoadingDetail ? (
+              {isLoadingDetail && !hasDetail ? (
                 <SkeletonCard />
-              ) : sectionDetail ? (
+              ) : hasDetail ? (
                 <>
                   {/* Detailed description */}
                   {sectionDetail.detailedDescription && (
@@ -350,7 +353,7 @@ function SectionCard({
                   )}
                 </>
               ) : (
-                /* Fallback: show basic key points when no detail available */
+                /* Fallback: basic key points */
                 section.keyPoints && section.keyPoints.length > 0 && (
                   <div className="pl-10">
                     <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
@@ -394,89 +397,149 @@ export function StructurePreview({
   const [editedSections, setEditedSections] = useState<Map<number, { title: string }>>(
     new Map()
   );
-  const [sectionDetails, setSectionDetails] = useState<SectionDetail[]>([]);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const [detailsLoaded, setDetailsLoaded] = useState(false);
+  const [sectionDetails, setSectionDetails] = useState<(SectionDetail | null)[]>([]);
+  const [loadingState, setLoadingState] = useState<"idle" | "fetching" | "generating" | "done">("idle");
+  const [loadedCount, setLoadedCount] = useState(0);
 
   const hasEdits = editedSections.size > 0;
+  const totalSections = plan.sections.length;
 
-  // Generate detailed section previews with references on mount
+  // Generate detailed section previews with references
   useEffect(() => {
-    if (!projectId || detailsLoaded || isLoadingDetails) return;
+    if (!projectId || loadingState !== "idle") return;
     if (!plan.sections.length || !sources.length) return;
 
     let cancelled = false;
-    setIsLoadingDetails(true);
 
-    // First try to fetch existing source intelligence
-    fetch(`/api/write/analyze-sources?projectId=${projectId}`)
-      .then((res) => res.ok ? res.json() : null)
-      .then(async (existingData) => {
+    // Initialize with nulls for each section
+    setSectionDetails(new Array(plan.sections.length).fill(null));
+
+    const run = async () => {
+      // Step 1: Try existing source intelligence
+      setLoadingState("fetching");
+      console.log("[StructurePreview] Fetching existing source intelligence...");
+
+      try {
+        const res = await fetch(`/api/write/analyze-sources?projectId=${projectId}`);
         if (cancelled) return;
 
-        // If we have existing detailed mappings, use them
-        if (existingData?.sectionMappings && existingData?.sourceAnalysis) {
-          const details = buildDetailsFromIntelligence(
-            plan.sections,
-            existingData.sourceAnalysis,
-            existingData.sectionMappings,
-            existingData.researchSources || sources
-          );
-          if (details.length > 0) {
-            setSectionDetails(details);
-            setDetailsLoaded(true);
-            setIsLoadingDetails(false);
-            return;
-          }
-        }
-
-        // Otherwise, generate detailed preview via API
-        try {
-          const response = await fetch("/api/write/structure-preview", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              projectId,
-              sections: plan.sections.map((s) => ({
-                heading: s.title,
-                keyPoints: s.keyPoints,
-                description: s.description,
-                estimatedWordCount: s.estimatedWordCount,
-              })),
-              sources: sources.slice(0, 15).map((s) => ({
-                title: s.title,
-                author: s.author,
-                excerpt: s.excerpt,
-                publishedDate: s.publishedDate,
-              })),
-              topic: plan.title,
-            }),
+        if (res.ok) {
+          const existingData = await res.json();
+          console.log("[StructurePreview] Source intelligence response:", {
+            hasAnalysis: !!existingData?.sourceAnalysis,
+            hasMappings: !!existingData?.sectionMappings,
+            sourceCount: existingData?.researchSources?.length || 0,
           });
 
-          if (!cancelled && response.ok) {
-            const data = await response.json();
-            if (data.sectionDetails) {
-              setSectionDetails(data.sectionDetails);
+          if (existingData?.sectionMappings && existingData?.sourceAnalysis) {
+            const details = buildDetailsFromIntelligence(
+              plan.sections,
+              existingData.sourceAnalysis,
+              existingData.sectionMappings,
+              existingData.researchSources || sources
+            );
+
+            if (details.length > 0 && details.some(d => d.references.length > 0)) {
+              console.log("[StructurePreview] Built details from existing intelligence:", {
+                sectionsWithDetails: details.length,
+                sectionsWithRefs: details.filter(d => d.references.length > 0).length,
+              });
+
+              // Show progressively — one section at a time
+              for (let i = 0; i < details.length; i++) {
+                if (cancelled) return;
+                setSectionDetails(prev => {
+                  const next = [...prev];
+                  next[i] = details[i];
+                  return next;
+                });
+                setLoadedCount(i + 1);
+                // Small delay for visual feedback
+                await new Promise(r => setTimeout(r, 80));
+              }
+              setLoadingState("done");
+              return;
+            } else {
+              console.log("[StructurePreview] Existing intelligence has no references, generating via LLM...");
             }
+          } else {
+            console.log("[StructurePreview] No existing source intelligence found, generating via LLM...");
           }
-        } catch {
-          // Non-fatal — preview shows basic key points as fallback
+        } else {
+          console.log("[StructurePreview] Source intelligence fetch failed:", res.status);
         }
+      } catch (err) {
+        console.error("[StructurePreview] Error fetching source intelligence:", err);
+      }
 
-        if (!cancelled) {
-          setDetailsLoaded(true);
-          setIsLoadingDetails(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDetailsLoaded(true);
-          setIsLoadingDetails(false);
-        }
-      });
+      if (cancelled) return;
 
+      // Step 2: Generate via LLM
+      setLoadingState("generating");
+      console.log("[StructurePreview] Generating detailed preview via LLM...");
+
+      try {
+        const response = await fetch("/api/write/structure-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectId,
+            sections: plan.sections.map((s) => ({
+              heading: s.title,
+              keyPoints: s.keyPoints,
+              description: s.description,
+              estimatedWordCount: s.estimatedWordCount,
+            })),
+            sources: sources.slice(0, 15).map((s) => ({
+              title: s.title,
+              author: s.author,
+              excerpt: s.excerpt,
+              publishedDate: s.publishedDate,
+            })),
+            topic: plan.title,
+          }),
+        });
+
+        if (cancelled) return;
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("[StructurePreview] LLM response received:", {
+            sectionCount: data.sectionDetails?.length || 0,
+          });
+
+          if (data.sectionDetails && Array.isArray(data.sectionDetails)) {
+            // Show progressively
+            for (let i = 0; i < data.sectionDetails.length; i++) {
+              if (cancelled) return;
+              setSectionDetails(prev => {
+                const next = [...prev];
+                next[i] = data.sectionDetails[i];
+                return next;
+              });
+              setLoadedCount(i + 1);
+              console.log(`[StructurePreview] Section ${i + 1}/${data.sectionDetails.length} loaded: "${data.sectionDetails[i]?.sectionHeading}"`);
+              await new Promise(r => setTimeout(r, 120));
+            }
+          } else {
+            console.warn("[StructurePreview] LLM returned unexpected format:", data);
+          }
+        } else {
+          const errText = await response.text();
+          console.error("[StructurePreview] LLM generation failed:", response.status, errText);
+        }
+      } catch (err) {
+        console.error("[StructurePreview] Error generating preview:", err);
+      }
+
+      if (!cancelled) {
+        setLoadingState("done");
+      }
+    };
+
+    run();
     return () => { cancelled = true; };
-  }, [projectId, plan.sections, plan.title, sources, detailsLoaded, isLoadingDetails]);
+  }, [projectId, plan.sections, plan.title, sources, loadingState]);
 
   const handleTitleChange = useCallback(
     (index: number, newTitle: string) => {
@@ -488,6 +551,8 @@ export function StructurePreview({
     },
     []
   );
+
+  const isLoading = loadingState === "fetching" || loadingState === "generating";
 
   return (
     <motion.div
@@ -530,8 +595,8 @@ export function StructurePreview({
         </motion.div>
       )}
 
-      {/* Loading indicator */}
-      {isLoadingDetails && (
+      {/* Loading progress */}
+      {isLoading && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -539,7 +604,9 @@ export function StructurePreview({
         >
           <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
           <span className="text-xs text-foreground/50">
-            Generating detailed preview with references...
+            {loadingState === "fetching"
+              ? "Checking existing analysis..."
+              : `Generating detailed preview... ${loadedCount}/${totalSections} sections`}
           </span>
         </motion.div>
       )}
@@ -557,7 +624,7 @@ export function StructurePreview({
             }
             onTitleChange={(newTitle) => handleTitleChange(index, newTitle)}
             sectionDetail={sectionDetails[index] || null}
-            isLoadingDetail={isLoadingDetails && expandedIndex === index}
+            isLoadingDetail={isLoading && !sectionDetails[index]}
           />
         ))}
       </div>
@@ -613,17 +680,34 @@ function buildDetailsFromIntelligence(
   sectionMappings: any[],
   researchSources: any[]
 ): SectionDetail[] {
-  if (!Array.isArray(sectionMappings)) return [];
+  console.log("[buildDetailsFromIntelligence] Input:", {
+    sectionCount: sections.length,
+    mappingCount: Array.isArray(sectionMappings) ? sectionMappings.length : "not array",
+    sourceCount: researchSources.length,
+    analysisSourceCount: sourceAnalysis?.sources?.length || 0,
+  });
+
+  if (!Array.isArray(sectionMappings)) {
+    console.warn("[buildDetailsFromIntelligence] sectionMappings is not an array:", typeof sectionMappings);
+    return [];
+  }
 
   const sourceMap = new Map(researchSources.map((s: any) => [s.id, s]));
   const analysisMap = new Map<string, any>();
   if (sourceAnalysis?.sources) {
     for (const src of sourceAnalysis.sources) {
-      if (src.sourceId) analysisMap.set(src.sourceId, src);
+      const key = src.sourceId || src.id;
+      if (key) analysisMap.set(key, src);
     }
   }
 
+  console.log("[buildDetailsFromIntelligence] Maps built:", {
+    sourceMapSize: sourceMap.size,
+    analysisMapSize: analysisMap.size,
+  });
+
   return sections.map((section, index) => {
+    // Match by heading first, then fall back to index
     const mapping = sectionMappings.find(
       (m: any) => m.sectionHeading === section.title
     ) || sectionMappings[index];
@@ -632,25 +716,27 @@ function buildDetailsFromIntelligence(
       .map((id: string) => {
         const source = sourceMap.get(id);
         const analysis = analysisMap.get(id);
-        if (!source) return null;
+        if (!source) {
+          console.log(`[buildDetailsFromIntelligence] Source not found for id: ${id}`);
+          return null;
+        }
         return {
           title: source.title,
           author: source.author || "Unknown",
           year: source.published_date
             ? new Date(source.published_date).getFullYear().toString()
             : "",
-          reason: analysis?.bestUsedFor || "",
+          reason: analysis?.bestUsedFor || mapping?.suggestedApproach || "",
         };
       })
       .filter(Boolean);
 
-    const subsections = (section.keyPoints || []).map((kp) => {
-      const matchingAnalysis = analysisMap.get(kp);
-      return {
-        title: kp,
-        description: matchingAnalysis?.keyFindings || "",
-      };
-    });
+    const subsections = (section.keyPoints || []).map((kp, i) => ({
+      title: kp,
+      description: "",
+    }));
+
+    console.log(`[buildDetailsFromIntelligence] Section "${section.title}": ${references.length} refs, ${subsections.length} subsections`);
 
     return {
       sectionHeading: section.title,
