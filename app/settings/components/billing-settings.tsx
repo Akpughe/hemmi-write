@@ -91,11 +91,13 @@ type TokenUsageApiResponse = {
   };
 };
 
-function currencySymbol(currency: Currency): string {
+function currencySymbol(currency: Currency | null | undefined): string {
+  if (!currency) return "$";
   return currency === "NGN" ? "₦" : "$";
 }
 
-function formatAmount(amount: number, currency: Currency): string {
+function formatAmount(amount: number | null | undefined, currency: Currency): string {
+  if (amount == null) return "Free";
   const symbol = currencySymbol(currency);
   return `${symbol}${amount.toLocaleString(undefined, {
     minimumFractionDigits: 2,
@@ -461,8 +463,8 @@ export function BillingSettings() {
         {subscription?.status === "active" && (
           <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">
-              Billing: {formatAmount(subscription.amountPaid, subscription.currency)} •{" "}
-              {subscription.paymentGateway.toUpperCase()}
+              Billing: {formatAmount(subscription.amountPaid, subscription.currency)}
+              {subscription.paymentGateway ? ` • ${subscription.paymentGateway.toUpperCase()}` : ""}
             </p>
             <Button
               type="button"
