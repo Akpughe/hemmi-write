@@ -413,10 +413,11 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Generate Chapter ${chapterIndex + 1}] ✅ Token check passed`);
 
-    // Determine AI provider (restricted by plan)
+    // Determine AI provider — writing uses default models for all users (including free)
     const provider = AIService.getEffectiveProvider(
       (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER,
-      planType
+      planType,
+      'writing'
     );
 
     // Calculate word budget for chapter sources
@@ -712,7 +713,7 @@ Include relevant data, statistics, examples, and authoritative information with 
               // Post-generation argument summary extraction
               if (projectId && !isAbstract && contentBuffer.length > 100 && (chapter as any).id) {
                 try {
-                  const summaryProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
+                  const summaryProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType, 'argument_summary');
                   const summaryResponse = await aiService.getChatCompletion(
                     summaryProvider,
                     [

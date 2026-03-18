@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     // Get user plan for free-tier optimizations
     const balance = await tokenService.getUserTokenBalance(user.id);
     const planType = balance.subscription?.planType || 'free';
-    const effectiveProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
+    const effectiveProvider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType, 'query_decomposition');
 
     // Free tier: limit sources to 10
     const effectiveNumSources = planType === 'free' ? Math.min(numSources, 10) : numSources;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { aiService, AIProvider } from "@/lib/services/aiService";
+import { aiService, AIProvider, AIService } from "@/lib/services/aiService";
+import { tokenService } from "@/lib/services/tokenService";
 import {
   createServerSupabaseClient,
   getCurrentUser,
@@ -36,6 +37,11 @@ export async function POST(req: NextRequest) {
 
     const { messages, brief, sources, currentContent, projectId } =
       await req.json();
+
+    // Determine user plan for model routing
+    const balance = await tokenService.getUserTokenBalance(user.id);
+    const planType = balance.subscription?.planType || 'free';
+    const chatProvider = AIService.getEffectiveProvider(AIProvider.ANTHROPIC, planType, 'chat');
 
     // Get last user message (the one we're responding to)
     const userMessages = messages.filter((m: ChatMessage) => m.role === "user");
@@ -174,9 +180,9 @@ This helps the user navigate to that part of their document.
         let tokensUsed = 0;
 
         try {
-          // Stream from Claude via AI service
+          // Stream from AI service (free users get GPT-5-mini, paid users get Claude)
           const streamGenerator = aiService.streamChatCompletion(
-            AIProvider.ANTHROPIC,
+            chatProvider,
             aiMessages,
             0.7,
             4000

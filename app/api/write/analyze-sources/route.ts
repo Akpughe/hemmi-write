@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // 4. Determine AI provider based on plan type
     const balance = await tokenService.getUserTokenBalance(user.id);
     const planType = balance.subscription?.planType || 'free';
-    const provider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType);
+    const provider = AIService.getEffectiveProvider(AIProvider.OPENAI, planType, 'source_analysis');
 
     // 5. Run source analysis
     const analysis = await sourceAnalysisService.analyzeSources({

@@ -35,6 +35,9 @@ const writingPreferencesSchema = z.object({
   defaultAcademicLevel: z
     .enum(["HIGH_SCHOOL", "UNDERGRADUATE", "GRADUATE", "DOCTORAL"])
     .optional(),
+  defaultAiModel: z
+    .enum(["GROQ", "GEMINI", "ANTHROPIC", "OPENAI"])
+    .optional(),
   autoApproveChapters: z.boolean().optional(),
 });
 
@@ -45,6 +48,12 @@ interface WritingPreferencesProps {
 }
 
 const preferenceOptions = {
+  aiModel: [
+    { value: "GROQ", label: "Groq (GPT-OSS 120B)", description: "Fast inference" },
+    { value: "GEMINI", label: "Google Gemini 2.0 Flash", description: "Advanced reasoning" },
+    { value: "ANTHROPIC", label: "Claude Haiku", description: "Fast & efficient" },
+    { value: "OPENAI", label: "GPT-5 Mini", description: "Cost-effective" },
+  ],
   citation: [
     { value: "APA", label: "APA", description: "American Psychological Association" },
     { value: "MLA", label: "MLA", description: "Modern Language Association" },
@@ -74,6 +83,7 @@ export function WritingPreferences({ preferences }: WritingPreferencesProps) {
       defaultCitationStyle: preferences?.defaultCitationStyle || undefined,
       defaultWritingStyle: preferences?.defaultWritingStyle || undefined,
       defaultAcademicLevel: preferences?.defaultAcademicLevel || undefined,
+      defaultAiModel: preferences?.defaultAiModel || undefined,
       autoApproveChapters: preferences?.autoApproveChapters || false,
     },
   });
@@ -109,6 +119,42 @@ export function WritingPreferences({ preferences }: WritingPreferencesProps) {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Default AI Model */}
+          <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
+            <FormField
+              control={form.control}
+              name="defaultAiModel"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium text-foreground">
+                    Default AI Model
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <FormControl>
+                      <SelectTrigger className="mt-2 rounded-xl border-border">
+                        <SelectValue placeholder="Select default AI model" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {preferenceOptions.aiModel.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <span>{opt.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {opt.description}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Pre-selected when creating new projects. You can override per project.
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           {/* Citation Style */}
           <div className="rounded-3xl border border-border bg-card p-6 shadow-sm">
             <FormField

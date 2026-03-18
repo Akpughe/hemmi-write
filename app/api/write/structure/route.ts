@@ -23,10 +23,8 @@ import { AIService } from "@/lib/services/aiService";
 import { AIProvider } from "@/lib/config/aiModels";
 
 const getStructureModel = (planType: string) => {
-  if (planType === 'free') {
-    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-    return openai('gpt-5-mini');
-  }
+  // All users (including free) use Groq for structure generation
+  // Free tier GPT-5-mini restriction only applies to chat
   const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
   return groq('openai/gpt-oss-120b');
 };
@@ -691,7 +689,7 @@ export async function POST(req: NextRequest) {
                   projectId,
                   structureId: insertedStructure.id,
                   documentType,
-                  provider: AIService.getEffectiveProvider(AIProvider.OPENAI, planType),
+                  provider: AIService.getEffectiveProvider(AIProvider.OPENAI, planType, 'source_analysis'),
                 });
                 console.log('[Structure] Source-to-section mapping completed');
               } catch (mappingError) {

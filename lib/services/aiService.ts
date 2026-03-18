@@ -559,12 +559,24 @@ export class AIService {
   }
 
   /**
-   * Get the effective provider based on user plan type.
-   * Free users are routed to OpenAI; paid users use their requested provider.
+   * Get the effective provider based on user plan type and operation.
+   * Free users get GPT-5-mini for chat and source analysis only.
+   * Research/structure/chapter writing use the default models regardless of plan.
    */
-  static getEffectiveProvider(requestedProvider: AIProvider, userPlanType: string | null): AIProvider {
+  static getEffectiveProvider(
+    requestedProvider: AIProvider,
+    userPlanType: string | null,
+    operation?: 'chat' | 'source_analysis' | 'query_decomposition' | 'argument_summary' | 'writing' | 'structure' | 'research'
+  ): AIProvider {
+    // Free users only get forced to OPENAI for chat and lightweight AI operations
+    // Writing, structure, and research use the default models for all users
     if (userPlanType === 'free') {
-      return AIProvider.OPENAI;
+      const freeOpenAIOps = ['chat', 'source_analysis', 'query_decomposition', 'argument_summary'];
+      if (operation && freeOpenAIOps.includes(operation)) {
+        return AIProvider.OPENAI;
+      }
+      // For writing/structure/research, free users use the same models as paid users
+      return requestedProvider;
     }
     return requestedProvider;
   }

@@ -593,7 +593,6 @@ class SubscriptionService {
           tokens_remaining: 0,
         })
         .eq('status', 'active')
-        .eq('auto_renew', false)
         .lt('current_period_end', now)
         .select('id');
 

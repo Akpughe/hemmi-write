@@ -3,6 +3,7 @@ export interface UserPreferences {
   defaultCitationStyle?: 'APA' | 'MLA' | 'CHICAGO' | 'HARVARD';
   defaultWritingStyle?: 'ACADEMIC' | 'PROFESSIONAL' | 'CASUAL';
   defaultAcademicLevel?: 'HIGH_SCHOOL' | 'UNDERGRADUATE' | 'GRADUATE' | 'DOCTORAL';
+  defaultAiModel?: 'GROQ' | 'GEMINI' | 'ANTHROPIC' | 'OPENAI';
   autoApproveChapters?: boolean;
 
   // Appearance preferences
