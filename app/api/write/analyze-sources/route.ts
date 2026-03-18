@@ -11,6 +11,55 @@ import {
 } from '@/lib/middleware/tokenMiddleware';
 import { tokenService } from '@/lib/services/tokenService';
 
+export async function GET(request: NextRequest) {
+  try {
+    const user = await requireAuth();
+    const projectId = request.nextUrl.searchParams.get('projectId');
+
+    if (!projectId) {
+      return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
+    }
+
+    const supabase = await createServerSupabaseClient();
+
+    // Fetch source analysis
+    const { data: analysisData } = await (supabase as any)
+      .from('source_analysis')
+      .select('analysis')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Fetch section mappings
+    const { data: mappingData } = await (supabase as any)
+      .from('section_source_mappings')
+      .select('mappings')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Fetch research sources (for display metadata: title, author, url)
+    const { data: sources } = await supabase
+      .from('research_sources')
+      .select('id, title, author, url, published_date, excerpt')
+      .eq('project_id', projectId)
+      .order('position', { ascending: true });
+
+    return NextResponse.json({
+      sourceAnalysis: analysisData?.analysis || null,
+      sectionMappings: mappingData?.mappings || null,
+      researchSources: sources || [],
+    });
+  } catch (error: any) {
+    if (error?.message === 'Unauthorized') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    return NextResponse.json({ error: 'Failed to fetch source intelligence' }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate user
