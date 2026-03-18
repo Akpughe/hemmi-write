@@ -23,8 +23,10 @@ import { AIService } from "@/lib/services/aiService";
 import { AIProvider } from "@/lib/config/aiModels";
 
 const getStructureModel = (planType: string) => {
-  // All users (including free) use Groq for structure generation
-  // Free tier GPT-5-mini restriction only applies to chat
+  if (planType === 'free') {
+    const openai = createOpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+    return openai('gpt-5-mini');
+  }
   const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
   return groq('openai/gpt-oss-120b');
 };
