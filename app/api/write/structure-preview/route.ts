@@ -70,12 +70,14 @@ Return JSON array matching this schema:
   }
 ]
 
-IMPORTANT:
+CRITICAL RULES:
+- Use ONLY the sources listed above. Do NOT invent or hallucinate references that are not in the provided list.
 - Every section MUST have at least 2-3 references mapped to it (except Abstract)
 - Every reference MUST have a specific "reason" explaining WHY it belongs in that section
-- Subsection descriptions should explain what argument/evidence will be presented
+- Subsection descriptions should explain what argument/evidence will be presented, grounded in what the provided sources actually say
 - Map sources across sections — a source can appear in multiple sections for different reasons
-- Be specific in reasons — reference specific subsections (e.g., "supports the argument in 1.2 that...")`;
+- Be specific in reasons — reference specific subsections (e.g., "supports the argument in 1.2 that...")
+- The "title" and "author" in references MUST match exactly from the AVAILABLE SOURCES list above`;
 
     const response = await aiService.getChatCompletion(
       provider,
