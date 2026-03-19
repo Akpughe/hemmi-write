@@ -559,16 +559,21 @@ export class AIService {
   }
 
   /**
-   * Get the effective provider based on user plan type.
-   * Free users always use GPT-5-mini (OPENAI) for all operations.
+   * Get the effective provider based on user plan type and operation.
+   * Free users: Llama (GROQ) for writing, GPT-5-mini (OPENAI) for everything else.
    * Paid users use their requested provider.
    */
   static getEffectiveProvider(
     requestedProvider: AIProvider,
     userPlanType: string | null,
-    _operation?: string
+    operation?: string
   ): AIProvider {
     if (userPlanType === 'free') {
+      // Writing operations use Llama via Groq for free users
+      if (operation === 'writing') {
+        return AIProvider.GROQ;
+      }
+      // All other operations (research, chat, analysis, etc.) use GPT-5-mini
       return AIProvider.OPENAI;
     }
     return requestedProvider;
