@@ -322,35 +322,40 @@ function SectionCard({
                 </div>
               ) : null}
 
-              {/* References — show when available, shimmer when loading */}
+              {/* References — clean, compact list */}
               {hasDetail && sectionDetail.references.length > 0 ? (
                 <div className="pl-10">
                   <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                    References for this section
+                    Sources ({sectionDetail.references.length})
                   </div>
-                  <div className="space-y-2">
+                  <div className="divide-y divide-foreground/5">
                     {sectionDetail.references.map((ref, i) => (
                       <motion.div
                         key={i}
-                        initial={{ opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="bg-blue-50 dark:bg-blue-500/10 border-l-[3px] border-blue-500 rounded-lg p-3"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="py-2.5 first:pt-0 last:pb-0"
                       >
-                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                          {ref.author}
-                          {ref.year && (
-                            <span className="text-blue-500/60"> ({ref.year})</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-0.5">
-                          {ref.title}
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-[11px] text-foreground/30 tabular-nums shrink-0">
+                            [{i + 1}]
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-xs font-medium text-foreground/80">
+                              {ref.author}
+                            </span>
+                            {ref.year && (
+                              <span className="text-xs text-foreground/40"> ({ref.year})</span>
+                            )}
+                            <span className="text-xs text-foreground/40"> — </span>
+                            <span className="text-xs text-foreground/60 italic">
+                              {ref.title}
+                            </span>
+                          </div>
                         </div>
                         {ref.reason && (
-                          <p className="text-[11px] text-foreground/50 mt-1.5 leading-relaxed">
-                            <span className="font-semibold text-blue-600 dark:text-blue-400">
-                              Why:{" "}
-                            </span>
+                          <p className="text-[11px] text-foreground/40 mt-1 ml-5 leading-relaxed">
                             {ref.reason}
                           </p>
                         )}
@@ -359,13 +364,19 @@ function SectionCard({
                   </div>
                 </div>
               ) : isLoadingDetail ? (
-                <div className="pl-10 space-y-2">
+                <div className="pl-10">
                   <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                    References
+                    Sources
                   </div>
-                  <div className="space-y-2 animate-pulse">
-                    <div className="h-14 bg-blue-50/50 dark:bg-blue-500/5 rounded-lg w-full" />
-                    <div className="h-14 bg-blue-50/50 dark:bg-blue-500/5 rounded-lg w-5/6" />
+                  <div className="space-y-3 animate-pulse">
+                    <div className="space-y-1.5">
+                      <div className="h-3 bg-foreground/[0.04] rounded w-3/4" />
+                      <div className="h-2.5 bg-foreground/[0.03] rounded w-5/6 ml-5" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="h-3 bg-foreground/[0.04] rounded w-2/3" />
+                      <div className="h-2.5 bg-foreground/[0.03] rounded w-4/6 ml-5" />
+                    </div>
                   </div>
                 </div>
               ) : null}
