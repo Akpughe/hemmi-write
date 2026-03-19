@@ -79,6 +79,8 @@ CRITICAL RULES:
 - Be specific in reasons — reference specific subsections (e.g., "supports the argument in 1.2 that...")
 - The "title" and "author" in references MUST match exactly from the AVAILABLE SOURCES list above`;
 
+    console.log("[StructurePreview API] Calling LLM with provider:", provider, "sections:", sections.length, "sources:", sources.length);
+
     const response = await aiService.getChatCompletion(
       provider,
       [
@@ -86,15 +88,40 @@ CRITICAL RULES:
         { role: "user", content: userMessage },
       ],
       0.4,
-      4000
+      8000 // Increased from 4000 — 7 sections with references needs more room
     );
 
-    // Parse JSON
-    const jsonStr = response
+    console.log("[StructurePreview API] LLM response length:", response.length);
+
+    // Parse JSON — handle various LLM response quirks
+    let jsonStr = response
       .replace(/```json?\n?/g, "")
       .replace(/```\n?/g, "")
       .trim();
-    const sectionDetails = JSON.parse(jsonStr);
+
+    // Try to fix truncated JSON (if the response was cut off)
+    if (!jsonStr.endsWith("]")) {
+      // Find the last complete object
+      const lastCompleteObj = jsonStr.lastIndexOf("}");
+      if (lastCompleteObj > 0) {
+        jsonStr = jsonStr.substring(0, lastCompleteObj + 1) + "]";
+        console.warn("[StructurePreview API] JSON appeared truncated, attempted repair");
+      }
+    }
+
+    let sectionDetails;
+    try {
+      sectionDetails = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error("[StructurePreview API] JSON parse failed:", parseError);
+      console.error("[StructurePreview API] Raw response (first 500 chars):", response.substring(0, 500));
+      return NextResponse.json(
+        { error: "Failed to parse LLM response as JSON" },
+        { status: 502 }
+      );
+    }
+
+    console.log("[StructurePreview API] Parsed", sectionDetails.length, "section details");
 
     // Deduct tokens
     const tokensUsed = Math.ceil(response.length * 1.33) + 500;

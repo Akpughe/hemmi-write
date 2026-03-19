@@ -452,15 +452,20 @@ export function LeftPanel({
     }
   };
 
+  // Keep a ref to the latest plan so fire-and-forget callbacks don't use stale closures
+  const planRef = useRef<DocumentPlan | null>(plan);
+  useEffect(() => { planRef.current = plan; }, [plan]);
+
   // Background section detail generation — fire-and-forget, non-blocking
   const generateSectionDetails = (
     projectId: string | null,
     apiStructure: any,
     selectedSources: any[],
-    topic: string,
-    currentPlan: DocumentPlan
+    topic: string
   ) => {
     if (!projectId) return;
+
+    console.log("[Structure] Starting background section detail generation...");
 
     fetch("/api/write/structure-preview", {
       method: "POST",
@@ -483,13 +488,20 @@ export function LeftPanel({
       }),
     })
       .then((res) => {
+        console.log("[Structure] Section preview API response status:", res.status);
         if (!res.ok) throw new Error(`Status ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        if (data.sectionDetails) {
-          console.log("[Structure] Section details received:", data.sectionDetails.length);
-          setPlan({ ...currentPlan, sectionDetails: data.sectionDetails });
+        if (data.sectionDetails && data.sectionDetails.length > 0) {
+          console.log("[Structure] Section details received:", data.sectionDetails.length, "sections");
+          // Use ref to get the latest plan state, not a stale closure
+          const latestPlan = planRef.current;
+          if (latestPlan) {
+            setPlan({ ...latestPlan, sectionDetails: data.sectionDetails });
+          }
+        } else {
+          console.warn("[Structure] Section details response was empty or malformed:", data);
         }
       })
       .catch((err) => {
@@ -554,7 +566,7 @@ export function LeftPanel({
 
       // Fire-and-forget: generate section details in background
       // Don't await — let the user see the structure immediately
-      generateSectionDetails(currentProjectId, apiStructure, selectedSources, brief.topic, mappedPlan);
+      generateSectionDetails(currentProjectId, apiStructure, selectedSources, brief.topic);
     } catch (error) {
       console.error("Planning error:", error);
       onStructureStatusChange?.({
