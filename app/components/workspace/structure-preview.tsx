@@ -4,15 +4,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
-  ChevronRight,
-  Check,
-  BookOpen,
   Edit3,
   RefreshCw,
   Loader2,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
-import { Badge } from "@/app/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { WorkflowStep } from "@/lib/types/ui";
 
@@ -52,202 +50,123 @@ interface StructurePreviewProps {
 interface SectionDetail {
   sectionHeading: string;
   detailedDescription: string;
-  subsections: Array<{
-    title: string;
-    description: string;
-  }>;
-  references: Array<{
-    title: string;
-    author: string;
-    year: string;
-    reason: string;
-  }>;
+  subsections: Array<{ title: string; description: string }>;
+  references: Array<{ title: string; author: string; year: string; reason: string }>;
 }
 
 // =============================================================================
-// ThinkingShimmer
+// SectionRow — Single expandable section
 // =============================================================================
 
-function ThinkingShimmer({ text }: { text?: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      {text && <span className="text-xs text-foreground/40">{text}</span>}
-      <div className="flex items-center gap-1">
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="w-1 h-1 rounded-full bg-foreground/40"
-            animate={{
-              opacity: [0.3, 1, 0.3],
-              scale: [0.85, 1, 0.85],
-            }}
-            transition={{
-              duration: 1.2,
-              repeat: Infinity,
-              delay: i * 0.15,
-              ease: "easeInOut",
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// SkeletonCard
-// =============================================================================
-
-function SkeletonCard() {
-  return (
-    <div className="pl-10 space-y-3 animate-pulse">
-      <div className="space-y-2">
-        <div className="h-3 bg-foreground/5 rounded w-24" />
-        <div className="space-y-1.5">
-          <div className="h-8 bg-foreground/[0.03] rounded-lg w-full" />
-          <div className="h-8 bg-foreground/[0.03] rounded-lg w-5/6" />
-          <div className="h-8 bg-foreground/[0.03] rounded-lg w-4/6" />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <div className="h-3 bg-foreground/5 rounded w-32" />
-        <div className="h-16 bg-blue-50/50 dark:bg-blue-500/5 rounded-lg w-full" />
-        <div className="h-16 bg-blue-50/50 dark:bg-blue-500/5 rounded-lg w-full" />
-      </div>
-    </div>
-  );
-}
-
-// =============================================================================
-// SectionCard
-// =============================================================================
-
-interface SectionCardProps {
-  section: StructurePreviewProps["plan"]["sections"][number];
-  index: number;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onTitleChange: (newTitle: string) => void;
-  sectionDetail: SectionDetail | null;
-  isLoadingDetail: boolean;
-}
-
-function SectionCard({
+function SectionRow({
   section,
   index,
   isExpanded,
   onToggle,
   onTitleChange,
   sectionDetail,
-  isLoadingDetail,
-}: SectionCardProps) {
+  totalSections,
+}: {
+  section: StructurePreviewProps["plan"]["sections"][number];
+  index: number;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onTitleChange: (title: string) => void;
+  sectionDetail: SectionDetail | null;
+  totalSections: number;
+}) {
   const titleRef = useRef<HTMLSpanElement>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  const referenceCount = sectionDetail?.references?.length || 0;
-  const subsections = sectionDetail?.subsections || [];
   const hasDetail = sectionDetail !== null;
+  const subsections = sectionDetail?.subsections || [];
+  const references = sectionDetail?.references || [];
+  const keyPoints = section.keyPoints || [];
 
-  const handleTitleBlur = useCallback(() => {
+  const handleBlur = useCallback(() => {
     setIsEditing(false);
-    if (titleRef.current) {
-      const newTitle = titleRef.current.textContent?.trim();
-      if (newTitle && newTitle !== section.title) {
-        onTitleChange(newTitle);
-      }
-    }
+    const text = titleRef.current?.textContent?.trim();
+    if (text && text !== section.title) onTitleChange(text);
   }, [section.title, onTitleChange]);
-
-  const handleTitleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleTitleBlur();
-      }
-      if (e.key === "Escape") {
-        setIsEditing(false);
-        if (titleRef.current) {
-          titleRef.current.textContent = section.title;
-        }
-      }
-    },
-    [handleTitleBlur, section.title]
-  );
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.3,
-        delay: Math.min(index * 0.05, 0.3),
-      }}
-      className={cn(
-        "rounded-xl border border-border bg-card shadow-sm transition-all duration-300 group",
-        isExpanded && "border-blue-500/20 shadow-md"
-      )}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.25) }}
     >
-      {/* Header */}
+      {/* Row header */}
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-3 p-4 text-left hover:bg-foreground/[0.02] transition-colors duration-200 rounded-xl"
+        className={cn(
+          "w-full flex items-center gap-3 py-3 text-left group transition-colors duration-150",
+          "hover:bg-foreground/[0.015] rounded-lg px-2 -mx-2"
+        )}
       >
-        <div className="w-7 h-7 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-semibold shrink-0">
+        {/* Number */}
+        <span className="text-[13px] tabular-nums text-foreground/25 w-5 text-right shrink-0 font-medium">
           {index + 1}
-        </div>
+        </span>
 
-        <div className="flex-1 min-w-0 flex items-center gap-2">
+        {/* Title + word count */}
+        <div className="flex-1 min-w-0 flex items-baseline gap-2">
           <span
             ref={titleRef}
             contentEditable={isEditing}
             suppressContentEditableWarning
-            onBlur={handleTitleBlur}
-            onKeyDown={handleTitleKeyDown}
-            onClick={(e) => {
-              if (isEditing) e.stopPropagation();
+            onBlur={handleBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { e.preventDefault(); handleBlur(); }
+              if (e.key === "Escape") {
+                setIsEditing(false);
+                if (titleRef.current) titleRef.current.textContent = section.title;
+              }
             }}
+            onClick={(e) => { if (isEditing) e.stopPropagation(); }}
             className={cn(
-              "text-sm font-medium text-foreground",
-              isEditing &&
-                "outline-none ring-1 ring-blue-500/50 rounded px-1 -mx-1 bg-blue-50/50 dark:bg-blue-500/10"
+              "text-[14px] font-medium text-foreground/90 leading-snug",
+              isEditing && "outline-none ring-1 ring-foreground/20 rounded px-1 -mx-1 bg-foreground/[0.03]"
             )}
           >
             {section.title}
           </span>
-          <button
-            type="button"
+
+          {section.estimatedWordCount && (
+            <span className="text-[11px] text-foreground/20 shrink-0">
+              {section.estimatedWordCount.toLocaleString()} words
+            </span>
+          )}
+        </div>
+
+        {/* Edit + chevron */}
+        <div className="flex items-center gap-1 shrink-0">
+          <span
+            role="button"
+            tabIndex={0}
             onClick={(e) => {
               e.stopPropagation();
               setIsEditing(true);
               setTimeout(() => titleRef.current?.focus(), 0);
             }}
-            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-foreground/5 transition-opacity"
+            onKeyDown={() => {}}
+            className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-foreground/5 transition-opacity cursor-pointer"
           >
-            <Edit3 className="w-3 h-3 text-foreground/30" />
-          </button>
-        </div>
+            <Edit3 className="w-3 h-3 text-foreground/25" />
+          </span>
 
-        <div className="flex items-center gap-2 shrink-0">
-          {section.estimatedWordCount && (
-            <span className="text-[11px] text-foreground/40">
-              ~{section.estimatedWordCount.toLocaleString()}w
+          {references.length > 0 && (
+            <span className="text-[10px] text-foreground/25 tabular-nums mr-0.5">
+              {references.length} ref{references.length !== 1 ? "s" : ""}
             </span>
           )}
-          {referenceCount > 0 && (
-            <Badge
-              variant="secondary"
-              className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 border-0"
-            >
-              <BookOpen className="w-3 h-3 mr-0.5" />
-              {referenceCount}
-            </Badge>
-          )}
-          {isExpanded ? (
-            <ChevronDown className="w-4 h-4 text-foreground/30" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-foreground/30" />
-          )}
+
+          <motion.div
+            animate={{ rotate: isExpanded ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ChevronDown className="w-4 h-4 text-foreground/20" />
+          </motion.div>
         </div>
       </button>
 
@@ -258,138 +177,96 @@ function SectionCard({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
+            transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 space-y-4 border-t border-foreground/5 pt-3">
-              {/* Description — from detail or section */}
+            <div className="pl-8 pr-2 pb-4 pt-1 space-y-5">
+              {/* Description */}
               {(sectionDetail?.detailedDescription || section.description) && (
-                <div className="pl-10">
-                  <p className="text-sm text-foreground/60 leading-relaxed">
-                    {sectionDetail?.detailedDescription || section.description}
-                  </p>
-                </div>
+                <p className="text-[13px] text-foreground/50 leading-relaxed max-w-prose">
+                  {sectionDetail?.detailedDescription || section.description}
+                </p>
               )}
 
-              {/* Subsections — always show from detail (with descriptions) or key points */}
-              {(hasDetail && subsections.length > 0) ? (
-                <div className="pl-10">
-                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                    Subsections
-                  </div>
-                  <div className="space-y-2">
-                    {subsections.map((sub, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.03 }}
-                        className="flex items-start gap-2.5 p-2.5 bg-foreground/[0.02] rounded-lg"
-                      >
-                        <span className="text-xs font-medium text-foreground/40 mt-0.5 shrink-0 w-6">
+              {/* Subsections */}
+              {(hasDetail && subsections.length > 0 ? subsections : keyPoints.map(kp => ({ title: kp, description: "" }))).length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-medium text-foreground/30 uppercase tracking-widest mb-2.5">
+                    Outline
+                  </h4>
+                  <div className="space-y-1">
+                    {(hasDetail && subsections.length > 0
+                      ? subsections
+                      : keyPoints.map(kp => ({ title: kp, description: "" }))
+                    ).map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 py-1.5">
+                        <span className="text-[11px] text-foreground/20 tabular-nums mt-[2px] w-7 shrink-0 text-right">
                           {index + 1}.{i + 1}
                         </span>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-foreground/80">
-                            {sub.title}
-                          </div>
-                          {sub.description && (
-                            <p className="text-xs text-foreground/50 mt-0.5 leading-relaxed">
-                              {sub.description}
+                          <span className="text-[13px] text-foreground/70">
+                            {item.title}
+                          </span>
+                          {item.description && (
+                            <p className="text-[12px] text-foreground/35 mt-0.5 leading-relaxed">
+                              {item.description}
                             </p>
                           )}
                         </div>
-                      </motion.div>
+                      </div>
                     ))}
                   </div>
                 </div>
-              ) : section.keyPoints && section.keyPoints.length > 0 ? (
-                <div className="pl-10">
-                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                    Key points
-                  </div>
-                  <ul className="space-y-1.5">
-                    {section.keyPoints.map((point, i) => (
-                      <li
-                        key={i}
-                        className="text-sm text-foreground/70 flex items-start gap-2"
-                      >
-                        <Check className="w-3 h-3 text-emerald-500 mt-1 shrink-0" />
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
+              )}
 
-              {/* References — clean, compact list */}
-              {hasDetail && sectionDetail.references.length > 0 ? (
-                <div className="pl-10">
-                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                    Sources ({sectionDetail.references.length})
-                  </div>
-                  <div className="divide-y divide-foreground/5">
-                    {sectionDetail.references.map((ref, i) => (
+              {/* References */}
+              {references.length > 0 && (
+                <div>
+                  <h4 className="text-[11px] font-medium text-foreground/30 uppercase tracking-widest mb-2.5">
+                    Sources
+                  </h4>
+                  <div className="space-y-3">
+                    {references.map((ref, i) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.03 }}
-                        className="py-2.5 first:pt-0 last:pb-0"
+                        className="group/ref"
                       >
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="text-[11px] text-foreground/30 tabular-nums shrink-0">
-                            [{i + 1}]
-                          </span>
-                          <div className="min-w-0">
-                            <span className="text-xs font-medium text-foreground/80">
-                              {ref.author}
-                            </span>
-                            {ref.year && (
-                              <span className="text-xs text-foreground/40"> ({ref.year})</span>
-                            )}
-                            <span className="text-xs text-foreground/40"> — </span>
-                            <span className="text-xs text-foreground/60 italic">
-                              {ref.title}
-                            </span>
-                          </div>
+                        <div className="text-[13px] text-foreground/65">
+                          <span className="font-medium text-foreground/80">{ref.author}</span>
+                          {ref.year && <span className="text-foreground/35"> ({ref.year})</span>}
+                        </div>
+                        <div className="text-[12px] text-foreground/40 italic mt-px">
+                          {ref.title}
                         </div>
                         {ref.reason && (
-                          <p className="text-[11px] text-foreground/40 mt-1 ml-5 leading-relaxed">
+                          <div className="text-[11px] text-foreground/30 mt-1 leading-relaxed pl-0">
+                            <span className="text-foreground/50 font-medium">Relevance: </span>
                             {ref.reason}
-                          </p>
+                          </div>
                         )}
                       </motion.div>
                     ))}
                   </div>
                 </div>
-              ) : isLoadingDetail ? (
-                <div className="pl-10">
-                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                    Sources
-                  </div>
-                  <div className="space-y-3 animate-pulse">
-                    <div className="space-y-1.5">
-                      <div className="h-3 bg-foreground/[0.04] rounded w-3/4" />
-                      <div className="h-2.5 bg-foreground/[0.03] rounded w-5/6 ml-5" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="h-3 bg-foreground/[0.04] rounded w-2/3" />
-                      <div className="h-2.5 bg-foreground/[0.03] rounded w-4/6 ml-5" />
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Divider — not on last item */}
+      {index < totalSections - 1 && (
+        <div className="h-px bg-foreground/[0.04] ml-8" />
+      )}
     </motion.div>
   );
 }
 
 // =============================================================================
-// Main Component
+// Main
 // =============================================================================
 
 export function StructurePreview({
@@ -401,324 +278,192 @@ export function StructurePreview({
   structureCompletedAt,
 }: StructurePreviewProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
-  const [editedSections, setEditedSections] = useState<Map<number, { title: string }>>(
-    new Map()
-  );
+  const [editedSections, setEditedSections] = useState<Map<number, { title: string }>>(new Map());
   const [sectionDetails, setSectionDetails] = useState<(SectionDetail | null)[]>([]);
   const [loadingState, setLoadingState] = useState<"idle" | "done" | "waiting">("idle");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const hasEdits = editedSections.size > 0;
 
-  // Use section details from plan if already generated (by left-panel flow)
-  // Otherwise wait briefly, then give up — key points are already visible
+  // Receive section details from plan (generated by left-panel)
   useEffect(() => {
     if (plan.sectionDetails && plan.sectionDetails.length > 0) {
-      console.log("[StructurePreview] Section details available from plan:", plan.sectionDetails.length);
       setSectionDetails(plan.sectionDetails);
       setLoadingState("done");
     } else if (loadingState === "idle") {
-      console.log("[StructurePreview] No section details yet, waiting...");
       setSectionDetails(new Array(plan.sections.length).fill(null));
       setLoadingState("waiting");
     }
   }, [plan.sectionDetails, plan.sections.length, loadingState]);
 
-  // Timeout: if details don't arrive in 20 seconds, stop waiting
-  // The key points are already showing — references are a nice-to-have enrichment
+  // Timeout
   useEffect(() => {
     if (loadingState !== "waiting") return;
-    const timeout = setTimeout(() => {
-      console.log("[StructurePreview] Timeout waiting for section details — showing key points only");
-      setLoadingState("done");
-    }, 20000);
-    return () => clearTimeout(timeout);
+    const t = setTimeout(() => setLoadingState("done"), 20000);
+    return () => clearTimeout(t);
   }, [loadingState]);
 
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  // Missing refs detection
+  const missingCount = plan.sections.filter((_, i) => {
+    const d = sectionDetails[i];
+    return !d || !d.references || d.references.length === 0;
+  }).length;
+  const hasMissing = missingCount > 0 && loadingState === "done";
 
-  const handleTitleChange = useCallback(
-    (index: number, newTitle: string) => {
-      setEditedSections((prev) => {
-        const next = new Map(prev);
-        next.set(index, { title: newTitle });
-        return next;
-      });
-    },
-    []
-  );
-
-  // Detect what's missing
-  const sectionsWithoutRefs = plan.sections.filter((_, i) => {
-    const detail = sectionDetails[i];
-    return !detail || !detail.references || detail.references.length === 0;
-  });
-  const hasMissingRefs = sectionsWithoutRefs.length > 0 && loadingState === "done";
-
-  // Refresh: fetch references for sections that are missing them
+  // Refresh handler
   const handleRefresh = useCallback(async () => {
     if (!projectId || isRefreshing) return;
-
     setIsRefreshing(true);
-    console.log("[StructurePreview] Refreshing — fetching missing references for", sectionsWithoutRefs.length, "sections");
-
     try {
-      const response = await fetch("/api/write/structure-preview", {
+      const res = await fetch("/api/write/structure-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
           sections: plan.sections.map((s) => ({
-            heading: s.title,
-            keyPoints: s.keyPoints,
-            description: s.description,
-            estimatedWordCount: s.estimatedWordCount,
+            heading: s.title, keyPoints: s.keyPoints,
+            description: s.description, estimatedWordCount: s.estimatedWordCount,
           })),
           sources: sources.slice(0, 15).map((s) => ({
-            title: s.title,
-            author: s.author,
-            excerpt: s.excerpt,
-            publishedDate: s.publishedDate,
+            title: s.title, author: s.author,
+            excerpt: s.excerpt, publishedDate: s.publishedDate,
           })),
           topic: plan.title,
         }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.sectionDetails && Array.isArray(data.sectionDetails)) {
-          console.log("[StructurePreview] Refresh received", data.sectionDetails.length, "section details");
-          // Merge: keep existing details where they have refs, use new ones where they don't
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sectionDetails?.length) {
           setSectionDetails((prev) => {
             const merged = [...prev];
             for (let i = 0; i < data.sectionDetails.length; i++) {
               const existing = merged[i];
-              const incoming = data.sectionDetails[i];
-              if (!existing || !existing.references || existing.references.length === 0) {
-                merged[i] = incoming;
-              }
+              if (!existing?.references?.length) merged[i] = data.sectionDetails[i];
             }
             return merged;
           });
         }
-      } else {
-        console.warn("[StructurePreview] Refresh failed:", response.status);
       }
-    } catch (err) {
-      console.error("[StructurePreview] Refresh error:", err);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [projectId, plan, sources, isRefreshing, sectionsWithoutRefs.length]);
+    } catch { /* non-fatal */ }
+    finally { setIsRefreshing(false); }
+  }, [projectId, plan, sources, isRefreshing]);
 
-  const isLoading = loadingState === "waiting";
+  const handleTitleChange = useCallback((index: number, title: string) => {
+    setEditedSections((prev) => { const n = new Map(prev); n.set(index, { title }); return n; });
+  }, []);
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-      className="space-y-4"
+      transition={{ duration: 0.35 }}
+      className="space-y-5"
     >
-      {/* Title and meta */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-xs text-muted-foreground">Title</div>
-          <div className="text-base font-semibold truncate">{plan.title}</div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge variant="secondary">{plan.sections.length} sections</Badge>
-          {(hasMissingRefs || isRefreshing) && (
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className={cn(
-                "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all duration-200",
-                isRefreshing
-                  ? "border-blue-300 bg-blue-50 text-blue-500 dark:border-blue-500/30 dark:bg-blue-500/10 cursor-wait"
-                  : "border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
-              )}
-            >
-              <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
-              {isRefreshing
-                ? "Fetching references..."
-                : `Get references (${sectionsWithoutRefs.length} missing)`}
-            </button>
-          )}
-        </div>
+      {/* Title */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground/90 leading-tight">
+          {plan.title}
+        </h2>
+        {plan.approach && (
+          <p className="text-[13px] text-foreground/40 mt-1.5 leading-relaxed max-w-prose">
+            {plan.approach}
+          </p>
+        )}
       </div>
 
-      {/* Approach/tone */}
-      {(plan.approach || plan.tone) && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="px-4 py-3 rounded-xl bg-foreground/[0.02] border border-foreground/5"
-        >
-          {plan.approach && (
-            <div className="text-xs text-foreground/60">
-              <span className="font-medium text-foreground/80">Approach:</span>{" "}
-              {plan.approach}
-            </div>
-          )}
-          {plan.tone && (
-            <div className="text-xs text-foreground/60 mt-1">
-              <span className="font-medium text-foreground/80">Tone:</span>{" "}
-              {plan.tone}
-            </div>
-          )}
-        </motion.div>
-      )}
-
-      {/* Loading progress */}
-      {isLoading && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex items-center gap-2 px-1"
-        >
-          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
-          <span className="text-xs text-foreground/50">
-            Generating references and subsection details...
+      {/* Section list */}
+      <div className="rounded-xl border border-foreground/[0.06] bg-card">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-foreground/[0.04]">
+          <span className="text-[12px] font-medium text-foreground/40">
+            {plan.sections.length} sections
+            {plan.tone && <span className="text-foreground/25"> · {plan.tone}</span>}
           </span>
-        </motion.div>
-      )}
 
-      {/* Section cards */}
-      <div className="space-y-2">
-        {plan.sections.map((section, index) => (
-          <SectionCard
-            key={section.id || index}
-            section={section}
-            index={index}
-            isExpanded={expandedIndex === index}
-            onToggle={() =>
-              setExpandedIndex((prev) => (prev === index ? null : index))
-            }
-            onTitleChange={(newTitle) => handleTitleChange(index, newTitle)}
-            sectionDetail={sectionDetails[index] || null}
-            isLoadingDetail={isLoading && !sectionDetails[index]}
-          />
-        ))}
+          <div className="flex items-center gap-2">
+            {loadingState === "waiting" && (
+              <span className="flex items-center gap-1.5 text-[11px] text-foreground/30">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Loading details
+              </span>
+            )}
+
+            {hasMissing && !isRefreshing && (
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="flex items-center gap-1.5 text-[11px] text-foreground/40 hover:text-foreground/60 transition-colors"
+              >
+                <Sparkles className="w-3 h-3" />
+                Load references
+              </button>
+            )}
+
+            {isRefreshing && (
+              <span className="flex items-center gap-1.5 text-[11px] text-foreground/30">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Fetching references
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="px-4 py-2">
+          {plan.sections.map((section, index) => (
+            <SectionRow
+              key={section.id || index}
+              section={section}
+              index={index}
+              isExpanded={expandedIndex === index}
+              onToggle={() => setExpandedIndex((p) => (p === index ? null : index))}
+              onTitleChange={(t) => handleTitleChange(index, t)}
+              sectionDetail={sectionDetails[index] || null}
+              totalSections={plan.sections.length}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Timestamp */}
-      {structureCompletedAt && (
-        <div className="text-xs text-muted-foreground">
-          Updated{" "}
-          {structureCompletedAt.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit",
-          })}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center justify-end gap-2 pt-2">
-        <AnimatePresence>
-          {hasEdits && onGenerateStructure && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onGenerateStructure}
-                className="gap-1.5"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Update Structure
-              </Button>
-            </motion.div>
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="text-[11px] text-foreground/20">
+          {structureCompletedAt && (
+            <>Updated {structureCompletedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</>
           )}
-        </AnimatePresence>
-        <Button className="gap-2" onClick={() => onStepChange("writing")}>
-          Start writing
-        </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <AnimatePresence>
+            {hasEdits && onGenerateStructure && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onGenerateStructure}
+                  className="gap-1.5 text-xs h-8 rounded-lg border-foreground/10"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Update
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <Button
+            onClick={() => onStepChange("writing")}
+            size="sm"
+            className="gap-1.5 text-xs h-8 rounded-lg"
+          >
+            Start writing
+            <ArrowRight className="w-3 h-3" />
+          </Button>
+        </div>
       </div>
     </motion.div>
   );
-}
-
-// =============================================================================
-// Helper: Build section details from existing source intelligence
-// =============================================================================
-
-function buildDetailsFromIntelligence(
-  sections: StructurePreviewProps["plan"]["sections"],
-  sourceAnalysis: any,
-  sectionMappings: any[],
-  researchSources: any[]
-): SectionDetail[] {
-  console.log("[buildDetailsFromIntelligence] Input:", {
-    sectionCount: sections.length,
-    mappingCount: Array.isArray(sectionMappings) ? sectionMappings.length : "not array",
-    sourceCount: researchSources.length,
-    analysisSourceCount: sourceAnalysis?.sources?.length || 0,
-  });
-
-  if (!Array.isArray(sectionMappings)) {
-    console.warn("[buildDetailsFromIntelligence] sectionMappings is not an array:", typeof sectionMappings);
-    return [];
-  }
-
-  const sourceMap = new Map(researchSources.map((s: any) => [s.id, s]));
-  const analysisMap = new Map<string, any>();
-  if (sourceAnalysis?.sources) {
-    for (const src of sourceAnalysis.sources) {
-      const key = src.sourceId || src.id;
-      if (key) analysisMap.set(key, src);
-    }
-  }
-
-  console.log("[buildDetailsFromIntelligence] Maps built:", {
-    sourceMapSize: sourceMap.size,
-    analysisMapSize: analysisMap.size,
-  });
-
-  return sections.map((section, index) => {
-    // Match by heading first, then fall back to index
-    const mapping = sectionMappings.find(
-      (m: any) => m.sectionHeading === section.title
-    ) || sectionMappings[index];
-
-    const references = (mapping?.relevantSourceIds || [])
-      .map((id: string) => {
-        const source = sourceMap.get(id);
-        const analysis = analysisMap.get(id);
-        if (!source) {
-          console.log(`[buildDetailsFromIntelligence] Source not found for id: ${id}`);
-          return null;
-        }
-        return {
-          title: source.title,
-          author: source.author || "Unknown",
-          year: source.published_date
-            ? new Date(source.published_date).getFullYear().toString()
-            : "",
-          reason: analysis?.bestUsedFor || mapping?.suggestedApproach || "",
-        };
-      })
-      .filter(Boolean);
-
-    const subsections = (section.keyPoints || []).map((kp, i) => ({
-      title: kp,
-      description: "",
-    }));
-
-    console.log(`[buildDetailsFromIntelligence] Section "${section.title}": ${references.length} refs, ${subsections.length} subsections`);
-
-    return {
-      sectionHeading: section.title,
-      detailedDescription: mapping?.sectionThesis || section.description || "",
-      subsections,
-      references,
-    };
-  });
 }
 
 export default StructurePreview;
