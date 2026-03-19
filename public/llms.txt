@@ -1,0 +1,63 @@
+# Hemmi
+
+> AI-powered writing assistant for research papers, essays, and academic documents.
+
+Hemmi helps students and researchers write faster with AI assistance, proper citations, and academic rigor. Write research papers, essays, reports, and dissertations 10x faster without sacrificing quality.
+
+## Features
+
+- AI-assisted research and source discovery
+- Automated citation generation (APA, MLA, Chicago, IEEE)
+- Structured document generation with outlines
+- Literature review assistance
+- Academic tone and style guidance
+- Real-time editing and proofreading suggestions
+
+## Links
+
+- [Homepage](https://hemmi.app)
+- [Pricing](https://hemmi.app/pricing)
+- [Blog](https://hemmi.app/blog)
+
+## Blog
+
+- [Best AI Writing Tools for Students in 2026](https://hemmi.app/blog/best-ai-writing-tools-for-students)
+- [How to Use an AI Research Paper Writer (Without Losing Your Voice)](https://hemmi.app/blog/ai-research-paper-writer-guide)
+- [AI Essay Writer vs Human Writing: What Students Need to Know](https://hemmi.app/blog/ai-essay-writer-vs-human-writing)
+- [Top 10 Jenni AI Alternatives for Academic Writing in 2026](https://hemmi.app/blog/jenni-ai-alternatives)
+- [Best AI Tools for Thesis and Dissertation Writing](https://hemmi.app/blog/ai-tools-for-thesis-writing)
+- [ChatGPT vs Dedicated Academic AI Writers: Which Is Better?](https://hemmi.app/blog/chatgpt-vs-academic-ai-writers)
+- [7 Free AI Writing Tools Every College Student Should Know](https://hemmi.app/blog/free-ai-writing-tools-for-college)
+- [How AI Writing Assistants Are Changing Academic Research](https://hemmi.app/blog/ai-writing-assistant-for-research)
+- [How to Write a Research Paper: Step-by-Step Guide for 2026](https://hemmi.app/blog/how-to-write-a-research-paper)
+- [Research Paper Outline Template (With Examples)](https://hemmi.app/blog/research-paper-outline-template)
+- [How to Write a Literature Review: Complete Guide](https://hemmi.app/blog/how-to-write-a-literature-review)
+- [How to Write a Research Paper Introduction (With Examples)](https://hemmi.app/blog/research-paper-introduction-examples)
+- [How to Find Credible Sources for a Research Paper](https://hemmi.app/blog/how-to-find-sources-for-research-paper)
+- [How to Write a Strong Research Paper Conclusion](https://hemmi.app/blog/research-paper-conclusion-guide)
+- [10 Common Research Paper Mistakes (and How to Fix Them)](https://hemmi.app/blog/common-research-paper-mistakes)
+- [How to Write an Argumentative Essay: Structure & Examples](https://hemmi.app/blog/how-to-write-an-argumentative-essay)
+- [How to Write an Analytical Essay That Gets an A](https://hemmi.app/blog/how-to-write-an-analytical-essay)
+- [Persuasive Essay Writing: Tips, Structure & Examples](https://hemmi.app/blog/persuasive-essay-writing-guide)
+- [How to Write an Expository Essay (Complete Guide)](https://hemmi.app/blog/expository-essay-guide)
+- [How to Write a Thesis Statement: Examples & Formula](https://hemmi.app/blog/how-to-write-a-thesis-statement)
+- [15 Essay Hook Examples That Grab Your Reader's Attention](https://hemmi.app/blog/essay-hooks-examples)
+- [APA Format Guide: Rules, Examples & Free Template (7th Edition)](https://hemmi.app/blog/apa-format-guide)
+- [MLA Format: Complete Guide With Examples (9th Edition)](https://hemmi.app/blog/mla-format-guide)
+- [How to Cite Sources in a Research Paper (APA, MLA, Chicago)](https://hemmi.app/blog/how-to-cite-sources-in-a-research-paper)
+- [APA vs MLA: Key Differences and When to Use Each](https://hemmi.app/blog/apa-vs-mla-differences)
+- [Best AI Citation Generators: Accuracy Tested & Compared](https://hemmi.app/blog/ai-citation-generator-tools)
+- [How to Write a Bibliography: Formats, Examples & Tips](https://hemmi.app/blog/how-to-write-a-bibliography)
+- [How to Use AI Ethically in Academic Writing](https://hemmi.app/blog/how-to-use-ai-ethically-in-academic-writing)
+- [AI Detection Tools Explained: How Turnitin & GPTZero Work](https://hemmi.app/blog/ai-detection-tools-explained)
+- [Can Universities Detect AI Writing? What Students Should Know](https://hemmi.app/blog/can-universities-detect-ai-writing)
+- [AI and Plagiarism: How to Use AI Tools Without Getting Flagged](https://hemmi.app/blog/ai-plagiarism-how-to-avoid)
+- [AI Writing Policies at Top Universities: A 2026 Overview](https://hemmi.app/blog/ai-writing-university-policies)
+- [How to Write Papers Faster in College (Without Sacrificing Quality)](https://hemmi.app/blog/how-to-write-faster-in-college)
+- [Best Note-Taking Methods for Research and Writing](https://hemmi.app/blog/best-note-taking-methods-for-research)
+- [How to Overcome Writer's Block When Writing a Paper](https://hemmi.app/blog/how-to-overcome-writers-block)
+- [Time Management Tips for Writing Research Papers](https://hemmi.app/blog/time-management-for-research-papers)
+- [How to Proofread and Edit Your Paper Like a Pro](https://hemmi.app/blog/how-to-proofread-your-paper)
+- [Best AI Tools for Content Writers and Bloggers in 2026](https://hemmi.app/blog/ai-tools-for-content-writers)
+- [How to Write a Professional Report Using AI](https://hemmi.app/blog/how-to-write-a-report-with-ai)
+- [Academic Writing vs Content Writing: Key Differences Explained](https://hemmi.app/blog/academic-writing-vs-content-writing)
