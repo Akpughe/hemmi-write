@@ -1248,6 +1248,7 @@ export function EditorPanel({
             ) : plan ? (
               <StructurePreview
                 plan={plan}
+                setPlan={setPlan as (plan: any) => void}
                 projectId={projectId}
                 sources={sources}
                 onStepChange={onStepChange}
