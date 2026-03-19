@@ -243,12 +243,6 @@ function SectionCard({
               {referenceCount}
             </Badge>
           )}
-          {isLoadingDetail && !hasDetail && (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
-          )}
-          {hasDetail && (
-            <Check className="w-3.5 h-3.5 text-emerald-500" />
-          )}
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-foreground/30" />
           ) : (
@@ -405,19 +399,29 @@ export function StructurePreview({
   const hasEdits = editedSections.size > 0;
 
   // Use section details from plan if already generated (by left-panel flow)
-  // Otherwise wait for them to arrive via plan updates
+  // Otherwise wait briefly, then give up — key points are already visible
   useEffect(() => {
     if (plan.sectionDetails && plan.sectionDetails.length > 0) {
       console.log("[StructurePreview] Section details available from plan:", plan.sectionDetails.length);
       setSectionDetails(plan.sectionDetails);
       setLoadingState("done");
     } else if (loadingState === "idle") {
-      console.log("[StructurePreview] No section details yet, waiting for generation...");
-      // Initialize with nulls — details will arrive when left-panel finishes generating
+      console.log("[StructurePreview] No section details yet, waiting...");
       setSectionDetails(new Array(plan.sections.length).fill(null));
       setLoadingState("waiting");
     }
   }, [plan.sectionDetails, plan.sections.length, loadingState]);
+
+  // Timeout: if details don't arrive in 20 seconds, stop waiting
+  // The key points are already showing — references are a nice-to-have enrichment
+  useEffect(() => {
+    if (loadingState !== "waiting") return;
+    const timeout = setTimeout(() => {
+      console.log("[StructurePreview] Timeout waiting for section details — showing key points only");
+      setLoadingState("done");
+    }, 20000);
+    return () => clearTimeout(timeout);
+  }, [loadingState]);
 
   const handleTitleChange = useCallback(
     (index: number, newTitle: string) => {

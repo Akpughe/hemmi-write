@@ -452,6 +452,51 @@ export function LeftPanel({
     }
   };
 
+  // Background section detail generation — fire-and-forget, non-blocking
+  const generateSectionDetails = (
+    projectId: string | null,
+    apiStructure: any,
+    selectedSources: any[],
+    topic: string,
+    currentPlan: DocumentPlan
+  ) => {
+    if (!projectId) return;
+
+    fetch("/api/write/structure-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projectId,
+        sections: apiStructure.sections.map((s: any) => ({
+          heading: s.heading,
+          keyPoints: s.keyPoints || [],
+          description: s.description || "",
+          estimatedWordCount: s.estimatedWordCount,
+        })),
+        sources: selectedSources.slice(0, 15).map((s: any) => ({
+          title: s.title,
+          author: s.author,
+          excerpt: s.excerpt || s.snippet,
+          publishedDate: s.publishedDate,
+        })),
+        topic,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`Status ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (data.sectionDetails) {
+          console.log("[Structure] Section details received:", data.sectionDetails.length);
+          setPlan({ ...currentPlan, sectionDetails: data.sectionDetails });
+        }
+      })
+      .catch((err) => {
+        console.warn("[Structure] Section preview generation failed (non-fatal):", err);
+      });
+  };
+
   const handleApproveResearch = async () => {
     onStepChange("planning");
     setIsPlanning(true);
@@ -499,7 +544,7 @@ export function LeftPanel({
 
       console.log("mappedPlan", mappedPlan);
 
-      // Show structure immediately (sections visible, details loading)
+      // Show structure immediately
       setPlan(mappedPlan);
       onStructureStatusChange?.({
         phase: "done",
@@ -507,45 +552,9 @@ export function LeftPanel({
       });
       setActiveTab("sections");
 
-      // Generate detailed section previews with references in the background
-      // This enriches the plan with subsection descriptions and reference mappings
-      try {
-        console.log("[Structure] Generating detailed section preview...");
-        const previewResponse = await fetch("/api/write/structure-preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId: currentProjectId,
-            sections: apiStructure.sections.map((s: any) => ({
-              heading: s.heading,
-              keyPoints: s.keyPoints || [],
-              description: s.description || "",
-              estimatedWordCount: s.estimatedWordCount,
-            })),
-            sources: selectedSources.slice(0, 15).map((s: any) => ({
-              title: s.title,
-              author: s.author,
-              excerpt: s.excerpt || s.snippet,
-              publishedDate: s.publishedDate,
-            })),
-            topic: brief.topic,
-          }),
-        });
-
-        if (previewResponse.ok) {
-          const previewData = await previewResponse.json();
-          if (previewData.sectionDetails) {
-            console.log("[Structure] Section details received:", previewData.sectionDetails.length);
-            // Update plan with section details — StructurePreview will pick this up
-            setPlan({ ...mappedPlan, sectionDetails: previewData.sectionDetails });
-          }
-        } else {
-          console.warn("[Structure] Section preview generation failed:", previewResponse.status);
-        }
-      } catch (previewError) {
-        console.warn("[Structure] Section preview non-fatal error:", previewError);
-        // Non-fatal — the structure preview will show basic key points
-      }
+      // Fire-and-forget: generate section details in background
+      // Don't await — let the user see the structure immediately
+      generateSectionDetails(currentProjectId, apiStructure, selectedSources, brief.topic, mappedPlan);
     } catch (error) {
       console.error("Planning error:", error);
       onStructureStatusChange?.({
