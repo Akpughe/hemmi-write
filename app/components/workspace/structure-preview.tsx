@@ -268,112 +268,113 @@ function SectionCard({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 space-y-4 border-t border-foreground/5 pt-3">
-              {isLoadingDetail && !hasDetail ? (
-                <SkeletonCard />
-              ) : hasDetail ? (
-                <>
-                  {/* Detailed description */}
-                  {sectionDetail.detailedDescription && (
-                    <div className="pl-10">
-                      <p className="text-sm text-foreground/60 leading-relaxed">
-                        {sectionDetail.detailedDescription}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Subsections with descriptions */}
-                  {subsections.length > 0 && (
-                    <div className="pl-10">
-                      <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                        Subsections
-                      </div>
-                      <div className="space-y-2">
-                        {subsections.map((sub, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: -4 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.03 }}
-                            className="flex items-start gap-2.5 p-2.5 bg-foreground/[0.02] rounded-lg"
-                          >
-                            <span className="text-xs font-medium text-foreground/40 mt-0.5 shrink-0 w-6">
-                              {index + 1}.{i + 1}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-foreground/80">
-                                {sub.title}
-                              </div>
-                              {sub.description && (
-                                <p className="text-xs text-foreground/50 mt-0.5 leading-relaxed">
-                                  {sub.description}
-                                </p>
-                              )}
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* References for this section */}
-                  {sectionDetail.references.length > 0 && (
-                    <div className="pl-10">
-                      <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                        References for this section
-                      </div>
-                      <div className="space-y-2">
-                        {sectionDetail.references.map((ref, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: -4 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="bg-blue-50 dark:bg-blue-500/10 border-l-[3px] border-blue-500 rounded-lg p-3"
-                          >
-                            <div className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                              {ref.author}
-                              {ref.year && (
-                                <span className="text-blue-500/60"> ({ref.year})</span>
-                              )}
-                            </div>
-                            <div className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-0.5">
-                              {ref.title}
-                            </div>
-                            {ref.reason && (
-                              <p className="text-[11px] text-foreground/50 mt-1.5 leading-relaxed">
-                                <span className="font-semibold text-blue-600 dark:text-blue-400">
-                                  Why:{" "}
-                                </span>
-                                {ref.reason}
-                              </p>
-                            )}
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                /* Fallback: basic key points */
-                section.keyPoints && section.keyPoints.length > 0 && (
-                  <div className="pl-10">
-                    <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
-                      Key points
-                    </div>
-                    <ul className="space-y-1.5">
-                      {section.keyPoints.map((point, i) => (
-                        <li
-                          key={i}
-                          className="text-sm text-foreground/70 flex items-start gap-2"
-                        >
-                          <Check className="w-3 h-3 text-emerald-500 mt-1 shrink-0" />
-                          <span>{point}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )
+              {/* Description — from detail or section */}
+              {(sectionDetail?.detailedDescription || section.description) && (
+                <div className="pl-10">
+                  <p className="text-sm text-foreground/60 leading-relaxed">
+                    {sectionDetail?.detailedDescription || section.description}
+                  </p>
+                </div>
               )}
+
+              {/* Subsections — always show from detail (with descriptions) or key points */}
+              {(hasDetail && subsections.length > 0) ? (
+                <div className="pl-10">
+                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
+                    Subsections
+                  </div>
+                  <div className="space-y-2">
+                    {subsections.map((sub, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="flex items-start gap-2.5 p-2.5 bg-foreground/[0.02] rounded-lg"
+                      >
+                        <span className="text-xs font-medium text-foreground/40 mt-0.5 shrink-0 w-6">
+                          {index + 1}.{i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground/80">
+                            {sub.title}
+                          </div>
+                          {sub.description && (
+                            <p className="text-xs text-foreground/50 mt-0.5 leading-relaxed">
+                              {sub.description}
+                            </p>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              ) : section.keyPoints && section.keyPoints.length > 0 ? (
+                <div className="pl-10">
+                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
+                    Key points
+                  </div>
+                  <ul className="space-y-1.5">
+                    {section.keyPoints.map((point, i) => (
+                      <li
+                        key={i}
+                        className="text-sm text-foreground/70 flex items-start gap-2"
+                      >
+                        <Check className="w-3 h-3 text-emerald-500 mt-1 shrink-0" />
+                        <span>{point}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {/* References — show when available, shimmer when loading */}
+              {hasDetail && sectionDetail.references.length > 0 ? (
+                <div className="pl-10">
+                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
+                    References for this section
+                  </div>
+                  <div className="space-y-2">
+                    {sectionDetail.references.map((ref, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="bg-blue-50 dark:bg-blue-500/10 border-l-[3px] border-blue-500 rounded-lg p-3"
+                      >
+                        <div className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                          {ref.author}
+                          {ref.year && (
+                            <span className="text-blue-500/60"> ({ref.year})</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-0.5">
+                          {ref.title}
+                        </div>
+                        {ref.reason && (
+                          <p className="text-[11px] text-foreground/50 mt-1.5 leading-relaxed">
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">
+                              Why:{" "}
+                            </span>
+                            {ref.reason}
+                          </p>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              ) : isLoadingDetail ? (
+                <div className="pl-10 space-y-2">
+                  <div className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wider mb-2">
+                    References
+                  </div>
+                  <div className="space-y-2 animate-pulse">
+                    <div className="h-14 bg-blue-50/50 dark:bg-blue-500/5 rounded-lg w-full" />
+                    <div className="h-14 bg-blue-50/50 dark:bg-blue-500/5 rounded-lg w-5/6" />
+                  </div>
+                </div>
+              ) : null}
             </div>
           </motion.div>
         )}
