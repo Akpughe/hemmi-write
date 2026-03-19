@@ -44,8 +44,8 @@ export function UserMenu({ session }: UserMenuProps) {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
+      <DropdownMenuContent className="w-56 rounded-xl border-border/50 p-2 shadow-lg" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal px-3 py-2">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">
               {user.user_metadata.full_name || "User"}
@@ -55,15 +55,17 @@ export function UserMenu({ session }: UserMenuProps) {
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/settings" className="flex items-center gap-2">
+        <DropdownMenuSeparator className="my-1.5" />
+        <DropdownMenuItem asChild className="rounded-lg px-3 py-2.5 text-sm font-medium cursor-pointer transition-all duration-150 hover:shadow-sm focus:bg-muted focus:text-foreground">
+          <Link href="/settings" className="flex items-center gap-2.5">
             <Settings className="size-4" />
             Settings
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>Log out</DropdownMenuItem>
+        <DropdownMenuSeparator className="my-1.5" />
+        <DropdownMenuItem onClick={handleSignOut} className="rounded-lg px-3 py-2.5 text-sm font-medium cursor-pointer transition-all duration-150 hover:shadow-sm focus:bg-muted focus:text-foreground">
+          Log out
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

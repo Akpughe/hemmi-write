@@ -260,9 +260,9 @@ export default function HomePage() {
           <button
             onClick={handleLoginClick}
             className={cn(
-              "inline-flex items-center justify-center rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold uppercase tracking-[0.12em] text-foreground/60 transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+              "inline-flex items-center justify-center rounded-xl border border-border/60 bg-background px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium text-foreground shadow-sm transition-all duration-200 ease-[cubic-bezier(0.25,0.1,0.25,1)] hover:bg-muted hover:border-border hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
             )}>
-            Log in
+            Sign in
           </button>
         )}
         <ThemeToggle />
