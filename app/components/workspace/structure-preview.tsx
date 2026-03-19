@@ -33,6 +33,7 @@ interface StructurePreviewProps {
     }>;
     approach?: string;
     tone?: string;
+    sectionDetails?: SectionDetail[];
   };
   projectId: string | null;
   sources: Array<{
@@ -398,148 +399,24 @@ export function StructurePreview({
     new Map()
   );
   const [sectionDetails, setSectionDetails] = useState<(SectionDetail | null)[]>([]);
-  const [loadingState, setLoadingState] = useState<"idle" | "fetching" | "generating" | "done">("idle");
-  const [loadedCount, setLoadedCount] = useState(0);
+  const [loadingState, setLoadingState] = useState<"idle" | "done" | "waiting">("idle");
 
   const hasEdits = editedSections.size > 0;
-  const totalSections = plan.sections.length;
 
-  // Generate detailed section previews with references
+  // Use section details from plan if already generated (by left-panel flow)
+  // Otherwise wait for them to arrive via plan updates
   useEffect(() => {
-    if (!projectId || loadingState !== "idle") return;
-    if (!plan.sections.length || !sources.length) return;
-
-    let cancelled = false;
-
-    // Initialize with nulls for each section
-    setSectionDetails(new Array(plan.sections.length).fill(null));
-
-    const run = async () => {
-      // Step 1: Try existing source intelligence
-      setLoadingState("fetching");
-      console.log("[StructurePreview] Fetching existing source intelligence...");
-
-      try {
-        const res = await fetch(`/api/write/analyze-sources?projectId=${projectId}`);
-        if (cancelled) return;
-
-        if (res.ok) {
-          const existingData = await res.json();
-          console.log("[StructurePreview] Source intelligence response:", {
-            hasAnalysis: !!existingData?.sourceAnalysis,
-            hasMappings: !!existingData?.sectionMappings,
-            sourceCount: existingData?.researchSources?.length || 0,
-          });
-
-          if (existingData?.sectionMappings && existingData?.sourceAnalysis) {
-            const details = buildDetailsFromIntelligence(
-              plan.sections,
-              existingData.sourceAnalysis,
-              existingData.sectionMappings,
-              existingData.researchSources || sources
-            );
-
-            if (details.length > 0 && details.some(d => d.references.length > 0)) {
-              console.log("[StructurePreview] Built details from existing intelligence:", {
-                sectionsWithDetails: details.length,
-                sectionsWithRefs: details.filter(d => d.references.length > 0).length,
-              });
-
-              // Show progressively — one section at a time
-              for (let i = 0; i < details.length; i++) {
-                if (cancelled) return;
-                setSectionDetails(prev => {
-                  const next = [...prev];
-                  next[i] = details[i];
-                  return next;
-                });
-                setLoadedCount(i + 1);
-                // Small delay for visual feedback
-                await new Promise(r => setTimeout(r, 80));
-              }
-              setLoadingState("done");
-              return;
-            } else {
-              console.log("[StructurePreview] Existing intelligence has no references, generating via LLM...");
-            }
-          } else {
-            console.log("[StructurePreview] No existing source intelligence found, generating via LLM...");
-          }
-        } else {
-          console.log("[StructurePreview] Source intelligence fetch failed:", res.status);
-        }
-      } catch (err) {
-        console.error("[StructurePreview] Error fetching source intelligence:", err);
-      }
-
-      if (cancelled) return;
-
-      // Step 2: Generate via LLM
-      setLoadingState("generating");
-      console.log("[StructurePreview] Generating detailed preview via LLM...");
-
-      try {
-        const response = await fetch("/api/write/structure-preview", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId,
-            sections: plan.sections.map((s) => ({
-              heading: s.title,
-              keyPoints: s.keyPoints,
-              description: s.description,
-              estimatedWordCount: s.estimatedWordCount,
-            })),
-            sources: sources.slice(0, 15).map((s) => ({
-              title: s.title,
-              author: s.author,
-              excerpt: s.excerpt,
-              publishedDate: s.publishedDate,
-            })),
-            topic: plan.title,
-          }),
-        });
-
-        if (cancelled) return;
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log("[StructurePreview] LLM response received:", {
-            sectionCount: data.sectionDetails?.length || 0,
-          });
-
-          if (data.sectionDetails && Array.isArray(data.sectionDetails)) {
-            // Show progressively
-            for (let i = 0; i < data.sectionDetails.length; i++) {
-              if (cancelled) return;
-              setSectionDetails(prev => {
-                const next = [...prev];
-                next[i] = data.sectionDetails[i];
-                return next;
-              });
-              setLoadedCount(i + 1);
-              console.log(`[StructurePreview] Section ${i + 1}/${data.sectionDetails.length} loaded: "${data.sectionDetails[i]?.sectionHeading}"`);
-              await new Promise(r => setTimeout(r, 120));
-            }
-          } else {
-            console.warn("[StructurePreview] LLM returned unexpected format:", data);
-          }
-        } else {
-          const errText = await response.text();
-          console.error("[StructurePreview] LLM generation failed:", response.status, errText);
-        }
-      } catch (err) {
-        console.error("[StructurePreview] Error generating preview:", err);
-      }
-
-      if (!cancelled) {
-        setLoadingState("done");
-      }
-    };
-
-    run();
-    return () => { cancelled = true; };
-  }, [projectId, plan.sections, plan.title, sources, loadingState]);
+    if (plan.sectionDetails && plan.sectionDetails.length > 0) {
+      console.log("[StructurePreview] Section details available from plan:", plan.sectionDetails.length);
+      setSectionDetails(plan.sectionDetails);
+      setLoadingState("done");
+    } else if (loadingState === "idle") {
+      console.log("[StructurePreview] No section details yet, waiting for generation...");
+      // Initialize with nulls — details will arrive when left-panel finishes generating
+      setSectionDetails(new Array(plan.sections.length).fill(null));
+      setLoadingState("waiting");
+    }
+  }, [plan.sectionDetails, plan.sections.length, loadingState]);
 
   const handleTitleChange = useCallback(
     (index: number, newTitle: string) => {
@@ -552,7 +429,7 @@ export function StructurePreview({
     []
   );
 
-  const isLoading = loadingState === "fetching" || loadingState === "generating";
+  const isLoading = loadingState === "waiting";
 
   return (
     <motion.div
@@ -604,9 +481,7 @@ export function StructurePreview({
         >
           <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />
           <span className="text-xs text-foreground/50">
-            {loadingState === "fetching"
-              ? "Checking existing analysis..."
-              : `Generating detailed preview... ${loadedCount}/${totalSections} sections`}
+            Generating references and subsection details...
           </span>
         </motion.div>
       )}
