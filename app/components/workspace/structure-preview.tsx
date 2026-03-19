@@ -474,7 +474,15 @@ export function StructurePreview({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={onGenerateStructure}
+                  onClick={() => {
+                    // Apply edited titles to the plan before regenerating
+                    const updatedSections = plan.sections.map((s, i) =>
+                      editedSections.has(i) ? { ...s, heading: editedSections.get(i)!.title } : s
+                    );
+                    setPlan({ ...plan, sections: updatedSections });
+                    setEditedSections(new Map());
+                    onGenerateStructure!();
+                  }}
                   className="gap-1.5 text-xs h-8 rounded-lg border-foreground/10"
                 >
                   <RefreshCw className="w-3 h-3" />

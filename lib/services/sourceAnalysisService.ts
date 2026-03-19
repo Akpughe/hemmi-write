@@ -155,7 +155,7 @@ Return a JSON array of section mappings:
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage },
       ],
-      0.4,
+      1, // GPT-5-mini only supports default temperature (1)
       3000
     );
 

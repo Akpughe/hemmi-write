@@ -61,6 +61,51 @@ function ThinkingShimmer() {
   );
 }
 
+// =============================================================================
+// Truncated Key Points - show max 3, then "See more"
+// =============================================================================
+
+const MAX_VISIBLE_POINTS = 3;
+
+function TruncatedKeyPoints({ points }: { points: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? points : points.slice(0, MAX_VISIBLE_POINTS);
+  const hiddenCount = points.length - MAX_VISIBLE_POINTS;
+
+  return (
+    <motion.ul
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      className="mt-2.5 space-y-1 text-xs text-foreground/50"
+    >
+      {visible.map((point, idx) => (
+        <motion.li
+          key={idx}
+          initial={{ opacity: 0, x: -5 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: idx * 0.02 }}
+          className="flex items-start gap-1.5"
+        >
+          <ChevronRight className="w-3 h-3 shrink-0 mt-0.5 text-foreground/30" />
+          <span>{point}</span>
+        </motion.li>
+      ))}
+      {hiddenCount > 0 && (
+        <li>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="text-[11px] font-medium text-foreground/35 hover:text-foreground/55 transition-colors ml-[18px] mt-0.5"
+          >
+            {expanded ? "See less" : `See ${hiddenCount} more...`}
+          </button>
+        </li>
+      )}
+    </motion.ul>
+  );
+}
+
 const normalizeUrlForComparison = (rawUrl: string) => {
   if (!rawUrl) return "";
 
@@ -860,23 +905,7 @@ export function LeftPanel({
                         <AnimatePresence>
                           {section.keyPoints &&
                             section.keyPoints.length > 0 && (
-                              <motion.ul
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="mt-2.5 space-y-1 text-xs text-foreground/50">
-                                {section.keyPoints.map((point, idx) => (
-                                  <motion.li
-                                    key={idx}
-                                    initial={{ opacity: 0, x: -5 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: idx * 0.02 }}
-                                    className="flex items-start gap-1.5">
-                                    <ChevronRight className="w-3 h-3 shrink-0 mt-0.5 text-foreground/30" />
-                                    <span>{point}</span>
-                                  </motion.li>
-                                ))}
-                              </motion.ul>
+                              <TruncatedKeyPoints points={section.keyPoints} />
                             )}
                         </AnimatePresence>
 

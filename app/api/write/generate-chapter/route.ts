@@ -14,7 +14,7 @@ import { aiService, AIService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { perplexityService } from "@/lib/services/perplexityService";
 import { savePerplexityCitations } from "@/lib/utils/perplexityCitationSaver";
-import { requireAuth, createServiceRoleSupabaseClient } from "@/lib/supabase/server";
+import { requireAuth, createServerSupabaseClient, createServiceRoleSupabaseClient } from "@/lib/supabase/server";
 import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
 import { tokenService } from "@/lib/services/tokenService";
 
@@ -429,6 +429,22 @@ export async function POST(request: NextRequest) {
     let sourceAnalysisData: any = null;
 
     if (projectId) {
+      // Verify the user owns this project before fetching data
+      const userSupabase = await createServerSupabaseClient();
+      const { data: projectOwner } = await userSupabase
+        .from('writing_projects')
+        .select('id')
+        .eq('id', projectId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!projectOwner) {
+        return new Response(
+          JSON.stringify({ error: "Project not found or access denied" }),
+          { status: 403, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       const supabase = await createServiceRoleSupabaseClient();
 
       const { data: summaries } = await (supabase as any)
