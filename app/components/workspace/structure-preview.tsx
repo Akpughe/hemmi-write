@@ -423,6 +423,8 @@ export function StructurePreview({
     return () => clearTimeout(timeout);
   }, [loadingState]);
 
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const handleTitleChange = useCallback(
     (index: number, newTitle: string) => {
       setEditedSections((prev) => {
@@ -433,6 +435,69 @@ export function StructurePreview({
     },
     []
   );
+
+  // Detect what's missing
+  const sectionsWithoutRefs = plan.sections.filter((_, i) => {
+    const detail = sectionDetails[i];
+    return !detail || !detail.references || detail.references.length === 0;
+  });
+  const hasMissingRefs = sectionsWithoutRefs.length > 0 && loadingState === "done";
+
+  // Refresh: fetch references for sections that are missing them
+  const handleRefresh = useCallback(async () => {
+    if (!projectId || isRefreshing) return;
+
+    setIsRefreshing(true);
+    console.log("[StructurePreview] Refreshing — fetching missing references for", sectionsWithoutRefs.length, "sections");
+
+    try {
+      const response = await fetch("/api/write/structure-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          sections: plan.sections.map((s) => ({
+            heading: s.title,
+            keyPoints: s.keyPoints,
+            description: s.description,
+            estimatedWordCount: s.estimatedWordCount,
+          })),
+          sources: sources.slice(0, 15).map((s) => ({
+            title: s.title,
+            author: s.author,
+            excerpt: s.excerpt,
+            publishedDate: s.publishedDate,
+          })),
+          topic: plan.title,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.sectionDetails && Array.isArray(data.sectionDetails)) {
+          console.log("[StructurePreview] Refresh received", data.sectionDetails.length, "section details");
+          // Merge: keep existing details where they have refs, use new ones where they don't
+          setSectionDetails((prev) => {
+            const merged = [...prev];
+            for (let i = 0; i < data.sectionDetails.length; i++) {
+              const existing = merged[i];
+              const incoming = data.sectionDetails[i];
+              if (!existing || !existing.references || existing.references.length === 0) {
+                merged[i] = incoming;
+              }
+            }
+            return merged;
+          });
+        }
+      } else {
+        console.warn("[StructurePreview] Refresh failed:", response.status);
+      }
+    } catch (err) {
+      console.error("[StructurePreview] Refresh error:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [projectId, plan, sources, isRefreshing, sectionsWithoutRefs.length]);
 
   const isLoading = loadingState === "waiting";
 
@@ -451,6 +516,24 @@ export function StructurePreview({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Badge variant="secondary">{plan.sections.length} sections</Badge>
+          {(hasMissingRefs || isRefreshing) && (
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className={cn(
+                "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg border transition-all duration-200",
+                isRefreshing
+                  ? "border-blue-300 bg-blue-50 text-blue-500 dark:border-blue-500/30 dark:bg-blue-500/10 cursor-wait"
+                  : "border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400"
+              )}
+            >
+              <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
+              {isRefreshing
+                ? "Fetching references..."
+                : `Get references (${sectionsWithoutRefs.length} missing)`}
+            </button>
+          )}
         </div>
       </div>
 
