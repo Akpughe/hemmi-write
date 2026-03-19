@@ -83,7 +83,7 @@ ${sourceSummaries}`;
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage },
       ],
-      0.4,
+      1,
       4000
     );
 

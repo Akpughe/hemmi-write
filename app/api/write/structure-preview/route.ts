@@ -87,8 +87,8 @@ CRITICAL RULES:
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage },
       ],
-      0.4,
-      8000 // Increased from 4000 — 7 sections with references needs more room
+      1, // GPT-5-mini only supports default temperature (1)
+      8000
     );
 
     console.log("[StructurePreview API] LLM response length:", response.length);

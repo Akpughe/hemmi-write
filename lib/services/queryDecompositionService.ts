@@ -59,7 +59,7 @@ Each sub-query should target a different facet of the topic (e.g., theoretical f
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage },
         ],
-        0.5,
+        1,
         1500
       );
 

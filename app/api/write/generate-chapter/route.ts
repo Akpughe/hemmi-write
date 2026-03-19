@@ -728,7 +728,7 @@ Content: ${contentBuffer.substring(0, 8000)}
 
 Return JSON: { "thesisAdvanced": "...", "keyEvidence": ["...", "..."], "connectionToNext": "..." }` },
                     ],
-                    0.2,
+                    1,
                     500
                   );
 
