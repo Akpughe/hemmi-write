@@ -142,6 +142,63 @@ interface BreadcrumbJsonLdProps {
   items: Array<{ name: string; url: string }>;
 }
 
+interface ArticleJsonLdProps {
+  title: string;
+  description: string;
+  url: string;
+  imageUrl: string;
+  datePublished: string;
+  dateModified: string;
+  authorName: string;
+}
+
+export function ArticleJsonLd({
+  title,
+  description,
+  url,
+  imageUrl,
+  datePublished,
+  dateModified,
+  authorName,
+}: ArticleJsonLdProps) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: title,
+    description,
+    url,
+    image: imageUrl,
+    datePublished,
+    dateModified,
+    author: {
+      "@type": "Person",
+      name: authorName,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Hemmi",
+      url: "https://hemmi.app",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://hemmi.app/icon-512.png",
+      },
+    },
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": url,
+    },
+  };
+
+  return (
+    <Script
+      id="article-jsonld"
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      strategy="afterInteractive"
+    />
+  );
+}
+
 export function BreadcrumbJsonLd({ items }: BreadcrumbJsonLdProps) {
   const jsonLd = {
     "@context": "https://schema.org",
