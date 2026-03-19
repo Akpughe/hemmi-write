@@ -3,6 +3,7 @@
 import Groq from 'groq-sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { AIProvider, AI_MODELS } from '@/lib/config/aiModels';
 export { AIProvider };
 
@@ -23,6 +24,7 @@ export class AIService {
   private groq: Groq | null = null;
   private gemini: GoogleGenerativeAI | null = null;
   private anthropic: Anthropic | null = null;
+  private openai: OpenAI | null = null;
 
   constructor() {
     // Initialize Groq if API key exists
@@ -41,6 +43,13 @@ export class AIService {
     if (process.env.ANTHROPIC_API_KEY) {
       this.anthropic = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
+      });
+    }
+
+    // Initialize OpenAI if API key exists
+    if (process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
       });
     }
   }
@@ -62,6 +71,8 @@ export class AIService {
       yield* this.streamGeminiCompletion(messages, temperature, maxTokens);
     } else if (provider === AIProvider.ANTHROPIC) {
       yield* this.streamClaudeCompletion(messages, temperature, maxTokens);
+    } else if (provider === AIProvider.OPENAI) {
+      yield* this.streamOpenAICompletion(messages, temperature, maxTokens);
     } else {
       throw new Error(`Unsupported AI provider: ${provider}`);
     }
@@ -296,6 +307,77 @@ export class AIService {
   }
 
   /**
+   * OpenAI streaming implementation
+   */
+  private async *streamOpenAICompletion(
+    messages: ChatMessage[],
+    temperature: number,
+    maxTokens: number
+  ): AsyncGenerator<StreamChunk> {
+    if (!this.openai) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const openaiMessages = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    console.log(`[OpenAI] Starting generation with model: ${AI_MODELS[AIProvider.OPENAI].model}, max_completion_tokens: ${maxTokens}`);
+
+    const stream = await this.openai.chat.completions.create({
+      messages: openaiMessages as any,
+      model: AI_MODELS[AIProvider.OPENAI].model,
+      temperature,
+      max_completion_tokens: maxTokens,
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+
+    let lastFinishReason: string | null = null;
+    let outputTokens = 0;
+
+    for await (const chunk of stream) {
+      const choice = chunk.choices[0];
+      const content = choice?.delta?.content;
+      const finishReason = choice?.finish_reason;
+
+      // Track finish reason
+      if (finishReason) {
+        lastFinishReason = finishReason;
+        console.log(`[OpenAI] Stream finished with reason: ${finishReason}`);
+      }
+
+      // Track token usage if available (may be in final chunk)
+      if ((chunk as any).usage) {
+        outputTokens = (chunk as any).usage.completion_tokens || 0;
+      }
+
+      if (content) {
+        yield { content, done: false, finishReason: null };
+      }
+    }
+
+    // Check if content was truncated
+    const wasTruncated = lastFinishReason === 'length';
+
+    if (wasTruncated) {
+      console.error(`[OpenAI] ⚠️  WARNING: Content was TRUNCATED due to token limit!`);
+      console.error(`[OpenAI] Requested: ${maxTokens} tokens, Used: ${outputTokens} tokens`);
+    } else {
+      console.log(`[OpenAI] ✓ Generation completed naturally. Tokens used: ${outputTokens}/${maxTokens}`);
+    }
+
+    yield {
+      content: '',
+      done: true,
+      finishReason: lastFinishReason as 'stop' | 'length' | 'tool_calls' | 'content_filter' | null,
+      truncated: wasTruncated,
+      tokensUsed: outputTokens
+    };
+  }
+
+  /**
    * Non-streaming completion (for structure generation that expects JSON)
    */
   async getChatCompletion(
@@ -312,6 +394,8 @@ export class AIService {
       return this.getGeminiCompletion(messages, temperature, maxTokens);
     } else if (provider === AIProvider.ANTHROPIC) {
       return this.getClaudeCompletion(messages, temperature, maxTokens);
+    } else if (provider === AIProvider.OPENAI) {
+      return this.getOpenAICompletion(messages, temperature, maxTokens);
     } else {
       throw new Error(`Unsupported AI provider: ${provider}`);
     }
@@ -423,6 +507,33 @@ export class AIService {
   }
 
   /**
+   * OpenAI non-streaming completion
+   */
+  private async getOpenAICompletion(
+    messages: ChatMessage[],
+    temperature: number,
+    maxTokens: number
+  ): Promise<string> {
+    if (!this.openai) {
+      throw new Error('OpenAI API key not configured');
+    }
+
+    const openaiMessages = messages.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const completion = await this.openai.chat.completions.create({
+      messages: openaiMessages as any,
+      model: AI_MODELS[AIProvider.OPENAI].model,
+      temperature,
+      max_completion_tokens: maxTokens,
+    });
+
+    return completion.choices[0]?.message?.content || '';
+  }
+
+  /**
    * Check which providers are available
    */
   getAvailableProviders(): AIProvider[] {
@@ -440,7 +551,32 @@ export class AIService {
       available.push(AIProvider.ANTHROPIC);
     }
 
+    if (this.openai) {
+      available.push(AIProvider.OPENAI);
+    }
+
     return available;
+  }
+
+  /**
+   * Get the effective provider based on user plan type and operation.
+   * Free users: Llama (GROQ) for writing, GPT-5-mini (OPENAI) for everything else.
+   * Paid users use their requested provider.
+   */
+  static getEffectiveProvider(
+    requestedProvider: AIProvider,
+    userPlanType: string | null,
+    operation?: string
+  ): AIProvider {
+    if (userPlanType === 'free') {
+      // Writing operations use Llama via Groq for free users
+      if (operation === 'writing') {
+        return AIProvider.GROQ;
+      }
+      // All other operations (research, chat, analysis, etc.) use GPT-5-mini
+      return AIProvider.OPENAI;
+    }
+    return requestedProvider;
   }
 }
 

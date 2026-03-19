@@ -535,7 +535,7 @@ export function ResearchStreamView({
             <div className="space-y-1">
               {displayPapers.map(({ paper, status, field }, index) => (
                 <PaperItem
-                  key={paper.id}
+                  key={`${paper.id}-${status}-${index}`}
                   paper={paper}
                   status={status}
                   enrichmentField={field}

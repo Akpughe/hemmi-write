@@ -143,6 +143,18 @@ class SubscriptionService {
 
       console.log('[SubscriptionService] Creating new subscription with token_allocation:', tokenAllocation);
 
+      // Expire any existing free subscription before creating paid one
+      const { error: expireError } = await supabase
+        .from('subscriptions')
+        .update({ status: 'expired', cancelled_at: new Date().toISOString() })
+        .eq('user_id', params.userId)
+        .eq('plan_type', 'free')
+        .eq('status', 'active');
+
+      if (expireError) {
+        console.warn('[SubscriptionService] Failed to expire free subscription:', expireError);
+      }
+
       // Create subscription record
       const { data: subscription, error: subError } = await supabase
         .from('subscriptions')
@@ -581,7 +593,6 @@ class SubscriptionService {
           tokens_remaining: 0,
         })
         .eq('status', 'active')
-        .eq('auto_renew', false)
         .lt('current_period_end', now)
         .select('id');
 

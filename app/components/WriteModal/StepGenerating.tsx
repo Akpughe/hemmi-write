@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Loader2,
   CheckCircle2,
@@ -89,8 +89,14 @@ export default function StepGenerating({
 
   // State for chapter-by-chapter mode
   const [chapterStatuses, setChapterStatuses] = useState<ChapterStatus[]>([]);
+  const chapterStatusesRef = useRef<ChapterStatus[]>([]);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [allChaptersComplete, setAllChaptersComplete] = useState(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    chapterStatusesRef.current = chapterStatuses;
+  }, [chapterStatuses]);
 
   // State for traditional single-generation mode
   const [status, setStatus] = useState<"generating" | "complete" | "error">(
@@ -125,6 +131,7 @@ export default function StepGenerating({
           wordCount: 0,
         })
       );
+      chapterStatusesRef.current = initialStatuses;
       setChapterStatuses(initialStatuses);
 
       // Start generating first chapter
@@ -153,10 +160,11 @@ export default function StepGenerating({
   }, [chapterStatuses, autoApproveEnabled, useChapterMode]);
 
   // Chapter-by-chapter generation
-  const generateChapter = async (chapterIndex: number) => {
+  const generateChapter = useCallback(async (chapterIndex: number) => {
     try {
-      // Get all previous chapters' content for context
-      const previousChaptersText = chapterStatuses
+      // Use ref to get latest chapterStatuses (avoids stale closure)
+      const currentStatuses = chapterStatusesRef.current;
+      const previousChaptersText = currentStatuses
         .slice(0, chapterIndex)
         .filter((ch) => ch.state === "approved")
         .map((ch) => ch.content)
@@ -196,12 +204,14 @@ export default function StepGenerating({
       }
 
       let accumulatedContent = "";
+      let lineBuffer = ""; // Buffer for partial SSE lines across chunks
+      let chapterDone = false;
 
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          // Chapter complete - move to review state
+          // Stream ended - move to review state
           setChapterStatuses((prev) =>
             prev.map((ch, idx) =>
               idx === chapterIndex
@@ -218,17 +228,25 @@ export default function StepGenerating({
         }
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        // Append to buffer to handle partial lines from previous chunk
+        lineBuffer += chunk;
+        const lines = lineBuffer.split("\n");
+        // Keep the last element as buffer (it may be incomplete)
+        lineBuffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = JSON.parse(line.substring(6));
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+          try {
+            const data = JSON.parse(trimmed.substring(6));
 
             if (data.error) {
               throw new Error(data.error);
             }
 
             if (data.done) {
+              chapterDone = true;
               setChapterStatuses((prev) =>
                 prev.map((ch, idx) =>
                   idx === chapterIndex
@@ -259,8 +277,17 @@ export default function StepGenerating({
                 )
               );
             }
+          } catch (parseErr: any) {
+            // If JSON parse fails on a partial line, put it back in buffer
+            if (parseErr instanceof SyntaxError) {
+              lineBuffer = trimmed + "\n" + lineBuffer;
+              break; // Stop processing this batch, wait for more data
+            }
+            throw parseErr; // Re-throw non-parse errors
           }
         }
+
+        if (chapterDone) break;
       }
     } catch (err: any) {
       console.error("Chapter generation error:", err);
@@ -276,9 +303,14 @@ export default function StepGenerating({
         )
       );
     }
-  };
+  }, [documentType, topic, instructions, sources, structure, academicLevel, writingStyle, aiProvider]);
 
-  const handleApproveChapter = (chapterIndex: number) => {
+  const handleApproveChapter = useCallback((chapterIndex: number) => {
+    // Update ref immediately so generateChapter sees the approved state
+    chapterStatusesRef.current = chapterStatusesRef.current.map((ch, idx) =>
+      idx === chapterIndex ? { ...ch, state: "approved" } : ch
+    );
+
     setChapterStatuses((prev) =>
       prev.map((ch, idx) =>
         idx === chapterIndex ? { ...ch, state: "approved" } : ch
@@ -292,6 +324,12 @@ export default function StepGenerating({
       // Start generating next chapter
       const nextIndex = chapterIndex + 1;
       setCurrentChapterIndex(nextIndex);
+
+      // Update ref immediately for the next generateChapter call
+      chapterStatusesRef.current = chapterStatusesRef.current.map((ch, idx) =>
+        idx === nextIndex ? { ...ch, state: "generating" } : ch
+      );
+
       setChapterStatuses((prev) =>
         prev.map((ch, idx) =>
           idx === nextIndex ? { ...ch, state: "generating" } : ch
@@ -299,9 +337,14 @@ export default function StepGenerating({
       );
       generateChapter(nextIndex);
     }
-  };
+  }, [generateChapter, structure.sections.length]);
 
-  const handleRegenerateChapter = (chapterIndex: number) => {
+  const handleRegenerateChapter = useCallback((chapterIndex: number) => {
+    chapterStatusesRef.current = chapterStatusesRef.current.map((ch, idx) =>
+      idx === chapterIndex
+        ? { ...ch, state: "generating", content: "", error: undefined }
+        : ch
+    );
     setChapterStatuses((prev) =>
       prev.map((ch, idx) =>
         idx === chapterIndex
@@ -310,7 +353,7 @@ export default function StepGenerating({
       )
     );
     generateChapter(chapterIndex);
-  };
+  }, [generateChapter]);
 
   const handleInsertAllChapters = () => {
     // Combine all approved chapters

@@ -1,4 +1,4 @@
-import { AcademicLevel } from "@/lib/types/document";
+import { AcademicLevel, ACADEMIC_LEVEL_CONFIGS } from "@/lib/types/document";
 import {
   ACADEMIC_PERSONAS,
   BURSTINESS_GUIDELINES,
@@ -420,6 +420,25 @@ ${buildChatGPTFingerprintWarning()}
  * Get all humanization utilities as a single object
  * Useful for import/export or dependency injection
  */
+/**
+ * Get compact humanization rules for system messages
+ * Used in chapter generation where humanization should be in system message, not user prompt
+ */
+export function getCompactHumanizationSystemRules(academicLevel: AcademicLevel): string {
+  const levelConfig = ACADEMIC_LEVEL_CONFIGS[academicLevel];
+
+  return `Your writing demonstrates:
+- ${levelConfig.analysisStyle}
+- Natural sentence variation (mix short, medium, long)
+- Active voice (70-80%)
+- Specific data points and examples over vague claims
+- No em-dashes — use commas, parentheses, or colons
+- None of these words: "Furthermore", "Moreover", "delve", "landscape", "tapestry", "multifaceted", "myriad", "plethora", "pivotal", "crucial"
+- No 3+ AI-flagged phrases per paragraph
+
+Write with authority. Every claim supported by evidence.`;
+}
+
 export const HumanizationUtilities = {
   buildHumanizationSystemInstructions,
   buildHumanizationReminder,

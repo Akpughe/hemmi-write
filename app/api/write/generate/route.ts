@@ -5,11 +5,12 @@ import {
   formatSourcesForPrompt,
   getSystemMessage,
 } from "@/lib/utils/documentStructure";
-import { aiService } from "@/lib/services/aiService";
+import { aiService, AIService } from "@/lib/services/aiService";
 import { AIProvider, DEFAULT_AI_PROVIDER } from "@/lib/config/aiModels";
 import { AcademicLevel } from "@/lib/types/document";
 import { createServerSupabaseClient, getCurrentUser, requireAuth } from "@/lib/supabase/server";
 import { checkTokenBalance, deductTokens, estimateChapterTokens, MIN_TOKENS } from "@/lib/middleware/tokenMiddleware";
+import { tokenService } from "@/lib/services/tokenService";
 
 // Extended request type to include projectId and structureId
 interface ExtendedGenerateRequest extends GenerateRequest {
@@ -70,8 +71,14 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Generate Document] ✅ Token check passed`);
 
-    // Determine AI provider
-    const provider = (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER;
+    // Determine AI provider — writing uses Llama for free users
+    const balance = await tokenService.getUserTokenBalance(user.id);
+    const planType = balance.subscription?.planType || 'free';
+    const provider = AIService.getEffectiveProvider(
+      (aiProvider as AIProvider) || DEFAULT_AI_PROVIDER,
+      planType,
+      'writing'
+    );
 
     // Fetch sources from database to get full_content AND enriched metadata
     let enrichedSources = sources;

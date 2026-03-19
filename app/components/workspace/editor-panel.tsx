@@ -27,6 +27,7 @@ import {
   Search,
 } from "lucide-react";
 import { ResearchStreamView } from "./research-stream-view";
+import { StructurePreview } from "./structure-preview";
 import { PartialDeepResearchPaper, ResearchPhase } from "@/lib/types/deepResearch";
 import { Button } from "@/app/components/ui/button";
 import { Badge } from "@/app/components/ui/badge";
@@ -1171,8 +1172,8 @@ export function EditorPanel({
     const isLoading = structurePhase === "loading";
 
     return (
-      <main className="flex-1 flex items-center justify-center bg-background p-8">
-        <Card className="w-full max-w-2xl">
+      <main className="flex-1 flex items-start justify-center bg-background p-8 overflow-y-auto">
+        <Card className="w-full max-w-2xl max-h-[calc(100vh-8rem)] flex flex-col">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               {isLoading ? (
@@ -1202,7 +1203,7 @@ export function EditorPanel({
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
             {isLoading ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -1245,50 +1246,15 @@ export function EditorPanel({
                 )}
               </div>
             ) : plan ? (
-              <>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-xs text-muted-foreground">Title</div>
-                    <div className="text-base font-semibold truncate">
-                      {plan.title}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="secondary">
-                      {plan.sections.length} sections
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border bg-muted/20 p-3">
-                  <div className="text-xs font-medium text-foreground mb-2">
-                    Structure preview
-                  </div>
-                  <div className="max-h-56 overflow-auto pr-1 space-y-1">
-                    {plan.sections.map((s, idx) => (
-                      <div
-                        key={s.id}
-                        className="text-sm text-muted-foreground flex gap-2">
-                        <span className="tabular-nums text-muted-foreground/70">
-                          {idx + 1}.
-                        </span>
-                        <span className="text-foreground">{s.title}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  {structureCompletedAt
-                    ? `Updated ${structureCompletedAt.toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}. `
-                    : null}
-                  You can still tweak the structure in the left panel before
-                  starting.
-                </div>
-              </>
+              <StructurePreview
+                plan={plan}
+                setPlan={setPlan as (plan: any) => void}
+                projectId={projectId}
+                sources={sources}
+                onStepChange={onStepChange}
+                onGenerateStructure={onGenerateStructure}
+                structureCompletedAt={structureCompletedAt}
+              />
             ) : (
               <div className="text-sm text-muted-foreground">
                 No structure yet. Generate it from the left panel.
@@ -1296,13 +1262,7 @@ export function EditorPanel({
             )}
           </CardContent>
 
-          {!isLoading && structurePhase !== "error" && plan && (
-            <CardFooter className="justify-end">
-              <Button className="gap-2" onClick={() => onStepChange("writing")}>
-                Start writing
-              </Button>
-            </CardFooter>
-          )}
+          {/* Action buttons are now inside StructurePreview */}
         </Card>
 
         <PaywallModal
@@ -1420,6 +1380,21 @@ export function EditorPanel({
 
       {/* TipTap Editor - Scrollable */}
       <div className="flex-1 overflow-y-auto relative">
+        {/* Sticky generating banner - always visible at top while scrolling */}
+        {isWriting && plan && (
+          <div className="sticky top-0 left-0 right-0 z-30 bg-accent/10 border-b border-accent/20 backdrop-blur-sm px-4 py-2.5">
+            <div className="flex items-center gap-3 max-w-3xl mx-auto">
+              <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0" />
+              <span className="text-sm font-medium">
+                Generating {getSectionDisplayName(currentChapterIndex)}...
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Writing with full formatting
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="min-h-full">
           <TiptapEditor
             content={content}
@@ -1434,66 +1409,48 @@ export function EditorPanel({
           />
         </div>
 
-        {/* Loading overlay while generating */}
-        {isWriting && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-30">
-            <div className="flex flex-col items-center gap-4">
-              <Loader2 className="w-12 h-12 text-accent animate-spin" />
-              <div className="text-center">
-                <p className="text-lg font-medium">
-                  Generating{" "}
-                  {plan && getSectionDisplayName(currentChapterIndex)}...
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Writing with full formatting
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Accept/Reject buttons overlay - Fixed at bottom */}
-        {showChapterReview && plan && (
-          <div className="sticky bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
-            <div className="max-w-3xl mx-auto px-8">
-              <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      {getSectionDisplayName(currentChapterIndex)} Complete
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Review the{" "}
-                      {isAbstractSection(
-                        plan.sections[currentChapterIndex].title
-                      )
-                        ? "abstract"
-                        : "chapter"}{" "}
-                      above and approve to continue or regenerate if needed
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRejectChapter()}
-                      className="gap-2">
-                      <X className="w-4 h-4" />
-                      Regenerate
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleApproveChapter}
-                      className="gap-2 bg-accent hover:bg-accent/90">
-                      <Check className="w-4 h-4" />
-                      Approve & Continue
-                    </Button>
+          {showChapterReview && plan && (
+            <div className="sticky bottom-0 left-0 right-0 bg-linear-to-t from-background via-background to-transparent pt-20 pb-6 z-30">
+              <div className="max-w-3xl mx-auto px-8">
+                <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        {getSectionDisplayName(currentChapterIndex)} Complete
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Review the{" "}
+                        {isAbstractSection(
+                          plan.sections[currentChapterIndex].title
+                        )
+                          ? "abstract"
+                          : "chapter"}{" "}
+                        above and approve to continue or regenerate if needed
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRejectChapter()}
+                        className="gap-2">
+                        <X className="w-4 h-4" />
+                        Regenerate
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleApproveChapter}
+                        className="gap-2 bg-accent hover:bg-accent/90">
+                        <Check className="w-4 h-4" />
+                        Approve & Continue
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
       </div>
 
       {/* <button 

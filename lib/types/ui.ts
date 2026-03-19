@@ -57,12 +57,20 @@ export interface OutlineSection {
   status: "pending" | "writing" | "review" | "complete";
 }
 
+export interface SectionDetailPreview {
+  sectionHeading: string;
+  detailedDescription: string;
+  subsections: Array<{ title: string; description: string }>;
+  references: Array<{ title: string; author: string; year: string; reason: string }>;
+}
+
 export interface DocumentPlan {
   title: string;
   approach: string;
   tone: string;
   sections: OutlineSection[];
   tableOfContents?: TableOfContents;
+  sectionDetails?: SectionDetailPreview[];
 }
 
 export type WorkflowStep = "research" | "planning" | "writing" | "complete";

@@ -714,7 +714,7 @@ export function RightPanel({
       id: "welcome",
       role: "assistant",
       content:
-        "Hi! I'm Hemmi. I can help you research, plan, and write your document. Ask me anything about your topic or sources.",
+        "Hi! I'm Hemmi — ask me anything about your topic or sources.",
       timestamp: new Date(),
     },
   ]);
@@ -740,7 +740,7 @@ export function RightPanel({
 
   const greetingMessage =
     messages.find((msg) => msg.id === "welcome")?.content ||
-    "Hi! I'm Hemmi. I can help you research, plan, and write your document.";
+    "Hi! I'm Hemmi — ask me anything about your topic or sources.";
   const hasOnlyWelcomeMessage =
     messages.length === 1 && messages[0]?.id === "welcome";
   const visibleMessages = hasOnlyWelcomeMessage ? [] : messages;
@@ -955,9 +955,9 @@ ${input}`
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-foreground/40">
           AI Chat
         </p>
-        <h3 className="mt-3 text-2xl font-semibold leading-snug text-foreground">
+        <p className="mt-2 text-base font-medium leading-snug text-foreground">
           {greetingMessage}
-        </h3>
+        </p>
         <p className="mt-2 text-sm text-foreground/60">
           Get tailored suggestions to improve clarity, correctness, and
           citations.

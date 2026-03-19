@@ -15,6 +15,7 @@ export const MIN_TOKENS = {
   CHAPTER: 2000,       // Chapter generation minimum
   STRUCTURE: 1000,     // Structure generation
   CHAT: 500,           // Chat interaction
+  SOURCE_ANALYSIS: 1500, // Source analysis
   DEFAULT: 1000,       // Default minimum
 } as const;
 
@@ -90,7 +91,7 @@ export async function checkTokenBalance(
 export async function deductTokens(
   userId: string,
   tokensUsed: number,
-  operationType: 'research' | 'structure' | 'chapter' | 'chat' | 'generate',
+  operationType: 'research' | 'structure' | 'chapter' | 'chat' | 'generate' | 'source_analysis' | 'query_decomposition' | 're_ranking' | 'argument_summary',
   metadata?: {
     projectId?: string;
     chapterName?: string;
@@ -230,6 +231,22 @@ export function estimateChatTokens(params: {
 export function calculateActualTokens(generatedText: string): number {
   const wordCount = generatedText.split(/\s+/).length;
   return estimateTokensFromWords(wordCount);
+}
+
+export function estimateSourceAnalysisTokens(params: { sourceCount: number }): number {
+  return (params.sourceCount * 900) + 500 + 4000;
+}
+
+export function estimateQueryDecompositionTokens(): number {
+  return 2000;
+}
+
+export function estimateReRankingTokens(params: { candidateCount: number }): number {
+  return params.candidateCount * 100 + 500;
+}
+
+export function estimateArgumentSummaryTokens(): number {
+  return 1500;
 }
 
 /**
