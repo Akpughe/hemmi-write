@@ -4,6 +4,47 @@ import { aiService, AIProvider, AIService } from "@/lib/services/aiService";
 import { tokenService } from "@/lib/services/tokenService";
 import { deductTokens } from "@/lib/middleware/tokenMiddleware";
 
+/**
+ * Extract JSON array from LLM response that may contain markdown fences,
+ * preamble text, thinking blocks, or other non-JSON content.
+ */
+function extractJSON(raw: string): any {
+  // Strategy 1: Direct parse (clean response)
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("[")) {
+    try { return JSON.parse(trimmed); } catch {}
+  }
+
+  // Strategy 2: Strip markdown fences
+  const fenceStripped = raw
+    .replace(/```json?\s*\n?/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+  if (fenceStripped.startsWith("[")) {
+    try { return JSON.parse(fenceStripped); } catch {}
+  }
+
+  // Strategy 3: Find the JSON array in the response (between first [ and last ])
+  const firstBracket = raw.indexOf("[");
+  const lastBracket = raw.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    const extracted = raw.substring(firstBracket, lastBracket + 1);
+    try { return JSON.parse(extracted); } catch {}
+
+    // Strategy 4: Truncated JSON — find last complete object before the end
+    const lastCloseBrace = extracted.lastIndexOf("}");
+    if (lastCloseBrace > 0) {
+      const repaired = extracted.substring(0, lastCloseBrace + 1) + "]";
+      try {
+        console.warn("[extractJSON] Used truncation repair");
+        return JSON.parse(repaired);
+      } catch {}
+    }
+  }
+
+  throw new Error("Could not extract valid JSON array from LLM response");
+}
+
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth();
@@ -92,31 +133,25 @@ CRITICAL RULES:
     );
 
     console.log("[StructurePreview API] LLM response length:", response.length);
+    console.log("[StructurePreview API] Raw response (first 300 chars):", response.substring(0, 300));
 
-    // Parse JSON — handle various LLM response quirks
-    let jsonStr = response
-      .replace(/```json?\n?/g, "")
-      .replace(/```\n?/g, "")
-      .trim();
-
-    // Try to fix truncated JSON (if the response was cut off)
-    if (!jsonStr.endsWith("]")) {
-      // Find the last complete object
-      const lastCompleteObj = jsonStr.lastIndexOf("}");
-      if (lastCompleteObj > 0) {
-        jsonStr = jsonStr.substring(0, lastCompleteObj + 1) + "]";
-        console.warn("[StructurePreview API] JSON appeared truncated, attempted repair");
-      }
-    }
-
+    // Extract JSON from response — handle markdown fences, thinking blocks, preamble text
     let sectionDetails;
     try {
-      sectionDetails = JSON.parse(jsonStr);
+      sectionDetails = extractJSON(response);
     } catch (parseError) {
-      console.error("[StructurePreview API] JSON parse failed:", parseError);
-      console.error("[StructurePreview API] Raw response (first 500 chars):", response.substring(0, 500));
+      console.error("[StructurePreview API] JSON extraction failed:", parseError);
+      console.error("[StructurePreview API] Full raw response:", response.substring(0, 1000));
       return NextResponse.json(
-        { error: "Failed to parse LLM response as JSON" },
+        { error: "Failed to parse LLM response as JSON", rawPreview: response.substring(0, 200) },
+        { status: 502 }
+      );
+    }
+
+    if (!Array.isArray(sectionDetails) || sectionDetails.length === 0) {
+      console.error("[StructurePreview API] Parsed result is not a non-empty array");
+      return NextResponse.json(
+        { error: "LLM returned empty or invalid structure", rawPreview: response.substring(0, 200) },
         { status: 502 }
       );
     }
